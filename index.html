@@ -290,14 +290,56 @@
     }
     /* Pythagoras grid */
     .pyth-grid { overflow-x: auto; margin-top: 10px; }
-    .pyth-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 280px; }
+    .pyth-hint {
+      min-height: 42px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px;
+      background: linear-gradient(135deg, #eef5ff, #fff7e8); border: 2px solid #dceaff;
+      font-size: 18px; font-weight: 900; text-align: center; color: var(--ink);
+    }
+    .pyth-hint.muted { color: var(--muted); font-size: 15px; font-weight: 700; }
+    .pyth-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 320px; }
     .pyth-table th, .pyth-table td {
       text-align: center; padding: 8px 6px; border-radius: 10px; font-weight: 800; font-size: 14px;
+      transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+      cursor: default;
     }
     .pyth-table th { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
     .pyth-table td { background: #f3f8ff; border: 1px solid #dceaff; }
-    .pyth-table td.corner { background: transparent; border: none; }
-    .pyth-table td.highlight { background: linear-gradient(135deg, #d8fff0, #baf7df); border-color: #7de0b8; }
+    .pyth-table td.corner, .pyth-table th.corner { background: transparent; border: none; color: transparent; }
+    .pyth-table td.diag { background: linear-gradient(135deg, #d8fff0, #baf7df); border-color: #7de0b8; }
+    .pyth-table tr.row-hot th, .pyth-table tr.row-hot td { background: #fff1c9; border-color: #ffd36a; color: #7a5200; }
+    .pyth-table tr.row-hot th { color: #fff; background: linear-gradient(135deg, #ffb703, #ff8a2b); }
+    .pyth-table .col-hot { background: #fff1c9 !important; border-color: #ffd36a !important; color: #7a5200 !important; }
+    .pyth-table th.col-hot { color: #fff !important; background: linear-gradient(135deg, #ffb703, #ff8a2b) !important; }
+    .pyth-table td.cell-hot, .pyth-table th.cell-hot {
+      background: linear-gradient(135deg, #2f6fed, #18c59a) !important;
+      color: #fff !important; border-color: transparent !important;
+      transform: scale(1.08); box-shadow: 0 6px 14px rgba(47,111,237,0.28); z-index: 1; position: relative;
+    }
+    .profile-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 4px;
+    }
+    .profile-btn {
+      display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px;
+      padding: 10px 12px; border: 2px solid #dceaff; border-radius: 16px;
+      background: #fff; color: var(--ink); font: inherit; font-weight: 800;
+      cursor: pointer; text-align: left; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .profile-btn:hover { transform: translateY(-2px); border-color: #a8c8ff; box-shadow: 0 8px 18px rgba(36,72,140,0.12); }
+    .profile-btn.on {
+      border-color: transparent;
+      background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
+    }
+    .profile-emoji { font-size: 24px; width: 28px; text-align: center; }
+    .profile-name { font-size: 16px; }
+    .profile-chip {
+      display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
+      padding: 4px 10px; border-radius: 999px; border: 2px solid #dceaff;
+      background: #fff; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink);
+    }
+    .profile-chip:hover { border-color: #a8c8ff; }
+    @media (max-width: 420px) {
+      .profile-grid { grid-template-columns: 1fr; }
+    }
     /* Redeem */
     .prize-list { display: grid; gap: 10px; }
     .prize-item {
@@ -386,7 +428,8 @@
         flex-direction: column; padding: 10px 12px; border-right: 0;
         border-bottom: 2px solid #dceaff; z-index: 30;
       }
-      .sidebar-title { margin-bottom: 8px; font-size: 14px; }
+      .sidebar-title { margin-bottom: 4px; font-size: 14px; }
+      .profile-chip { margin: 0 0 8px; }
       .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
       .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
       .sidebar-controls { flex: 1; justify-content: flex-end; }
@@ -472,9 +515,20 @@
       <button class="btn btn-ink" id="toastOkBtn" type="button">OK</button>
     </div>
   </div>
+  <div class="modal" id="profileModal">
+    <div class="modal-card wide">
+      <div class="label" data-i18n="profileTitle">Who is playing?</div>
+      <p class="note" data-i18n="profileHint">Choose your profile. Progress and Mishcoins are separate.</p>
+      <div class="profile-grid" id="profileGrid"></div>
+    </div>
+  </div>
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Misha × Math</h1>
+      <button class="profile-chip" id="profileChip" type="button" title="Profile">
+        <span id="profileChipEmoji">🦸</span>
+        <span id="profileChipName">...</span>
+      </button>
       <div class="sidebar-top">
         <div class="sidebar-avatar-wrap">
           <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=3" alt="Misha" width="96" height="96" />
@@ -491,7 +545,7 @@
         </div>
       </div>
       <div class="hero-bubble" id="heroBubble">
-        <div class="hero-name" data-i18n="heroName">Hero Misha</div>
+        <div class="hero-name" id="heroName">Hero Misha</div>
         <p class="hero-text" id="heroText">Hello!</p>
       </div>
       <nav class="sidebar-nav" id="sidebarNav">
@@ -560,8 +614,11 @@
         </section>
         <section id="pythagorasView" class="hidden">
           <h2 class="view-title" data-i18n="pythagorasTitle">Pythagoras table</h2>
-          <p class="subtitle" data-i18n="pythagorasSubtitle">Multiplication grid for unlocked tables</p>
-          <div class="card"><div class="pyth-grid" id="pythagorasGrid"></div></div>
+          <p class="subtitle" data-i18n="pythagorasSubtitle">Full multiplication grid — hover a cell</p>
+          <div class="card">
+            <div class="pyth-hint muted" id="pythHint">Hover a number</div>
+            <div class="pyth-grid" id="pythagorasGrid"></div>
+          </div>
         </section>
         <section id="redeemView" class="hidden">
           <h2 class="view-title" data-i18n="redeemTitle">Redeem prizes</h2>
@@ -634,25 +691,39 @@
     const PROGRAM_START = "2026-09-03";
     const FAIL_EXTRA = 2;
     const ADMIN_PIN = "2018";
-    const STORAGE_KEY = "misha-daily-math-v1";
-    const SETTINGS_KEY = "misha-math-settings-v1";
-    const COINS_KEY = "misha-coins-v1";
+    const STORAGE_KEY_BASE = "misha-daily-math-v1";
+    const SETTINGS_KEY_BASE = "misha-math-settings-v1";
+    const COINS_KEY_BASE = "misha-coins-v1";
+    const CLOUD_META_KEY_BASE = "misha-cloud-meta-v1";
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
-    const CLOUD_META_KEY = "misha-cloud-meta-v1";
+    const PROFILE_KEY = "misha-profile-v1";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
     const POOL_VERSION = 2;
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
-    const CLOUD_KV_KEY = "family";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
+    const PROFILES = [
+      { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸" },
+      { id: "papa", ru: "Папа", en: "Dad", emoji: "👨" },
+      { id: "mama", ru: "Мама", en: "Mom", emoji: "👩" },
+      { id: "lika", ru: "Лика", en: "Lika", emoji: "🌟" },
+      { id: "lucy", ru: "Люся", en: "Lucy", emoji: "🌸" },
+      { id: "rostik", ru: "Ростик", en: "Rostik", emoji: "🚀" },
+      { id: "paulina", ru: "Паулина", en: "Paulina", emoji: "🎀" },
+    ];
 
     const I18N = {
       ru: {
         appTitle: "Миша × Умножение",
-        heroName: "Герой Миша",
+        heroName: "Герой",
+        profileTitle: "Кто играет?",
+        profileHint: "Выбери свой профиль. Прогресс и Мишкоины у каждого свои.",
+        profileSwitch: "Сменить профиль",
+        pythHintIdle: "Наведи на число — увидишь пример",
+        pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Тренировка",
         navCalendar: "Календарь",
         navPlan: "Все задания",
@@ -739,7 +810,7 @@
         tablesSelectLabel: "Активные таблицы (1–9)",
         tablesSettingsSaved: "Таблицы обновлены!",
         pythagorasTitle: "Таблица Пифагора",
-        pythagorasSubtitle: "Сетка умножения для открытых таблиц",
+        pythagorasSubtitle: "Полная таблица умножения — наведи на клетку",
         redeemTitle: "Обмен призов",
         redeemSubtitle: "Потрать Мишкоины на желания!",
         redeemEmpty: "Папа ещё не добавил призы. Скоро будут сюрпризы!",
@@ -755,7 +826,12 @@
       },
       en: {
         appTitle: "Misha × Math",
-        heroName: "Hero Misha",
+        heroName: "Hero",
+        profileTitle: "Who is playing?",
+        profileHint: "Choose your profile. Progress and Mishcoins are separate for each person.",
+        profileSwitch: "Switch profile",
+        pythHintIdle: "Hover a number to see the example",
+        pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table", navRedeem: "Redeem",
         todayMission: "Today's mission",
@@ -837,7 +913,7 @@
         tablesSelectLabel: "Active tables (1–9)",
         tablesSettingsSaved: "Tables updated!",
         pythagorasTitle: "Pythagoras table",
-        pythagorasSubtitle: "Multiplication grid for unlocked tables",
+        pythagorasSubtitle: "Full multiplication grid — hover a cell",
         redeemTitle: "Redeem prizes",
         redeemSubtitle: "Spend Mishcoins on wishes!",
         redeemEmpty: "Dad hasn't added prizes yet. Surprises coming soon!",
@@ -853,11 +929,12 @@
     };
 
     let lang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ru";
-    let settings = loadSettings();
+    let profileId = null;
+    let settings = { questionCount: 50, tablesMax: 0, wishlist: [] };
     let state = null;
     let busy = false;
-    let coins = loadCoins();
-    let cloudMeta = loadCloudMeta();
+    let coins = { balance: 0, history: [] };
+    let cloudMeta = { updatedAt: 0 };
     let calMonth = monthStart(new Date());
     let titleTaps = [];
     let currentView = "home";
@@ -866,6 +943,17 @@
     let cloudSyncing = false;
     let suppressCloudPush = false;
     let dayMissionKey = null;
+    let appStarted = false;
+
+    function storageKey() { return `${STORAGE_KEY_BASE}:${profileId}`; }
+    function settingsKey() { return `${SETTINGS_KEY_BASE}:${profileId}`; }
+    function coinsKey() { return `${COINS_KEY_BASE}:${profileId}`; }
+    function cloudMetaKey() { return `${CLOUD_META_KEY_BASE}:${profileId}`; }
+    function cloudKvKey() { return `p_${profileId}`; }
+    function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
+    function profileLabel(profile = currentProfile()) {
+      return lang === "ru" ? profile.ru : profile.en;
+    }
 
     const views = {
       home: document.getElementById("homeView"),
@@ -888,6 +976,7 @@
     const historyModal = document.getElementById("historyModal");
     const dayMissionModal = document.getElementById("dayMissionModal");
     const toastModal = document.getElementById("toastModal");
+    const profileModal = document.getElementById("profileModal");
 
     function t(key, ...args) {
       const value = I18N[lang][key];
@@ -952,7 +1041,7 @@
 
     function loadSettings() {
       try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
+        const raw = localStorage.getItem(settingsKey());
         if (!raw) return { questionCount: 50, tablesMax: 0, wishlist: [] };
         const parsed = JSON.parse(raw);
         const count = Number(parsed.questionCount);
@@ -966,20 +1055,20 @@
       } catch { return { questionCount: 50, tablesMax: 0, wishlist: [] }; }
     }
     function saveSettings() {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      localStorage.setItem(settingsKey(), JSON.stringify(settings));
       touchCloudAndPush();
     }
     function loadStore() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      try { return JSON.parse(localStorage.getItem(storageKey()) || "{}"); }
       catch { return {}; }
     }
     function saveStore(store, options = {}) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      localStorage.setItem(storageKey(), JSON.stringify(store));
       if (!options.quiet) touchCloudAndPush();
     }
     function loadCoins() {
       try {
-        const raw = JSON.parse(localStorage.getItem(COINS_KEY) || "{}");
+        const raw = JSON.parse(localStorage.getItem(coinsKey()) || "{}");
         return {
           balance: Number(raw.balance) || 0,
           history: Array.isArray(raw.history) ? raw.history : [],
@@ -987,17 +1076,17 @@
       } catch { return { balance: 0, history: [] }; }
     }
     function saveCoins() {
-      localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+      localStorage.setItem(coinsKey(), JSON.stringify(coins));
       touchCloudAndPush();
     }
     function loadCloudMeta() {
       try {
-        const raw = JSON.parse(localStorage.getItem(CLOUD_META_KEY) || "{}");
+        const raw = JSON.parse(localStorage.getItem(cloudMetaKey()) || "{}");
         return { updatedAt: Number(raw.updatedAt) || 0 };
       } catch { return { updatedAt: 0 }; }
     }
     function saveCloudMeta() {
-      localStorage.setItem(CLOUD_META_KEY, JSON.stringify(cloudMeta));
+      localStorage.setItem(cloudMetaKey(), JSON.stringify(cloudMeta));
     }
     function touchCloudAndPush() {
       if (suppressCloudPush) return;
@@ -1083,7 +1172,7 @@
           balance: remote.coins.balance,
           history: remote.coins.history.length ? remote.coins.history : coins.history,
         };
-        localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+        localStorage.setItem(coinsKey(), JSON.stringify(coins));
         if (remote.settings) {
           const count = Number(remote.settings.questionCount);
           const tablesMax = Number(remote.settings.tablesMax) || 0;
@@ -1092,7 +1181,7 @@
             tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : settings.tablesMax,
             wishlist: Array.isArray(remote.settings.wishlist) ? remote.settings.wishlist : settings.wishlist,
           };
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+          localStorage.setItem(settingsKey(), JSON.stringify(settings));
         }
         cloudMeta.updatedAt = Math.max(remote.updatedAt || 0, cloudMeta.updatedAt || 0, Date.now());
         saveCloudMeta();
@@ -1130,8 +1219,8 @@
       }
       return hex;
     }
-    async function fetchCloudFromKv() {
-      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${CLOUD_KV_KEY}?t=${Date.now()}`, { cache: "no-store" });
+    async function fetchCloudFromKvKey(key) {
+      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) return null;
       const text = (await res.text()).replace(/^"|"$/g, "").trim();
       if (!text) return null;
@@ -1140,12 +1229,20 @@
         return normalizeCloudPayload(JSON.parse(text));
       } catch { return null; }
     }
+    async function fetchCloudFromKv() {
+      const primary = await fetchCloudFromKvKey(cloudKvKey());
+      if (primary) return primary;
+      if (profileId === "misha") return fetchCloudFromKvKey("family");
+      return null;
+    }
     async function fetchCloudFromGist() {
+      if (profileId !== "misha") return null;
       const res = await fetch(`${CLOUD_GIST_RAW}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("gist");
       return normalizeCloudPayload(await res.json());
     }
     async function fetchCloudFromLocalFile() {
+      if (profileId !== "misha") return null;
       try {
         const res = await fetch(`family_sync.json?t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) return null;
@@ -1199,7 +1296,7 @@
       const payload = buildCloudPayload();
       const hex = encodeCloudValue(payload);
       try {
-        await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${CLOUD_KV_KEY}/${hex}`, {
+        await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudKvKey()}/${hex}`, {
           method: "POST",
           body: "",
           cache: "no-store",
@@ -1429,6 +1526,74 @@
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
     }
 
+    function migrateLegacyProfileData(id) {
+      if (id !== "misha") return;
+      const pairs = [
+        [STORAGE_KEY_BASE, `${STORAGE_KEY_BASE}:${id}`],
+        [SETTINGS_KEY_BASE, `${SETTINGS_KEY_BASE}:${id}`],
+        [COINS_KEY_BASE, `${COINS_KEY_BASE}:${id}`],
+        [CLOUD_META_KEY_BASE, `${CLOUD_META_KEY_BASE}:${id}`],
+      ];
+      pairs.forEach(([from, to]) => {
+        if (!localStorage.getItem(to) && localStorage.getItem(from)) {
+          localStorage.setItem(to, localStorage.getItem(from));
+        }
+      });
+    }
+    function updateProfileChrome() {
+      if (!profileId) return;
+      const p = currentProfile();
+      document.getElementById("profileChipEmoji").textContent = p.emoji;
+      document.getElementById("profileChipName").textContent = profileLabel(p);
+      document.getElementById("heroName").textContent = `${t("heroName")} ${profileLabel(p)}`;
+      document.getElementById("mishaAvatar").alt = profileLabel(p);
+      document.getElementById("profileChip").title = t("profileSwitch");
+    }
+    function renderProfilePicker() {
+      const box = document.getElementById("profileGrid");
+      box.innerHTML = PROFILES.map((p) => `
+        <button class="profile-btn${p.id === profileId ? " on" : ""}" type="button" data-profile="${p.id}">
+          <span class="profile-emoji">${p.emoji}</span>
+          <span class="profile-name">${profileLabel(p)}</span>
+        </button>
+      `).join("");
+      box.querySelectorAll(".profile-btn").forEach((btn) => {
+        btn.addEventListener("click", () => selectProfile(btn.getAttribute("data-profile")));
+      });
+    }
+    function openProfilePicker() {
+      renderProfilePicker();
+      profileModal.classList.remove("hidden");
+    }
+    function selectProfile(id) {
+      if (!PROFILES.some((p) => p.id === id)) return;
+      profileId = id;
+      localStorage.setItem(PROFILE_KEY, id);
+      migrateLegacyProfileData(id);
+      settings = loadSettings();
+      coins = loadCoins();
+      cloudMeta = loadCloudMeta();
+      state = null;
+      profileModal.classList.add("hidden");
+      updateProfileChrome();
+      applyI18n();
+      renderCoins();
+      updateHome();
+      show("home");
+      if (!appStarted) {
+        appStarted = true;
+        pullCloudSync().then((changed) => {
+          if (!changed && (cloudMeta.updatedAt || 0) > 0) scheduleCloudPush();
+        });
+        window.setInterval(() => { if (profileId) pullCloudSync(); }, 12000);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible" && profileId) pullCloudSync();
+        });
+      } else {
+        pullCloudSync();
+      }
+    }
+
     function applyI18n() {
       document.documentElement.lang = lang;
       document.title = t("appTitle");
@@ -1448,6 +1613,12 @@
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
       coinsBadge.title = t("mishcoins");
+      updateProfileChrome();
+      if (!profileModal.classList.contains("hidden")) renderProfilePicker();
+      if (currentView === "pythagoras") {
+        const hint = document.getElementById("pythHint");
+        if (hint && hint.classList.contains("muted")) hint.textContent = t("pythHintIdle");
+      }
       renderWeekdays();
     }
 
@@ -1527,27 +1698,74 @@
       document.getElementById("tablesSettingsNote").textContent = t("tablesSettingsHint");
     }
 
+    function clearPythHot() {
+      const table = document.querySelector("#pythagorasGrid .pyth-table");
+      if (!table) return;
+      table.querySelectorAll(".row-hot").forEach((el) => el.classList.remove("row-hot"));
+      table.querySelectorAll(".col-hot, .cell-hot").forEach((el) => el.classList.remove("col-hot", "cell-hot"));
+      const hint = document.getElementById("pythHint");
+      hint.textContent = t("pythHintIdle");
+      hint.classList.add("muted");
+    }
+    function highlightPyth(row, col) {
+      const table = document.querySelector("#pythagorasGrid .pyth-table");
+      if (!table) return;
+      clearPythHot();
+      const hint = document.getElementById("pythHint");
+      if (!row && !col) return;
+      table.querySelectorAll("tbody tr").forEach((tr) => {
+        const r = Number(tr.getAttribute("data-row"));
+        if (row && r === row) tr.classList.add("row-hot");
+        tr.querySelectorAll("[data-col]").forEach((cell) => {
+          const c = Number(cell.getAttribute("data-col"));
+          if (col && c === col) cell.classList.add("col-hot");
+          if (row && col && r === row && c === col) cell.classList.add("cell-hot");
+        });
+      });
+      table.querySelectorAll("thead [data-col]").forEach((cell) => {
+        const c = Number(cell.getAttribute("data-col"));
+        if (col && c === col) cell.classList.add("col-hot");
+      });
+      if (row && col) {
+        hint.textContent = t("pythHintMul", row, col, row * col);
+        hint.classList.remove("muted");
+      } else if (row) {
+        hint.textContent = `${row} × …`;
+        hint.classList.remove("muted");
+      } else if (col) {
+        hint.textContent = `… × ${col}`;
+        hint.classList.remove("muted");
+      }
+    }
     function renderPythagoras() {
-      const maxN = effectiveTablesMax(todayKey());
-      const rows = [];
-      for (let n = 1; n <= maxN; n += 1) rows.push(n);
-      const cols = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       const box = document.getElementById("pythagorasGrid");
-      if (!rows.length) { box.innerHTML = ""; return; }
-      let html = '<table class="pyth-table"><thead><tr><td class="corner"></td>';
-      cols.forEach((n) => { html += `<th>${n}</th>`; });
+      const hint = document.getElementById("pythHint");
+      hint.textContent = t("pythHintIdle");
+      hint.classList.add("muted");
+      let html = '<table class="pyth-table"><thead><tr><th class="corner">×</th>';
+      nums.forEach((n) => { html += `<th data-col="${n}">${n}</th>`; });
       html += "</tr></thead><tbody>";
-      rows.forEach((row) => {
-        html += `<tr><th>${row}</th>`;
-        cols.forEach((col) => {
+      nums.forEach((row) => {
+        html += `<tr data-row="${row}"><th data-row="${row}">${row}</th>`;
+        nums.forEach((col) => {
           const val = row * col;
-          const hl = row === col ? " highlight" : "";
-          html += `<td class="${hl.trim()}">${val}</td>`;
+          const diag = row === col ? " diag" : "";
+          html += `<td class="${diag.trim()}" data-row="${row}" data-col="${col}">${val}</td>`;
         });
         html += "</tr>";
       });
       html += "</tbody></table>";
       box.innerHTML = html;
+      const table = box.querySelector(".pyth-table");
+      table.addEventListener("mouseleave", clearPythHot);
+      table.querySelectorAll("[data-row], [data-col]").forEach((cell) => {
+        cell.addEventListener("mouseenter", () => {
+          const row = Number(cell.getAttribute("data-row")) || 0;
+          const col = Number(cell.getAttribute("data-col")) || 0;
+          highlightPyth(row, col);
+        });
+      });
     }
 
     function prizeTitle(prize) { return lang === "ru" ? prize.titleRu : prize.titleEn; }
@@ -2049,21 +2267,14 @@
       renderAdminWishlist();
     });
     document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
+    document.getElementById("profileChip").addEventListener("click", openProfilePicker);
     answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
 
     const startMonth = monthStart(parseKey(PROGRAM_START));
     if (calMonth < startMonth) calMonth = startMonth;
     applyI18n();
-    renderCoins();
-    updateHome();
     show("home");
-    pullCloudSync().then((changed) => {
-      if (!changed && (cloudMeta.updatedAt || 0) > 0) scheduleCloudPush();
-    });
-    window.setInterval(() => { pullCloudSync(); }, 12000);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") pullCloudSync();
-    });
+    openProfilePicker();
   </script>
 </body>
 </html>
