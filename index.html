@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2f6fed" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Миша и таблица умножения</title>
+  <title>Misha Math</title>
   <style>
     :root {
       --ink: #1a2450;
       --muted: #5a6490;
-      --paper: #dff3ff;
       --card: #ffffff;
-      --line: #c7dbf5;
-      --accent: #ff7a18;
-      --accent-2: #ff3d81;
       --sky: #2f6fed;
       --mint: #18c59a;
       --gold: #f5b400;
-      --gold-dark: #c88400;
       --ok: #0f9f6e;
       --ok-bg: #d8fff0;
       --bad: #e11d48;
@@ -47,30 +42,51 @@
       overflow-x: hidden;
     }
 
-    .wrap {
-      max-width: 440px;
-      margin: 0 auto;
-      position: relative;
-    }
+    .wrap { max-width: 440px; margin: 0 auto; position: relative; }
 
     h1 {
-      margin: 0 0 4px;
-      font-size: 28px;
+      margin: 0;
+      font-size: 24px;
       letter-spacing: -0.03em;
+      cursor: default;
+      user-select: none;
     }
 
-    .subtitle {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 15px;
-    }
+    .subtitle { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
 
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+    }
+
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+
+    .lang-switch {
+      display: inline-flex;
+      border: 2px solid #cfe0ff;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .lang-switch button {
+      border: 0;
+      background: transparent;
+      min-height: 36px;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .lang-switch button.on {
+      background: linear-gradient(135deg, #2f6fed, #6a4dff);
+      color: #fff;
     }
 
     .coins {
@@ -95,14 +111,11 @@
       place-items: center;
       background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
       border: 2px solid #fff1a0;
-      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
       font-size: 14px;
       animation: spinSoft 4s linear infinite;
     }
 
-    .coins.pop {
-      animation: coinPop 0.55s ease;
-    }
+    .coins.pop { animation: coinPop 0.55s ease; }
 
     .hero {
       display: grid;
@@ -112,11 +125,7 @@
       margin-bottom: 14px;
     }
 
-    .hero-avatar-wrap {
-      position: relative;
-      width: 112px;
-      height: 112px;
-    }
+    .hero-avatar-wrap { position: relative; width: 112px; height: 112px; }
 
     .hero-avatar {
       width: 112px;
@@ -173,12 +182,7 @@
       margin-bottom: 4px;
     }
 
-    .hero-text {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.3;
-    }
+    .hero-text { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; }
 
     .card {
       background: var(--card);
@@ -215,16 +219,8 @@
       border: 1px solid #dceaff;
     }
 
-    .stat strong {
-      display: block;
-      font-size: 22px;
-      line-height: 1.1;
-    }
-
-    .stat span {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .stat strong { display: block; font-size: 22px; line-height: 1.1; }
+    .stat span { font-size: 12px; color: var(--muted); }
 
     .btn {
       display: inline-flex;
@@ -239,81 +235,104 @@
       font-size: 18px;
       font-weight: 800;
       cursor: pointer;
-      transition: transform 0.12s ease, filter 0.12s ease;
+      transition: transform 0.12s ease;
       box-shadow: 0 8px 0 rgba(0, 0, 0, 0.08);
     }
 
-    .btn:active {
-      transform: translateY(3px);
-      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.08);
-    }
-
+    .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.08); }
     .btn + .btn { margin-top: 10px; }
-
-    .btn-accent {
-      background: linear-gradient(135deg, #ff8a2b, #ff3d81);
-      color: #fff;
-    }
-
-    .btn-ink {
-      background: linear-gradient(135deg, #2f6fed, #6a4dff);
-      color: #fff;
-    }
-
+    .btn-accent { background: linear-gradient(135deg, #ff8a2b, #ff3d81); color: #fff; }
+    .btn-ink { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
     .btn-ghost {
       background: rgba(255, 255, 255, 0.75);
       border: 2px solid #cfe0ff;
       color: var(--ink);
       box-shadow: none;
     }
+    .btn:disabled { opacity: 0.45; cursor: default; }
 
-    .btn:disabled {
-      opacity: 0.45;
-      cursor: default;
+    .streak { margin-top: 8px; font-size: 15px; color: var(--muted); font-weight: 700; }
+
+    .cal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
-    .streak {
-      margin-top: 8px;
-      font-size: 15px;
-      color: var(--muted);
-      font-weight: 700;
+    .cal-head strong {
+      font-size: 16px;
+      text-transform: capitalize;
     }
 
-    .days {
+    .cal-nav {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 2px solid #cfe0ff;
+      background: #fff;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cal-weekdays, .cal-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 6px;
-      margin-top: 12px;
     }
 
-    .day {
+    .cal-weekdays span {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .cal-cell {
       aspect-ratio: 1;
-      border-radius: 12px;
+      border-radius: 14px;
       border: 2px solid #dceaff;
       background: #fff;
-      display: grid;
-      place-items: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
       font-size: 12px;
       font-weight: 800;
+      min-height: 0;
+      padding: 2px;
     }
 
-    .day.done {
-      background: var(--ok-bg);
+    .cal-cell .mark { font-size: 16px; line-height: 1; }
+    .cal-cell.empty { border-color: transparent; background: transparent; }
+    .cal-cell.future { color: var(--muted); background: #f7faff; }
+    .cal-cell.before { opacity: 0.25; }
+    .cal-cell.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
+    .cal-cell.done {
+      background: linear-gradient(180deg, #d8fff0, #baf7df);
       border-color: #7de0b8;
       color: var(--ok);
       animation: popIn 0.35s ease;
     }
-
-    .day.today {
-      border-color: var(--sky);
-      box-shadow: inset 0 0 0 1px var(--sky);
-    }
-
-    .day.miss {
-      background: var(--bad-bg);
-      border-color: #ffb0c0;
+    .cal-cell.bad {
+      background: linear-gradient(180deg, #ffe1e8, #ffc2cf);
+      border-color: #ff9aaf;
       color: var(--bad);
+      animation: shakeX 0.35s ease;
     }
+    .cal-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
 
     .hidden { display: none !important; }
 
@@ -344,27 +363,16 @@
       font-weight: 700;
     }
 
-    .problem-card {
-      text-align: center;
-      padding: 26px 18px 20px;
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-
+    .problem-card { text-align: center; padding: 26px 18px 20px; transition: background 0.2s ease; }
     .problem {
       font-size: 46px;
       font-weight: 900;
-      letter-spacing: 0.02em;
       margin: 8px 0 22px;
       white-space: nowrap;
       animation: popIn 0.28s ease;
     }
 
-    .answer-row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-    }
-
+    .answer-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .answer-row input {
       width: 100%;
       min-height: 58px;
@@ -376,36 +384,17 @@
       background: #fff;
       color: var(--ink);
     }
-
     .answer-row input:focus {
       outline: 3px solid rgba(47, 111, 237, 0.25);
       border-color: var(--focus);
     }
+    .answer-row .btn { width: 110px; min-height: 58px; }
 
-    .answer-row .btn {
-      width: 110px;
-      min-height: 58px;
-    }
-
-    .feedback {
-      min-height: 28px;
-      margin-top: 14px;
-      font-size: 17px;
-      font-weight: 800;
-    }
-
+    .feedback { min-height: 28px; margin-top: 14px; font-size: 17px; font-weight: 800; }
     .feedback.ok { color: var(--ok); }
     .feedback.bad { color: var(--bad); }
-
-    .flash-ok {
-      background: var(--ok-bg) !important;
-      animation: successPulse 0.4s ease;
-    }
-
-    .flash-bad {
-      background: var(--bad-bg) !important;
-      animation: shakeX 0.4s ease;
-    }
+    .flash-ok { background: var(--ok-bg) !important; animation: successPulse 0.4s ease; }
+    .flash-bad { background: var(--bad-bg) !important; animation: shakeX 0.4s ease; }
 
     .done-title {
       font-size: 30px;
@@ -427,18 +416,9 @@
       font-weight: 700;
       color: #6a4700;
     }
+    .reward-box ul { margin: 8px 0 0; padding-left: 18px; }
 
-    .reward-box ul {
-      margin: 8px 0 0;
-      padding-left: 18px;
-    }
-
-    .tables {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
+    .tables { display: flex; flex-wrap: wrap; gap: 8px; }
     .tables button {
       width: 42px;
       height: 42px;
@@ -450,26 +430,15 @@
       font-weight: 800;
       cursor: pointer;
     }
-
     .tables button.on {
       background: linear-gradient(135deg, #2f6fed, #6a4dff);
       border-color: transparent;
       color: #fff;
-      transform: scale(1.05);
     }
 
-    .note {
-      margin: 0;
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.4;
-    }
+    .note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
 
-    .plan-list {
-      display: grid;
-      gap: 8px;
-    }
-
+    .plan-list { display: grid; gap: 8px; }
     .plan-item {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -485,40 +454,60 @@
       text-align: left;
       cursor: default;
     }
-
     .plan-item.action { cursor: pointer; }
-    .plan-item.today {
-      border-color: var(--sky);
-      box-shadow: inset 0 0 0 1px var(--sky);
+    .plan-item.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
+    .plan-item.done { background: var(--ok-bg); border-color: #7de0b8; }
+    .plan-item.miss, .plan-item.late { background: var(--bad-bg); border-color: #ffb0c0; }
+    .plan-item.future { background: #f3f7ff; color: var(--muted); }
+    .plan-item .title { font-size: 15px; font-weight: 800; text-transform: capitalize; }
+    .plan-item .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+    .plan-badge { font-size: 12px; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 30, 70, 0.45);
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      z-index: 80;
     }
-    .plan-item.done {
-      background: var(--ok-bg);
-      border-color: #7de0b8;
+
+    .modal-card {
+      width: min(380px, 100%);
+      background: #fff;
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      border: 2px solid #dceaff;
     }
-    .plan-item.miss {
-      background: var(--bad-bg);
-      border-color: #ffb0c0;
-    }
-    .plan-item.future {
-      background: #f3f7ff;
-      color: var(--muted);
-    }
-    .plan-item .title {
-      font-size: 15px;
+
+    .modal-card input {
+      width: 100%;
+      min-height: 48px;
+      border: 2px solid #cfe0ff;
+      border-radius: 14px;
+      padding: 0 12px;
+      font-size: 22px;
       font-weight: 800;
-      text-transform: capitalize;
+      text-align: center;
+      margin: 10px 0 12px;
     }
-    .plan-item .meta {
-      grid-column: 1 / -1;
-      font-size: 13px;
-      color: var(--muted);
+
+    .admin-row {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
     }
-    .plan-badge {
-      font-size: 12px;
+
+    .admin-row input[type="number"] {
+      width: 100%;
+      min-height: 48px;
+      border: 2px solid #cfe0ff;
+      border-radius: 14px;
+      padding: 0 12px;
+      font-size: 20px;
       font-weight: 800;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      white-space: nowrap;
     }
 
     .fx-layer {
@@ -556,39 +545,32 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-7px); }
     }
-
     @keyframes spinSoft {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
-
     @keyframes coinGlow {
       0%, 100% { filter: brightness(1); transform: scale(1); }
       50% { filter: brightness(1.06); transform: scale(1.03); }
     }
-
     @keyframes coinPop {
       0% { transform: scale(1); }
       40% { transform: scale(1.18); }
       100% { transform: scale(1); }
     }
-
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes popIn {
       from { opacity: 0; transform: scale(0.92); }
       to { opacity: 1; transform: scale(1); }
     }
-
     @keyframes successPulse {
       0% { transform: scale(1); }
       40% { transform: scale(1.03); }
       100% { transform: scale(1); }
     }
-
     @keyframes shakeX {
       0%, 100% { transform: translateX(0); }
       20% { transform: translateX(-6px); }
@@ -596,12 +578,10 @@
       60% { transform: translateX(-4px); }
       80% { transform: translateX(4px); }
     }
-
     @keyframes burstFly {
       0% { opacity: 1; transform: translate(0, 0) scale(1); }
       100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4); }
     }
-
     @keyframes coinRise {
       0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
       100% { opacity: 0; transform: translate(-50%, -90px) scale(1.3); }
@@ -610,132 +590,333 @@
 </head>
 <body>
   <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
+
+  <div class="modal hidden" id="pinModal">
+    <div class="modal-card">
+      <div class="label" data-i18n="adminPinTitle">Dad only</div>
+      <p class="note" data-i18n="adminPinHint">Enter the secret PIN</p>
+      <input id="pinInput" inputmode="numeric" maxlength="8" autocomplete="off" />
+      <p class="note" id="pinError" style="color:var(--bad);min-height:18px;"></p>
+      <button class="btn btn-ink" id="pinOkBtn" type="button" data-i18n="open">Open</button>
+      <button class="btn btn-ghost" id="pinCancelBtn" type="button" data-i18n="cancel">Cancel</button>
+    </div>
+  </div>
+
   <div class="wrap">
     <div class="topbar">
-      <div>
-        <h1>Миша × Умножение</h1>
-      </div>
-      <div class="coins" id="coinsBadge" title="Золотые монеты">
-        <span class="coin">★</span>
-        <span id="coinsValue">0</span>
+      <h1 id="appTitle" data-i18n="appTitle">Misha × Math</h1>
+      <div class="top-actions">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" id="langRuBtn">RU</button>
+          <button type="button" id="langEnBtn">EN</button>
+        </div>
+        <div class="coins" id="coinsBadge" title="Coins">
+          <span class="coin">★</span>
+          <span id="coinsValue">0</span>
+        </div>
       </div>
     </div>
 
     <div class="hero" id="heroBlock">
       <div class="hero-avatar-wrap">
-        <img class="hero-avatar" src="assets/misha.jpg" alt="Миша" width="112" height="112" />
+        <img class="hero-avatar" src="assets/misha.jpg" alt="Misha" width="112" height="112" />
       </div>
       <div class="hero-bubble">
-        <div class="hero-name">Герой Миша</div>
-        <p class="hero-text" id="heroText">Привет! Давай заработаем золотые монеты!</p>
+        <div class="hero-name" data-i18n="heroName">Hero Misha</div>
+        <p class="hero-text" id="heroText">Hello!</p>
       </div>
     </div>
 
     <section id="homeView">
-      <p class="subtitle" id="dateLabel">Таблица умножения для Миши</p>
+      <p class="subtitle" id="dateLabel">Today</p>
 
       <div class="card">
-        <span class="label">Задание дня</span>
-        <div id="todayStatus" style="font-size:22px;font-weight:900;margin-top:4px;">50 примеров</div>
-        <p class="note" style="margin-top:8px;">
-          Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2.
-          За прохождение вовремя и точность — золотые монеты!
+        <span class="label" data-i18n="todayMission">Today's mission</span>
+        <div id="todayStatus" style="font-size:22px;font-weight:900;margin-top:4px;">50</div>
+        <p class="note" style="margin-top:8px;" data-i18n="rulesNote">
+          Correct answers count. A fail adds 2 more examples. Earn gold coins for finishing on time and accuracy!
         </p>
         <div class="stats">
-          <div class="stat"><strong id="homeRemain">50</strong><span>осталось</span></div>
-          <div class="stat"><strong id="homeOk">0</strong><span>верно</span></div>
-          <div class="stat"><strong id="homeFail">0</strong><span>фейлы</span></div>
+          <div class="stat"><strong id="homeRemain">50</strong><span data-i18n="left">left</span></div>
+          <div class="stat"><strong id="homeOk">0</strong><span data-i18n="correct">correct</span></div>
+          <div class="stat"><strong id="homeFail">0</strong><span data-i18n="fails">fails</span></div>
         </div>
-        <p class="streak" id="streakText">Серия дней: 0</p>
-        <div class="days" id="weekDays"></div>
+        <p class="streak" id="streakText">Streak: 0</p>
       </div>
 
-      <button class="btn btn-accent" id="startBtn" type="button">Вперёд к примерам!</button>
-      <button class="btn btn-ghost" id="planBtn" type="button">Все задания · 14 дней</button>
-      <button class="btn btn-ghost" id="settingsBtn" type="button">Настройки таблиц</button>
+      <div class="card">
+        <div class="cal-head">
+          <button class="cal-nav" id="calPrev" type="button" aria-label="Previous">‹</button>
+          <strong id="calMonthLabel">September 2026</strong>
+          <button class="cal-nav" id="calNext" type="button" aria-label="Next">›</button>
+        </div>
+        <div class="cal-weekdays" id="calWeekdays"></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span>✅ <span data-i18n="legendDone">done on time</span></span>
+          <span>😡 <span data-i18n="legendBad">missed / late</span></span>
+        </div>
+      </div>
+
+      <button class="btn btn-accent" id="startBtn" type="button">Start</button>
+      <button class="btn btn-ghost" id="planBtn" type="button">All missions</button>
+      <button class="btn btn-ghost" id="settingsBtn" type="button">Tables</button>
 
       <div class="card hidden" id="settingsCard" style="margin-top:14px;">
-        <span class="label">Какие таблицы в заданиях</span>
+        <span class="label" data-i18n="tablesLabel">Which tables</span>
         <div class="tables" id="tableButtons"></div>
-        <p class="note" style="margin-top:10px;">Изменения применятся к новой тренировке. Текущий день не сбрасывается.</p>
+        <p class="note" style="margin-top:10px;" data-i18n="tablesHint">Changes apply to new training. Current day is kept.</p>
       </div>
     </section>
 
     <section id="planView" class="hidden">
-      <p class="subtitle">14 дней: прошедшие, сегодня и ещё не наступившие</p>
+      <p class="subtitle" data-i18n="planSubtitle">14 days: past, today, and upcoming</p>
       <div class="card">
         <div class="plan-list" id="planList"></div>
       </div>
-      <button class="btn btn-ink" id="planBackBtn" type="button">Назад</button>
+      <button class="btn btn-ink" id="planBackBtn" type="button" data-i18n="back">Back</button>
     </section>
 
     <section id="trainView" class="hidden">
-      <p class="subtitle" id="trainDateLabel">Задание дня</p>
-
+      <p class="subtitle" id="trainDateLabel">Mission</p>
       <div class="progress-bar"><i id="progressFill"></i></div>
       <div class="progress-text">
-        <span id="remainText">Осталось: 50</span>
-        <span id="scoreText">Верно 0 · Фейлы 0</span>
+        <span id="remainText">Left: 50</span>
+        <span id="scoreText">Correct 0 · Fails 0</span>
       </div>
-
       <div class="card problem-card" id="problemCard">
-        <span class="label">Реши пример</span>
+        <span class="label" data-i18n="solve">Solve</span>
         <div class="problem" id="problemText">0 × 0 =</div>
         <div class="answer-row">
-          <input id="answerInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" aria-label="Ответ" />
+          <input id="answerInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" aria-label="Answer" />
           <button class="btn btn-ink" id="submitBtn" type="button">OK</button>
         </div>
         <div class="feedback" id="feedback"></div>
       </div>
-
-      <button class="btn btn-ghost" id="exitBtn" type="button">Выйти в меню</button>
+      <button class="btn btn-ghost" id="exitBtn" type="button" data-i18n="exitMenu">Exit to menu</button>
     </section>
 
     <section id="doneView" class="hidden">
       <div class="card" style="text-align:center;padding:28px 18px;">
-        <p class="done-title">Ура, Миша!</p>
-        <p class="subtitle" style="margin-bottom:12px;" id="doneSubtitle">Тренировка выполнена.</p>
+        <p class="done-title" data-i18n="doneTitle">Yay, Misha!</p>
+        <p class="subtitle" style="margin-bottom:12px;" id="doneSubtitle">Done.</p>
         <div class="stats">
-          <div class="stat"><strong id="doneOk">0</strong><span>верно</span></div>
-          <div class="stat"><strong id="doneFail">0</strong><span>фейлы</span></div>
-          <div class="stat"><strong id="doneTotal">0</strong><span>ответов</span></div>
+          <div class="stat"><strong id="doneOk">0</strong><span data-i18n="correct">correct</span></div>
+          <div class="stat"><strong id="doneFail">0</strong><span data-i18n="fails">fails</span></div>
+          <div class="stat"><strong id="doneTotal">0</strong><span data-i18n="answers">answers</span></div>
         </div>
         <div class="reward-box" id="rewardBox">
-          <div>Награда: <strong id="rewardTotal">+0 ★</strong></div>
+          <div><span data-i18n="reward">Reward</span>: <strong id="rewardTotal">+0 ★</strong></div>
           <ul id="rewardList"></ul>
         </div>
       </div>
-      <button class="btn btn-ink" id="backHomeBtn" type="button">На главную</button>
+      <button class="btn btn-ink" id="backHomeBtn" type="button" data-i18n="home">Home</button>
+    </section>
+
+    <section id="adminView" class="hidden">
+      <p class="subtitle" data-i18n="adminTitle">Dad admin</p>
+      <div class="card">
+        <div class="admin-row">
+          <span class="label" data-i18n="adminQuestions">Questions per unfinished test</span>
+          <input id="adminCountInput" type="number" min="5" max="200" step="1" />
+          <p class="note" data-i18n="adminQuestionsHint">Applies to tests that are not completed yet. Completed days stay unchanged.</p>
+        </div>
+        <p class="note" id="adminStatus"></p>
+      </div>
+      <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
+      <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
     </section>
   </div>
 
   <script>
-    const START_COUNT = 50;
+    const PROGRAM_START = "2026-09-03";
     const FAIL_EXTRA = 2;
+    const ADMIN_PIN = "2018";
     const STORAGE_KEY = "misha-daily-math-v1";
     const SETTINGS_KEY = "misha-math-settings-v1";
     const COINS_KEY = "misha-coins-v1";
+    const LANG_KEY = "misha-lang-v1";
+    const ADMIN_KEY = "misha-admin-session-v1";
     const PLAN_DAYS = 14;
-    const PLAN_PAST_DAYS = 7;
 
-    const PRAISE = ["Супер!", "Молодец!", "Ура!", "Красавчик!", "Точно!", "Огонь!"];
-    const CHEER = ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"];
+    const I18N = {
+      ru: {
+        appTitle: "Миша × Умножение",
+        heroName: "Герой Миша",
+        todayMission: "Задание дня",
+        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. За прохождение вовремя и точность — золотые монеты!",
+        left: "осталось",
+        correct: "верно",
+        fails: "фейлы",
+        answers: "ответов",
+        legendDone: "вовремя",
+        legendBad: "пропуск / опоздание",
+        start: "Вперёд к примерам!",
+        continue: "Продолжить приключение",
+        seeResult: "Смотреть результат",
+        allMissions: "Все задания · 14 дней",
+        tables: "Настройки таблиц",
+        tablesLabel: "Какие таблицы",
+        tablesHint: "Изменения применятся к новой тренировке. Текущий день не сбрасывается.",
+        planSubtitle: "14 дней: прошедшие, сегодня и ещё не наступившие",
+        back: "Назад",
+        home: "На главную",
+        solve: "Реши пример",
+        exitMenu: "Выйти в меню",
+        doneTitle: "Ура, Миша!",
+        reward: "Награда",
+        adminTitle: "Админка папы",
+        adminQuestions: "Вопросов в незавершённых тестах",
+        adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
+        save: "Сохранить",
+        open: "Открыть",
+        cancel: "Отмена",
+        adminPinTitle: "Только для папы",
+        adminPinHint: "Введи секретный PIN",
+        pinWrong: "Неверный PIN",
+        adminSaved: (n, c) => `Готово: ${n} вопросов. Обновлено незавершённых дней: ${c}.`,
+        streak: (n) => `Серия дней: ${n}`,
+        statusDone: "Задание выполнено",
+        statusStarted: "Тренировка начата",
+        statusReady: (n) => `${n} примеров`,
+        remain: (n) => `Осталось: ${n}`,
+        scoreLine: (ok, bad) => `Верно ${ok} · Фейлы ${bad}`,
+        enterNumber: "Впиши ответ числом",
+        correctShort: "Верно!",
+        failLine: (ans, extra) => `Фейл. Правильно: ${ans}. +${extra} примера`,
+        heroHello: "Привет! Давай заработаем золотые монеты!",
+        heroDone: "Сегодня ты уже герой! Можно смотреть монеты.",
+        heroContinue: (n) => `Осталось ${n} примеров. Продолжим?`,
+        heroTrain: "Вперёд! Один пример за другим!",
+        heroPlan: "Смотри план на 14 дней!",
+        heroCoins: (n) => `Ура! +${n} золотых монет!`,
+        heroClosed: "Тренировка закрыта. Ты молодец!",
+        praise: ["Супер!", "Молодец!", "Ура!", "Красавчик!", "Точно!", "Огонь!"],
+        cheer: ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"],
+        doneIdeal: "Идеально: все ответы верные!",
+        doneFails: (n) => `Готово. Было ${n} фейлов — из‑за них примеров стало больше.`,
+        closedToday: "Сегодняшнее задание уже закрыто.",
+        closedDay: (d) => `Задание за ${d} уже выполнено.`,
+        badgeFuture: "Ещё нет",
+        badgeDone: "Сделано",
+        badgeLate: "С опозданием",
+        badgeProgress: "В процессе",
+        badgeUnfinished: "Не закончено",
+        badgeToday: "Сегодня",
+        badgeMiss: "Пропущено",
+        metaFuture: (n) => `${n} примеров · откроется в этот день`,
+        metaStats: (ok, bad, coins) => `Верно ${ok} · Фейлы ${bad}${coins}`,
+        metaProgress: (left, ok, bad) => `Осталось ${left} · Верно ${ok} · Фейлы ${bad}`,
+        metaReady: (n) => `${n} примеров · можно начать`,
+        metaMiss: (n) => `${n} примеров · не выполнено`,
+        rewardOnTime: "Пройдено вовремя",
+        rewardLow: (r) => `Мало ошибок (${r}% < 5%)`,
+        rewardMid: (r) => `Ошибки ${r}% (5–10%)`,
+        rewardHigh: (r) => `Ошибок много (${r}% > 10%)`,
+        weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
+      },
+      en: {
+        appTitle: "Misha × Math",
+        heroName: "Hero Misha",
+        todayMission: "Today's mission",
+        rulesNote: "Correct answers count. A fail adds 2 more examples. Earn gold coins for finishing on time and accuracy!",
+        left: "left",
+        correct: "correct",
+        fails: "fails",
+        answers: "answers",
+        legendDone: "on time",
+        legendBad: "missed / late",
+        start: "Let's go!",
+        continue: "Continue adventure",
+        seeResult: "See result",
+        allMissions: "All missions · 14 days",
+        tables: "Table settings",
+        tablesLabel: "Which tables",
+        tablesHint: "Changes apply to new training. Current day is kept.",
+        planSubtitle: "14 days: past, today, and upcoming",
+        back: "Back",
+        home: "Home",
+        solve: "Solve",
+        exitMenu: "Exit to menu",
+        doneTitle: "Yay, Misha!",
+        reward: "Reward",
+        adminTitle: "Dad admin",
+        adminQuestions: "Questions in unfinished tests",
+        adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
+        save: "Save",
+        open: "Open",
+        cancel: "Cancel",
+        adminPinTitle: "Dad only",
+        adminPinHint: "Enter the secret PIN",
+        pinWrong: "Wrong PIN",
+        adminSaved: (n, c) => `Saved: ${n} questions. Updated unfinished days: ${c}.`,
+        streak: (n) => `Day streak: ${n}`,
+        statusDone: "Mission complete",
+        statusStarted: "Training started",
+        statusReady: (n) => `${n} examples`,
+        remain: (n) => `Left: ${n}`,
+        scoreLine: (ok, bad) => `Correct ${ok} · Fails ${bad}`,
+        enterNumber: "Type a number",
+        correctShort: "Correct!",
+        failLine: (ans, extra) => `Fail. Right answer: ${ans}. +${extra} examples`,
+        heroHello: "Hi! Let's earn gold coins!",
+        heroDone: "You're already today's hero! Check your coins.",
+        heroContinue: (n) => `${n} examples left. Continue?`,
+        heroTrain: "Go! One example at a time!",
+        heroPlan: "Here is the 14-day plan!",
+        heroCoins: (n) => `Yay! +${n} gold coins!`,
+        heroClosed: "Training closed. Great job!",
+        praise: ["Awesome!", "Great job!", "Yes!", "Nailed it!", "Fire!", "Perfect!"],
+        cheer: ["Don't give up!", "Try again!", "You've got this!", "Keep going!"],
+        doneIdeal: "Perfect: all answers correct!",
+        doneFails: (n) => `Done. There were ${n} fails — that added more examples.`,
+        closedToday: "Today's mission is already closed.",
+        closedDay: (d) => `Mission for ${d} is already done.`,
+        badgeFuture: "Not yet",
+        badgeDone: "Done",
+        badgeLate: "Late",
+        badgeProgress: "In progress",
+        badgeUnfinished: "Unfinished",
+        badgeToday: "Today",
+        badgeMiss: "Missed",
+        metaFuture: (n) => `${n} examples · opens that day`,
+        metaStats: (ok, bad, coins) => `Correct ${ok} · Fails ${bad}${coins}`,
+        metaProgress: (left, ok, bad) => `Left ${left} · Correct ${ok} · Fails ${bad}`,
+        metaReady: (n) => `${n} examples · ready to start`,
+        metaMiss: (n) => `${n} examples · not done`,
+        rewardOnTime: "Finished on time",
+        rewardLow: (r) => `Few mistakes (${r}% < 5%)`,
+        rewardMid: (r) => `Mistakes ${r}% (5–10%)`,
+        rewardHigh: (r) => `Too many mistakes (${r}% > 10%)`,
+        weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      },
+    };
+
+    let lang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ru";
+    let settings = loadSettings();
+    let state = null;
+    let busy = false;
+    let coins = loadCoins();
+    let calMonth = monthStart(new Date());
+    let titleTaps = [];
 
     const homeView = document.getElementById("homeView");
     const trainView = document.getElementById("trainView");
     const doneView = document.getElementById("doneView");
     const planView = document.getElementById("planView");
+    const adminView = document.getElementById("adminView");
     const answerInput = document.getElementById("answerInput");
     const problemCard = document.getElementById("problemCard");
     const feedbackEl = document.getElementById("feedback");
     const heroText = document.getElementById("heroText");
     const coinsBadge = document.getElementById("coinsBadge");
     const fxLayer = document.getElementById("fxLayer");
+    const pinModal = document.getElementById("pinModal");
 
-    let settings = loadSettings();
-    let state = null;
-    let busy = false;
-    let coins = loadCoins();
+    function t(key, ...args) {
+      const value = I18N[lang][key];
+      return typeof value === "function" ? value(...args) : value;
+    }
 
     function todayKey(date = new Date()) {
       const y = date.getFullYear();
@@ -744,13 +925,32 @@
       return `${y}-${m}-${d}`;
     }
 
-    function formatDateRu(key) {
+    function parseKey(key) {
       const [y, m, d] = key.split("-").map(Number);
-      return new Date(y, m - 1, d).toLocaleDateString("ru-RU", {
+      return new Date(y, m - 1, d);
+    }
+
+    function monthStart(date) {
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    function formatDateLong(key) {
+      return parseKey(key).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
         weekday: "long",
         day: "numeric",
         month: "long",
       });
+    }
+
+    function formatMonthLabel(date) {
+      return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
+        month: "long",
+        year: "numeric",
+      });
+    }
+
+    function questionCount() {
+      return Number(settings.questionCount) || 50;
     }
 
     function pick(list) {
@@ -773,14 +973,18 @@
     function loadSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
-        if (!raw) return { tables: [2, 3, 4, 5, 6, 7, 8, 9] };
+        if (!raw) return { tables: [2, 3, 4, 5, 6, 7, 8, 9], questionCount: 50 };
         const parsed = JSON.parse(raw);
         const tables = Array.isArray(parsed.tables)
           ? parsed.tables.filter((n) => n >= 2 && n <= 9)
           : [];
-        return { tables: tables.length ? tables : [2, 3, 4, 5, 6, 7, 8, 9] };
+        const count = Number(parsed.questionCount);
+        return {
+          tables: tables.length ? tables : [2, 3, 4, 5, 6, 7, 8, 9],
+          questionCount: count >= 5 && count <= 200 ? count : 50,
+        };
       } catch {
-        return { tables: [2, 3, 4, 5, 6, 7, 8, 9] };
+        return { tables: [2, 3, 4, 5, 6, 7, 8, 9], questionCount: 50 };
       }
     }
 
@@ -803,9 +1007,7 @@
     function loadCoins() {
       try {
         const raw = JSON.parse(localStorage.getItem(COINS_KEY) || "{}");
-        return {
-          balance: Number(raw.balance) || 0,
-        };
+        return { balance: Number(raw.balance) || 0 };
       } catch {
         return { balance: 0 };
       }
@@ -874,9 +1076,11 @@
     }
 
     function createDayState(date) {
+      const count = questionCount();
       return {
         date,
-        queue: makeQueue(START_COUNT, settings.tables),
+        startCount: count,
+        queue: makeQueue(count, settings.tables),
         correct: 0,
         fails: 0,
         answered: 0,
@@ -889,6 +1093,7 @@
     }
 
     function getDayState(date = todayKey()) {
+      if (date < PROGRAM_START) return null;
       const store = loadStore();
       if (!store[date]) {
         store[date] = createDayState(date);
@@ -898,21 +1103,37 @@
     }
 
     function persist() {
+      if (!state) return;
       const store = loadStore();
       store[state.date] = state;
       saveStore(store);
     }
 
+    function isLate(dayState) {
+      if (!dayState?.completed || !dayState.completedAt) return false;
+      return todayKey(new Date(dayState.completedAt)) > dayState.date;
+    }
+
+    function dayMark(key, store, today) {
+      if (key < PROGRAM_START) return "before";
+      if (key > today) return "future";
+      const dayState = store[key];
+      if (dayState?.completed) return isLate(dayState) ? "bad" : "done";
+      if (key < today) return "bad";
+      return "today";
+    }
+
     function calcStreak(store, fromDate = todayKey()) {
       let streak = 0;
-      const [y, m, d] = fromDate.split("-").map(Number);
-      let cursor = new Date(y, m - 1, d);
-      if (!store[fromDate]?.completed) {
+      let cursor = parseKey(fromDate);
+      if (!store[fromDate]?.completed || isLate(store[fromDate])) {
         cursor.setDate(cursor.getDate() - 1);
       }
       while (true) {
         const key = todayKey(cursor);
-        if (store[key]?.completed) {
+        if (key < PROGRAM_START) break;
+        const day = store[key];
+        if (day?.completed && !isLate(day)) {
           streak += 1;
           cursor.setDate(cursor.getDate() - 1);
         } else break;
@@ -920,23 +1141,66 @@
       return streak;
     }
 
-    function renderWeek(store) {
-      const box = document.getElementById("weekDays");
-      box.innerHTML = "";
-      const today = new Date();
-      for (let i = 6; i >= 0; i -= 1) {
-        const day = new Date(today);
-        day.setDate(today.getDate() - i);
-        const key = todayKey(day);
-        const el = document.createElement("div");
-        el.className = "day";
-        el.textContent = String(day.getDate());
-        if (key === todayKey()) el.classList.add("today");
-        if (store[key]?.completed) el.classList.add("done");
-        else if (i > 0 && store[key] && store[key].answered > 0 && !store[key].completed) {
-          el.classList.add("miss");
+    function applyI18n() {
+      document.documentElement.lang = lang;
+      document.title = t("appTitle");
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        const value = t(key);
+        if (typeof value === "string") el.textContent = value;
+      });
+      document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
+      document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
+      document.getElementById("startBtn").textContent =
+        state?.completed ? t("seeResult") : state?.answered > 0 ? t("continue") : t("start");
+      document.getElementById("planBtn").textContent = t("allMissions");
+      document.getElementById("settingsBtn").textContent = t("tables");
+      renderWeekdays();
+    }
+
+    function renderWeekdays() {
+      const box = document.getElementById("calWeekdays");
+      box.innerHTML = t("weekdays").map((d) => `<span>${d}</span>`).join("");
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById("calGrid");
+      const store = loadStore();
+      const today = todayKey();
+      const year = calMonth.getFullYear();
+      const month = calMonth.getMonth();
+      document.getElementById("calMonthLabel").textContent = formatMonthLabel(calMonth);
+
+      const first = new Date(year, month, 1);
+      // Monday-first index: Mon=0 ... Sun=6
+      const startPad = (first.getDay() + 6) % 7;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      grid.innerHTML = "";
+      for (let i = 0; i < startPad; i += 1) {
+        const empty = document.createElement("div");
+        empty.className = "cal-cell empty";
+        grid.appendChild(empty);
+      }
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        const key = todayKey(date);
+        const mark = dayMark(key, store, today);
+        const cell = document.createElement("div");
+        cell.className = `cal-cell ${mark}`;
+        if (key === today) cell.classList.add("today");
+
+        let icon = "";
+        if (mark === "done") icon = "✅";
+        if (mark === "bad") icon = "😡";
+
+        cell.innerHTML = `<span>${day}</span>${icon ? `<span class="mark">${icon}</span>` : ""}`;
+        if (key >= PROGRAM_START && key <= today) {
+          cell.style.cursor = "pointer";
+          cell.addEventListener("click", () => openAssignmentDay(key));
         }
-        box.appendChild(el);
+        grid.appendChild(cell);
       }
     }
 
@@ -945,6 +1209,7 @@
       trainView.classList.toggle("hidden", view !== "train");
       doneView.classList.toggle("hidden", view !== "done");
       planView.classList.toggle("hidden", view !== "plan");
+      adminView.classList.toggle("hidden", view !== "admin");
     }
 
     function dayOffset(base, offset) {
@@ -955,25 +1220,29 @@
 
     function planStatus(key, store, today) {
       const dayState = store[key];
+      const count = dayState?.startCount || questionCount();
       const isToday = key === today;
+
+      if (key < PROGRAM_START) {
+        return { kind: "future", badge: "—", meta: "—", action: false };
+      }
 
       if (key > today) {
         return {
           kind: "future",
-          badge: "Ещё нет",
-          meta: `${START_COUNT} примеров · откроется в этот день`,
+          badge: t("badgeFuture"),
+          meta: t("metaFuture", count),
           action: false,
         };
       }
 
       if (dayState?.completed) {
-        const coinText = dayState.coinsAwarded
-          ? ` · +${dayState.coinsAwarded} ★`
-          : "";
+        const late = isLate(dayState);
+        const coinText = dayState.coinsAwarded ? ` · +${dayState.coinsAwarded} ★` : "";
         return {
-          kind: "done",
-          badge: "Сделано",
-          meta: `Верно ${dayState.correct} · Фейлы ${dayState.fails}${coinText}`,
+          kind: late ? "late" : "done",
+          badge: late ? t("badgeLate") : t("badgeDone"),
+          meta: t("metaStats", dayState.correct, dayState.fails, coinText),
           action: true,
         };
       }
@@ -981,8 +1250,8 @@
       if (dayState && dayState.answered > 0) {
         return {
           kind: isToday ? "today" : "miss",
-          badge: isToday ? "В процессе" : "Не закончено",
-          meta: `Осталось ${dayState.queue.length} · Верно ${dayState.correct} · Фейлы ${dayState.fails}`,
+          badge: isToday ? t("badgeProgress") : t("badgeUnfinished"),
+          meta: t("metaProgress", dayState.queue.length, dayState.correct, dayState.fails),
           action: true,
         };
       }
@@ -990,16 +1259,16 @@
       if (isToday) {
         return {
           kind: "today",
-          badge: "Сегодня",
-          meta: `${START_COUNT} примеров · можно начать`,
+          badge: t("badgeToday"),
+          meta: t("metaReady", count),
           action: true,
         };
       }
 
       return {
         kind: "miss",
-        badge: "Пропущено",
-        meta: `${START_COUNT} примеров · не выполнено`,
+        badge: t("badgeMiss"),
+        meta: t("metaMiss", count),
         action: true,
       };
     }
@@ -1009,23 +1278,23 @@
       box.innerHTML = "";
       const store = loadStore();
       const today = todayKey();
-      const base = new Date();
+      const start = parseKey(PROGRAM_START);
+      const from = dayOffset(new Date(), -Math.min(7, Math.floor((parseKey(today) - start) / 86400000)));
+      const begin = from < start ? start : from;
 
-      for (let i = -PLAN_PAST_DAYS; i < PLAN_DAYS - PLAN_PAST_DAYS; i += 1) {
-        const day = dayOffset(base, i);
+      for (let i = 0; i < PLAN_DAYS; i += 1) {
+        const day = dayOffset(begin, i);
         const key = todayKey(day);
         const status = planStatus(key, store, today);
         const item = document.createElement(status.action ? "button" : "div");
         if (status.action) item.type = "button";
         item.className = `plan-item ${status.kind}${status.action ? " action" : ""}`;
         item.innerHTML = `
-          <div class="title">${formatDateRu(key)}</div>
+          <div class="title">${formatDateLong(key)}</div>
           <div class="plan-badge">${status.badge}</div>
           <div class="meta">${status.meta}</div>
         `;
-        if (status.action) {
-          item.addEventListener("click", () => openAssignmentDay(key));
-        }
+        if (status.action) item.addEventListener("click", () => openAssignmentDay(key));
         box.appendChild(item);
       }
     }
@@ -1071,22 +1340,23 @@
         : todayKey();
       const onTime = completedDay === dayState.date;
       if (onTime) {
-        parts.push({ label: "Пройдено вовремя", amount: 1 });
+        parts.push({ label: t("rewardOnTime"), amount: 1 });
         total += 1;
       }
 
       const failRate = dayState.answered
         ? (dayState.fails / dayState.answered) * 100
         : 100;
+      const rateText = failRate.toFixed(1);
 
       if (failRate < 5) {
-        parts.push({ label: `Мало ошибок (${failRate.toFixed(1)}% < 5%)`, amount: 3 });
+        parts.push({ label: t("rewardLow", rateText), amount: 3 });
         total += 3;
       } else if (failRate <= 10) {
-        parts.push({ label: `Ошибки ${failRate.toFixed(1)}% (5–10%)`, amount: 1 });
+        parts.push({ label: t("rewardMid", rateText), amount: 1 });
         total += 1;
       } else {
-        parts.push({ label: `Ошибок много (${failRate.toFixed(1)}% > 10%)`, amount: 0 });
+        parts.push({ label: t("rewardHigh", rateText), amount: 0 });
       }
 
       return { total, parts, failRate, onTime };
@@ -1099,9 +1369,7 @@
       list.innerHTML = "";
       (reward.parts || []).forEach((part) => {
         const li = document.createElement("li");
-        li.textContent = part.amount
-          ? `${part.label}: +${part.amount}`
-          : `${part.label}: 0`;
+        li.textContent = part.amount ? `${part.label}: +${part.amount}` : `${part.label}: 0`;
         list.appendChild(li);
       });
     }
@@ -1127,25 +1395,19 @@
       document.getElementById("doneTotal").textContent = String(state.answered);
       document.getElementById("doneSubtitle").textContent = subtitle;
       renderReward(state);
-      setHero(
-        state.coinsAwarded
-          ? `Ура! +${state.coinsAwarded} золотых монет!`
-          : "Тренировка закрыта. Ты молодец!"
-      );
+      setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
       show("done");
     }
 
     function openAssignmentDay(date) {
       const today = todayKey();
-      if (date > today) return;
+      if (date > today || date < PROGRAM_START) return;
 
       state = getDayState(date);
+      if (!state) return;
+
       if (state.completed) {
-        showDoneScreen(
-          date === today
-            ? "Сегодняшнее задание уже закрыто."
-            : `Задание за ${formatDateRu(date)} уже выполнено.`
-        );
+        showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
 
@@ -1153,56 +1415,64 @@
         state.startedAt = new Date().toISOString();
         persist();
       }
-      setHero("Вперёд! Один пример за другим!");
+      setHero(t("heroTrain"));
       show("train");
       showCurrentProblem();
     }
 
     function openPlan() {
-      setHero("Смотри план на 14 дней!");
+      setHero(t("heroPlan"));
       renderPlanList();
       show("plan");
     }
 
     function updateHome() {
       const date = todayKey();
-      state = getDayState(date);
+      state = date >= PROGRAM_START ? getDayState(date) : null;
       const store = loadStore();
-      const remain = state.queue.length;
+      const remain = state ? state.queue.length : 0;
+      const count = state?.startCount || questionCount();
 
-      document.getElementById("dateLabel").textContent = formatDateRu(date);
+      document.getElementById("dateLabel").textContent = formatDateLong(date);
       document.getElementById("homeRemain").textContent = String(remain);
-      document.getElementById("homeOk").textContent = String(state.correct);
-      document.getElementById("homeFail").textContent = String(state.fails);
-      document.getElementById("streakText").textContent = `Серия дней: ${calcStreak(store, date)}`;
+      document.getElementById("homeOk").textContent = String(state?.correct || 0);
+      document.getElementById("homeFail").textContent = String(state?.fails || 0);
+      document.getElementById("streakText").textContent = t("streak", calcStreak(store, date));
 
       const startBtn = document.getElementById("startBtn");
-      if (state.completed) {
-        document.getElementById("todayStatus").textContent = "Задание выполнено";
-        startBtn.textContent = "Смотреть результат";
-        setHero("Сегодня ты уже герой! Можно смотреть монеты.");
+      if (!state) {
+        document.getElementById("todayStatus").textContent = "—";
+        startBtn.disabled = true;
+      } else if (state.completed) {
+        document.getElementById("todayStatus").textContent = t("statusDone");
+        startBtn.textContent = t("seeResult");
+        startBtn.disabled = false;
+        setHero(t("heroDone"));
       } else if (state.answered > 0) {
-        document.getElementById("todayStatus").textContent = "Тренировка начата";
-        startBtn.textContent = "Продолжить приключение";
-        setHero(`Осталось ${remain} примеров. Продолжим?`);
+        document.getElementById("todayStatus").textContent = t("statusStarted");
+        startBtn.textContent = t("continue");
+        startBtn.disabled = false;
+        setHero(t("heroContinue", remain));
       } else {
-        document.getElementById("todayStatus").textContent = `${START_COUNT} примеров`;
-        startBtn.textContent = "Вперёд к примерам!";
-        setHero("Привет! Давай заработаем золотые монеты!");
+        document.getElementById("todayStatus").textContent = t("statusReady", count);
+        startBtn.textContent = t("start");
+        startBtn.disabled = false;
+        setHero(t("heroHello"));
       }
 
-      renderWeek(store);
+      applyI18n();
+      renderCalendar();
       renderCoins();
     }
 
     function updateTrainChrome() {
       const remain = state.queue.length;
-      const planned = Math.max(state.answered + remain, START_COUNT);
+      const planned = Math.max(state.answered + remain, state.startCount || questionCount());
       const doneShare = planned === 0 ? 0 : (state.answered / (state.answered + remain)) * 100;
       document.getElementById("progressFill").style.width = `${Math.min(100, doneShare)}%`;
-      document.getElementById("remainText").textContent = `Осталось: ${remain}`;
-      document.getElementById("scoreText").textContent = `Верно ${state.correct} · Фейлы ${state.fails}`;
-      document.getElementById("trainDateLabel").textContent = formatDateRu(state.date);
+      document.getElementById("remainText").textContent = t("remain", remain);
+      document.getElementById("scoreText").textContent = t("scoreLine", state.correct, state.fails);
+      document.getElementById("trainDateLabel").textContent = formatDateLong(state.date);
     }
 
     function showCurrentProblem() {
@@ -1231,7 +1501,7 @@
       state.completedAt = state.completedAt || new Date().toISOString();
       state.queue = [];
 
-      if (firstCompletion && !state.coinsAwarded) {
+      if (firstCompletion && !state.coinParts) {
         const reward = calcRewards(state);
         state.coinParts = reward;
         state.coinsAwarded = reward.total;
@@ -1245,11 +1515,7 @@
 
       persist();
       spawnBurst(true);
-
-      const subtitle =
-        state.fails === 0
-          ? "Идеально: все ответы верные!"
-          : `Готово. Было ${state.fails} фейлов — из‑за них примеров стало больше.`;
+      const subtitle = state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails);
       showDoneScreen(subtitle);
     }
 
@@ -1267,7 +1533,7 @@
 
       const raw = answerInput.value.trim();
       if (raw === "" || Number.isNaN(Number(raw))) {
-        feedbackEl.textContent = "Впиши ответ числом";
+        feedbackEl.textContent = t("enterNumber");
         feedbackEl.className = "feedback bad";
         answerInput.focus();
         return;
@@ -1280,17 +1546,17 @@
 
       if (value === problem.answer) {
         state.correct += 1;
-        feedbackEl.textContent = "Верно!";
+        feedbackEl.textContent = t("correctShort");
         feedbackEl.className = "feedback ok";
         problemCard.classList.add("flash-ok");
-        setHero(pick(PRAISE));
+        setHero(pick(t("praise")));
         spawnBurst(true);
       } else {
         state.fails += 1;
-        feedbackEl.textContent = `Фейл. Правильно: ${problem.answer}. +${FAIL_EXTRA} примера`;
+        feedbackEl.textContent = t("failLine", problem.answer, FAIL_EXTRA);
         feedbackEl.className = "feedback bad";
         problemCard.classList.add("flash-bad");
-        setHero(pick(CHEER));
+        setHero(pick(t("cheer")));
         spawnBurst(false);
         for (let i = 0; i < FAIL_EXTRA; i += 1) {
           state.queue.push(makeProblem(settings.tables));
@@ -1328,6 +1594,99 @@
       }
     }
 
+    function setLang(next) {
+      lang = next;
+      localStorage.setItem(LANG_KEY, lang);
+      applyI18n();
+      updateHome();
+      if (!planView.classList.contains("hidden")) renderPlanList();
+      if (!doneView.classList.contains("hidden") && state) renderReward(state);
+      if (!adminView.classList.contains("hidden")) {
+        document.getElementById("adminCountInput").value = String(questionCount());
+      }
+    }
+
+    function openPinModal() {
+      pinModal.classList.remove("hidden");
+      document.getElementById("pinError").textContent = "";
+      const input = document.getElementById("pinInput");
+      input.value = "";
+      input.focus();
+    }
+
+    function closePinModal() {
+      pinModal.classList.add("hidden");
+    }
+
+    function openAdmin() {
+      sessionStorage.setItem(ADMIN_KEY, "1");
+      document.getElementById("adminCountInput").value = String(questionCount());
+      document.getElementById("adminStatus").textContent = "";
+      setHero(t("adminTitle"));
+      show("admin");
+    }
+
+    function applyQuestionCountToUnfinished(newCount) {
+      settings.questionCount = newCount;
+      saveSettings();
+      const store = loadStore();
+      let changed = 0;
+
+      Object.keys(store).forEach((key) => {
+        const day = store[key];
+        if (!day || day.completed) return;
+
+        if (!day.answered) {
+          store[key] = createDayState(key);
+          changed += 1;
+          return;
+        }
+
+        const desiredRemaining = Math.max(0, newCount - day.answered);
+        while (day.queue.length > desiredRemaining) day.queue.pop();
+        while (day.queue.length < desiredRemaining) {
+          day.queue.push(makeProblem(settings.tables));
+        }
+        day.startCount = newCount;
+        changed += 1;
+      });
+
+      // Ensure today exists with new settings if needed
+      const today = todayKey();
+      if (today >= PROGRAM_START && !store[today]) {
+        store[today] = createDayState(today);
+        changed += 1;
+      }
+
+      saveStore(store);
+      if (state && !state.completed && store[state.date]) {
+        state = store[state.date];
+      }
+      return changed;
+    }
+
+    function onTitleTap() {
+      const now = Date.now();
+      titleTaps = titleTaps.filter((ts) => now - ts < 2500);
+      titleTaps.push(now);
+      if (titleTaps.length >= 5) {
+        titleTaps = [];
+        if (sessionStorage.getItem(ADMIN_KEY) === "1") openAdmin();
+        else openPinModal();
+      }
+    }
+
+    document.getElementById("langRuBtn").addEventListener("click", () => setLang("ru"));
+    document.getElementById("langEnBtn").addEventListener("click", () => setLang("en"));
+    document.getElementById("appTitle").addEventListener("click", onTitleTap);
+    document.getElementById("calPrev").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+      renderCalendar();
+    });
+    document.getElementById("calNext").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+      renderCalendar();
+    });
     document.getElementById("startBtn").addEventListener("click", startTraining);
     document.getElementById("planBtn").addEventListener("click", openPlan);
     document.getElementById("planBackBtn").addEventListener("click", () => {
@@ -1346,6 +1705,33 @@
     document.getElementById("settingsBtn").addEventListener("click", () => {
       document.getElementById("settingsCard").classList.toggle("hidden");
     });
+    document.getElementById("pinOkBtn").addEventListener("click", () => {
+      const value = document.getElementById("pinInput").value.trim();
+      if (value === ADMIN_PIN) {
+        closePinModal();
+        openAdmin();
+      } else {
+        document.getElementById("pinError").textContent = t("pinWrong");
+      }
+    });
+    document.getElementById("pinCancelBtn").addEventListener("click", closePinModal);
+    document.getElementById("pinInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") document.getElementById("pinOkBtn").click();
+    });
+    document.getElementById("adminSaveBtn").addEventListener("click", () => {
+      const value = Number(document.getElementById("adminCountInput").value);
+      if (!Number.isFinite(value) || value < 5 || value > 200) {
+        document.getElementById("adminStatus").textContent = "5–200";
+        return;
+      }
+      const changed = applyQuestionCountToUnfinished(Math.round(value));
+      document.getElementById("adminStatus").textContent = t("adminSaved", Math.round(value), changed);
+      updateHome();
+    });
+    document.getElementById("adminBackBtn").addEventListener("click", () => {
+      updateHome();
+      show("home");
+    });
     answerInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -1353,7 +1739,12 @@
       }
     });
 
+    // Jump calendar to program start month on first load if needed
+    const startMonth = monthStart(parseKey(PROGRAM_START));
+    if (calMonth < startMonth) calMonth = startMonth;
+
     renderTableButtons();
+    applyI18n();
     renderCoins();
     updateHome();
     show("home");
