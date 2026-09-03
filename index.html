@@ -541,6 +541,74 @@
       animation: coinRise 1s ease forwards;
     }
 
+    .reward-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: grid;
+      place-items: center;
+      background: rgba(18, 28, 70, 0.55);
+      padding: 20px;
+    }
+
+    .reward-popup {
+      width: min(340px, 100%);
+      text-align: center;
+      background: linear-gradient(180deg, #fff7c2, #ffe27a);
+      border: 3px solid #ffd24d;
+      border-radius: 24px;
+      padding: 22px 18px 18px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+      animation: rewardPop 0.45s ease;
+    }
+
+    .reward-big {
+      font-size: 64px;
+      font-weight: 900;
+      color: #8a5a00;
+      line-height: 1;
+      margin-bottom: 8px;
+      text-shadow: 0 3px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .reward-fly-coin {
+      position: fixed;
+      z-index: 95;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
+      border: 2px solid #fff1a0;
+      font-size: 18px;
+      font-weight: 900;
+      color: #6a4700;
+      pointer-events: none;
+      box-shadow: 0 6px 14px rgba(200, 132, 0, 0.45);
+    }
+
+    .tables-today {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tables-today span {
+      min-width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      background: linear-gradient(135deg, #2f6fed, #18c59a);
+      box-shadow: 0 6px 0 rgba(47, 111, 237, 0.25);
+      animation: popIn 0.35s ease;
+    }
+
     @keyframes floatY {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-7px); }
@@ -586,10 +654,22 @@
       0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
       100% { opacity: 0; transform: translate(-50%, -90px) scale(1.3); }
     }
+    @keyframes rewardPop {
+      0% { opacity: 0; transform: scale(0.7) translateY(20px); }
+      60% { opacity: 1; transform: scale(1.06) translateY(0); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
   </style>
 </head>
 <body>
   <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
+
+  <div class="reward-overlay hidden" id="rewardOverlay">
+    <div class="reward-popup">
+      <div class="reward-big" id="rewardBig">+0</div>
+      <p class="note" id="rewardFlyText" style="color:#6a4700;font-weight:800;font-size:16px;">...</p>
+    </div>
+  </div>
 
   <div class="modal hidden" id="pinModal">
     <div class="modal-card">
@@ -642,6 +722,9 @@
           <div class="stat"><strong id="homeFail">0</strong><span data-i18n="fails">fails</span></div>
         </div>
         <p class="streak" id="streakText">Streak: 0</p>
+        <span class="label" style="margin-top:14px;" data-i18n="todayTables">Today's tables</span>
+        <div class="tables-today" id="tablesToday"></div>
+        <p class="note" style="margin-top:8px;" id="tablesProgressNote"></p>
       </div>
 
       <div class="card">
@@ -659,14 +742,8 @@
       </div>
 
       <button class="btn btn-accent" id="startBtn" type="button">Start</button>
+      <button class="btn btn-ghost hidden" id="repeatHomeBtn" type="button">Repeat lesson</button>
       <button class="btn btn-ghost" id="planBtn" type="button">All missions</button>
-      <button class="btn btn-ghost" id="settingsBtn" type="button">Tables</button>
-
-      <div class="card hidden" id="settingsCard" style="margin-top:14px;">
-        <span class="label" data-i18n="tablesLabel">Which tables</span>
-        <div class="tables" id="tableButtons"></div>
-        <p class="note" style="margin-top:10px;" data-i18n="tablesHint">Changes apply to new training. Current day is kept.</p>
-      </div>
     </section>
 
     <section id="planView" class="hidden">
@@ -710,6 +787,7 @@
           <ul id="rewardList"></ul>
         </div>
       </div>
+      <button class="btn btn-accent" id="repeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
       <button class="btn btn-ink" id="backHomeBtn" type="button" data-i18n="home">Home</button>
     </section>
 
@@ -744,7 +822,7 @@
         appTitle: "Миша × Умножение",
         heroName: "Герой Миша",
         todayMission: "Задание дня",
-        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. За прохождение вовремя и точность — золотые монеты!",
+        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить монеты!",
         left: "осталось",
         correct: "верно",
         fails: "фейлы",
@@ -754,10 +832,11 @@
         start: "Вперёд к примерам!",
         continue: "Продолжить приключение",
         seeResult: "Смотреть результат",
+        repeat: "Повторить урок",
         allMissions: "Все задания · 14 дней",
-        tables: "Настройки таблиц",
-        tablesLabel: "Какие таблицы",
-        tablesHint: "Изменения применятся к новой тренировке. Текущий день не сбрасывается.",
+        todayTables: "Таблицы сегодня",
+        tablesProgress: (list, nextIn) => `Сейчас: ${list}. Через ${nextIn} дн. добавится новая.`,
+        tablesProgressMax: (list) => `Сейчас: ${list}. Все таблицы открыты!`,
         planSubtitle: "14 дней: прошедшие, сегодня и ещё не наступившие",
         back: "Назад",
         home: "На главную",
@@ -765,6 +844,8 @@
         exitMenu: "Выйти в меню",
         doneTitle: "Ура, Миша!",
         reward: "Награда",
+        rewardFly: "Монеты летят в копилку!",
+        runsToday: (n) => `Уроков сегодня: ${n}`,
         adminTitle: "Админка папы",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
@@ -785,7 +866,7 @@
         correctShort: "Верно!",
         failLine: (ans, extra) => `Фейл. Правильно: ${ans}. +${extra} примера`,
         heroHello: "Привет! Давай заработаем золотые монеты!",
-        heroDone: "Сегодня ты уже герой! Можно смотреть монеты.",
+        heroDone: "Можно повторить урок и заработать ещё монет!",
         heroContinue: (n) => `Осталось ${n} примеров. Продолжим?`,
         heroTrain: "Вперёд! Один пример за другим!",
         heroPlan: "Смотри план на 14 дней!",
@@ -795,8 +876,8 @@
         cheer: ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"],
         doneIdeal: "Идеально: все ответы верные!",
         doneFails: (n) => `Готово. Было ${n} фейлов — из‑за них примеров стало больше.`,
-        closedToday: "Сегодняшнее задание уже закрыто.",
-        closedDay: (d) => `Задание за ${d} уже выполнено.`,
+        closedToday: "Урок выполнен. Можно пройти ещё раз!",
+        closedDay: (d) => `Задание за ${d} уже выполнено. Можно повторить.`,
         badgeFuture: "Ещё нет",
         badgeDone: "Сделано",
         badgeLate: "С опозданием",
@@ -819,7 +900,7 @@
         appTitle: "Misha × Math",
         heroName: "Hero Misha",
         todayMission: "Today's mission",
-        rulesNote: "Correct answers count. A fail adds 2 more examples. Earn gold coins for finishing on time and accuracy!",
+        rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more coins!",
         left: "left",
         correct: "correct",
         fails: "fails",
@@ -829,10 +910,11 @@
         start: "Let's go!",
         continue: "Continue adventure",
         seeResult: "See result",
+        repeat: "Repeat lesson",
         allMissions: "All missions · 14 days",
-        tables: "Table settings",
-        tablesLabel: "Which tables",
-        tablesHint: "Changes apply to new training. Current day is kept.",
+        todayTables: "Today's tables",
+        tablesProgress: (list, nextIn) => `Now: ${list}. New table in ${nextIn} day(s).`,
+        tablesProgressMax: (list) => `Now: ${list}. All tables unlocked!`,
         planSubtitle: "14 days: past, today, and upcoming",
         back: "Back",
         home: "Home",
@@ -840,6 +922,8 @@
         exitMenu: "Exit to menu",
         doneTitle: "Yay, Misha!",
         reward: "Reward",
+        rewardFly: "Coins are flying into your balance!",
+        runsToday: (n) => `Lessons today: ${n}`,
         adminTitle: "Dad admin",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
@@ -860,7 +944,7 @@
         correctShort: "Correct!",
         failLine: (ans, extra) => `Fail. Right answer: ${ans}. +${extra} examples`,
         heroHello: "Hi! Let's earn gold coins!",
-        heroDone: "You're already today's hero! Check your coins.",
+        heroDone: "You can repeat the lesson and earn more coins!",
         heroContinue: (n) => `${n} examples left. Continue?`,
         heroTrain: "Go! One example at a time!",
         heroPlan: "Here is the 14-day plan!",
@@ -870,8 +954,8 @@
         cheer: ["Don't give up!", "Try again!", "You've got this!", "Keep going!"],
         doneIdeal: "Perfect: all answers correct!",
         doneFails: (n) => `Done. There were ${n} fails — that added more examples.`,
-        closedToday: "Today's mission is already closed.",
-        closedDay: (d) => `Mission for ${d} is already done.`,
+        closedToday: "Lesson done. You can play it again!",
+        closedDay: (d) => `Mission for ${d} is done. You can repeat it.`,
         badgeFuture: "Not yet",
         badgeDone: "Done",
         badgeLate: "Late",
@@ -953,6 +1037,26 @@
       return Number(settings.questionCount) || 50;
     }
 
+    function dayIndex(dateKey) {
+      const ms = parseKey(dateKey).getTime() - parseKey(PROGRAM_START).getTime();
+      return Math.max(0, Math.floor(ms / 86400000));
+    }
+
+    function tablesForDate(dateKey) {
+      const idx = dayIndex(dateKey);
+      const maxN = Math.min(9, 3 + Math.floor(idx / 2));
+      const tables = [];
+      for (let n = 1; n <= maxN; n += 1) tables.push(n);
+      return tables;
+    }
+
+    function daysUntilNextTable(dateKey) {
+      const idx = dayIndex(dateKey);
+      const maxN = Math.min(9, 3 + Math.floor(idx / 2));
+      if (maxN >= 9) return 0;
+      return 2 - (idx % 2);
+    }
+
     function pick(list) {
       return list[Math.floor(Math.random() * list.length)];
     }
@@ -973,18 +1077,14 @@
     function loadSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
-        if (!raw) return { tables: [2, 3, 4, 5, 6, 7, 8, 9], questionCount: 50 };
+        if (!raw) return { questionCount: 50 };
         const parsed = JSON.parse(raw);
-        const tables = Array.isArray(parsed.tables)
-          ? parsed.tables.filter((n) => n >= 2 && n <= 9)
-          : [];
         const count = Number(parsed.questionCount);
         return {
-          tables: tables.length ? tables : [2, 3, 4, 5, 6, 7, 8, 9],
           questionCount: count >= 5 && count <= 200 ? count : 50,
         };
       } catch {
-        return { tables: [2, 3, 4, 5, 6, 7, 8, 9], questionCount: 50 };
+        return { questionCount: 50 };
       }
     }
 
@@ -1021,30 +1121,100 @@
       document.getElementById("coinsValue").textContent = String(coins.balance);
     }
 
-    function addCoins(amount) {
-      if (!amount) return;
-      coins.balance += amount;
-      saveCoins();
-      renderCoins();
+    function bumpCoinsDisplay() {
       coinsBadge.classList.remove("pop");
       void coinsBadge.offsetWidth;
       coinsBadge.classList.add("pop");
     }
 
+    function addCoins(amount) {
+      if (!amount) return;
+      coins.balance += amount;
+      saveCoins();
+      renderCoins();
+      bumpCoinsDisplay();
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    async function playRewardToBalance(amount) {
+      const overlay = document.getElementById("rewardOverlay");
+      const big = document.getElementById("rewardBig");
+      const flyText = document.getElementById("rewardFlyText");
+      if (!amount || amount < 1) {
+        overlay.classList.add("hidden");
+        return;
+      }
+
+      big.textContent = `+${amount}`;
+      flyText.textContent = t("rewardFly");
+      overlay.classList.remove("hidden");
+      await sleep(550);
+
+      const startBalance = coins.balance;
+      const badgeRect = coinsBadge.getBoundingClientRect();
+      const targetX = badgeRect.left + badgeRect.width / 2;
+      const targetY = badgeRect.top + badgeRect.height / 2;
+      const originX = window.innerWidth / 2;
+      const originY = window.innerHeight / 2;
+
+      for (let i = 0; i < amount; i += 1) {
+        const coinEl = document.createElement("div");
+        coinEl.className = "reward-fly-coin";
+        coinEl.textContent = "★";
+        coinEl.style.left = `${originX - 18}px`;
+        coinEl.style.top = `${originY - 18}px`;
+        document.body.appendChild(coinEl);
+
+        const anim = coinEl.animate(
+          [
+            {
+              transform: "translate(0, 0) scale(1.25)",
+              opacity: 1,
+            },
+            {
+              transform: `translate(${(targetX - originX) * 0.4}px, ${(targetY - originY) * 0.2 - 40}px) scale(1.1)`,
+              opacity: 1,
+              offset: 0.45,
+            },
+            {
+              transform: `translate(${targetX - originX}px, ${targetY - originY}px) scale(0.55)`,
+              opacity: 0.85,
+            },
+          ],
+          {
+            duration: 700,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            fill: "forwards",
+          }
+        );
+        await anim.finished.catch(() => {});
+        coinEl.remove();
+        coins.balance = startBalance + i + 1;
+        renderCoins();
+        bumpCoinsDisplay();
+        await sleep(70);
+      }
+
+      saveCoins();
+      await sleep(250);
+      overlay.classList.add("hidden");
+    }
+
     function buildPool(tables) {
       const pool = [];
-      const seen = new Set();
       tables.forEach((a) => {
-        for (let b = 2; b <= 9; b += 1) {
-          [{ a, b }, { a: b, b: a }].forEach((item) => {
-            const key = `${item.a}x${item.b}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            pool.push({ a: item.a, b: item.b, answer: item.a * item.b });
-          });
-        }
+        tables.forEach((b) => {
+          pool.push({ a, b, answer: a * b });
+        });
       });
       return pool;
+    }
+
+    function activeTables(dayState) {
+      return dayState?.tables?.length ? dayState.tables : tablesForDate(dayState?.date || todayKey());
     }
 
     function makeProblem(tables) {
@@ -1077,19 +1247,39 @@
 
     function createDayState(date) {
       const count = questionCount();
+      const tables = tablesForDate(date);
       return {
         date,
+        tables,
         startCount: count,
-        queue: makeQueue(count, settings.tables),
+        queue: makeQueue(count, tables),
         correct: 0,
         fails: 0,
         answered: 0,
         completed: false,
+        sessionDone: false,
         completedAt: null,
         startedAt: null,
+        runsCompleted: 0,
+        totalCoins: 0,
         coinsAwarded: 0,
         coinParts: null,
       };
+    }
+
+    function resetSession(dayState) {
+      const tables = tablesForDate(dayState.date);
+      dayState.tables = tables;
+      dayState.startCount = questionCount();
+      dayState.queue = makeQueue(dayState.startCount, tables);
+      dayState.correct = 0;
+      dayState.fails = 0;
+      dayState.answered = 0;
+      dayState.sessionDone = false;
+      dayState.startedAt = new Date().toISOString();
+      dayState.coinsAwarded = 0;
+      dayState.coinParts = null;
+      return dayState;
     }
 
     function getDayState(date = todayKey()) {
@@ -1098,7 +1288,23 @@
       if (!store[date]) {
         store[date] = createDayState(date);
         saveStore(store);
+        return store[date];
       }
+
+      const day = store[date];
+      if (day.sessionDone == null) day.sessionDone = !!day.completed;
+      if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
+      if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
+
+      const expected = tablesForDate(date).join(",");
+      const current = Array.isArray(day.tables) ? day.tables.join(",") : "";
+      if (!day.completed && !day.answered && expected !== current) {
+        store[date] = createDayState(date);
+      } else if (!day.tables) {
+        day.tables = tablesForDate(date);
+      }
+
+      saveStore(store);
       return store[date];
     }
 
@@ -1151,11 +1357,22 @@
       });
       document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
       document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
-      document.getElementById("startBtn").textContent =
-        state?.completed ? t("seeResult") : state?.answered > 0 ? t("continue") : t("start");
       document.getElementById("planBtn").textContent = t("allMissions");
-      document.getElementById("settingsBtn").textContent = t("tables");
+      document.getElementById("repeatBtn").textContent = t("repeat");
+      document.getElementById("repeatHomeBtn").textContent = t("repeat");
+      document.getElementById("rewardFlyText").textContent = t("rewardFly");
       renderWeekdays();
+    }
+
+    function renderTodayTables(dateKey) {
+      const tables = tablesForDate(dateKey);
+      const box = document.getElementById("tablesToday");
+      box.innerHTML = tables.map((n) => `<span>${n}</span>`).join("");
+      const nextIn = daysUntilNextTable(dateKey);
+      const list = tables.join(", ");
+      document.getElementById("tablesProgressNote").textContent = nextIn
+        ? t("tablesProgress", list, nextIn)
+        : t("tablesProgressMax", list);
     }
 
     function renderWeekdays() {
@@ -1374,29 +1591,21 @@
       });
     }
 
-    function ensureCoinsAwarded() {
-      if (!state?.completed || state.coinParts) return;
-      const reward = calcRewards(state);
-      state.coinParts = reward;
-      state.coinsAwarded = reward.total;
-      if (reward.total > 0) {
-        addCoins(reward.total);
-        for (let i = 0; i < Math.min(reward.total, 6); i += 1) {
-          window.setTimeout(spawnCoinFly, i * 120);
-        }
-      }
-      persist();
-    }
-
-    function showDoneScreen(subtitle) {
-      ensureCoinsAwarded();
+    function showDoneScreen(subtitle, options = {}) {
+      const { animateReward = false } = options;
       document.getElementById("doneOk").textContent = String(state.correct);
       document.getElementById("doneFail").textContent = String(state.fails);
       document.getElementById("doneTotal").textContent = String(state.answered);
-      document.getElementById("doneSubtitle").textContent = subtitle;
+      const runs = state.runsCompleted || 0;
+      const extra = runs ? ` ${t("runsToday", runs)}` : "";
+      document.getElementById("doneSubtitle").textContent = `${subtitle}${extra}`;
       renderReward(state);
       setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
+      document.getElementById("repeatBtn").classList.remove("hidden");
       show("done");
+      if (animateReward && state.coinsAwarded > 0) {
+        playRewardToBalance(state.coinsAwarded);
+      }
     }
 
     function openAssignmentDay(date) {
@@ -1406,7 +1615,7 @@
       state = getDayState(date);
       if (!state) return;
 
-      if (state.completed) {
+      if (state.sessionDone) {
         showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
@@ -1415,6 +1624,16 @@
         state.startedAt = new Date().toISOString();
         persist();
       }
+      setHero(t("heroTrain"));
+      show("train");
+      showCurrentProblem();
+    }
+
+    function startRepeatLesson() {
+      if (!state) state = getDayState(todayKey());
+      if (!state) return;
+      resetSession(state);
+      persist();
       setHero(t("heroTrain"));
       show("train");
       showCurrentProblem();
@@ -1432,21 +1651,26 @@
       const store = loadStore();
       const remain = state ? state.queue.length : 0;
       const count = state?.startCount || questionCount();
+      const repeatHomeBtn = document.getElementById("repeatHomeBtn");
 
       document.getElementById("dateLabel").textContent = formatDateLong(date);
-      document.getElementById("homeRemain").textContent = String(remain);
+      document.getElementById("homeRemain").textContent = String(state?.sessionDone ? 0 : remain);
       document.getElementById("homeOk").textContent = String(state?.correct || 0);
       document.getElementById("homeFail").textContent = String(state?.fails || 0);
       document.getElementById("streakText").textContent = t("streak", calcStreak(store, date));
+      renderTodayTables(date);
 
       const startBtn = document.getElementById("startBtn");
+      repeatHomeBtn.classList.add("hidden");
       if (!state) {
         document.getElementById("todayStatus").textContent = "—";
         startBtn.disabled = true;
-      } else if (state.completed) {
+      } else if (state.sessionDone) {
         document.getElementById("todayStatus").textContent = t("statusDone");
         startBtn.textContent = t("seeResult");
         startBtn.disabled = false;
+        repeatHomeBtn.classList.remove("hidden");
+        repeatHomeBtn.textContent = t("repeat");
         setHero(t("heroDone"));
       } else if (state.answered > 0) {
         document.getElementById("todayStatus").textContent = t("statusStarted");
@@ -1461,6 +1685,16 @@
       }
 
       applyI18n();
+      if (!state) {
+        // keep disabled
+      } else if (state.sessionDone) {
+        startBtn.textContent = t("seeResult");
+        repeatHomeBtn.textContent = t("repeat");
+      } else if (state.answered > 0) {
+        startBtn.textContent = t("continue");
+      } else {
+        startBtn.textContent = t("start");
+      }
       renderCalendar();
       renderCoins();
     }
@@ -1496,27 +1730,21 @@
     }
 
     function finishTraining() {
-      const firstCompletion = !state.completed;
+      state.sessionDone = true;
       state.completed = true;
       state.completedAt = state.completedAt || new Date().toISOString();
       state.queue = [];
+      state.runsCompleted = (state.runsCompleted || 0) + 1;
 
-      if (firstCompletion && !state.coinParts) {
-        const reward = calcRewards(state);
-        state.coinParts = reward;
-        state.coinsAwarded = reward.total;
-        if (reward.total > 0) {
-          addCoins(reward.total);
-          for (let i = 0; i < Math.min(reward.total, 6); i += 1) {
-            window.setTimeout(spawnCoinFly, i * 120);
-          }
-        }
-      }
+      const reward = calcRewards(state);
+      state.coinParts = reward;
+      state.coinsAwarded = reward.total;
+      state.totalCoins = (state.totalCoins || 0) + reward.total;
 
       persist();
       spawnBurst(true);
       const subtitle = state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails);
-      showDoneScreen(subtitle);
+      showDoneScreen(subtitle, { animateReward: true });
     }
 
     function startTraining() {
@@ -1524,7 +1752,7 @@
     }
 
     function submitAnswer() {
-      if (busy || !state || state.completed) return;
+      if (busy || !state || state.sessionDone) return;
       const problem = state.queue[0];
       if (!problem) {
         finishTraining();
@@ -1543,6 +1771,7 @@
       const value = Number(raw);
       state.queue.shift();
       state.answered += 1;
+      const tables = activeTables(state);
 
       if (value === problem.answer) {
         state.correct += 1;
@@ -1559,7 +1788,7 @@
         setHero(pick(t("cheer")));
         spawnBurst(false);
         for (let i = 0; i < FAIL_EXTRA; i += 1) {
-          state.queue.push(makeProblem(settings.tables));
+          state.queue.push(makeProblem(tables));
         }
       }
 
@@ -1570,28 +1799,6 @@
         if (!state.queue.length) finishTraining();
         else showCurrentProblem();
       }, value === problem.answer ? 380 : 950);
-    }
-
-    function renderTableButtons() {
-      const box = document.getElementById("tableButtons");
-      box.innerHTML = "";
-      const selected = new Set(settings.tables);
-      for (let n = 2; n <= 9; n += 1) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = String(n);
-        btn.className = selected.has(n) ? "on" : "";
-        btn.addEventListener("click", () => {
-          if (selected.has(n)) {
-            if (selected.size === 1) return;
-            selected.delete(n);
-          } else selected.add(n);
-          settings.tables = [...selected].sort((a, b) => a - b);
-          saveSettings();
-          renderTableButtons();
-        });
-        box.appendChild(btn);
-      }
     }
 
     function setLang(next) {
@@ -1634,7 +1841,8 @@
 
       Object.keys(store).forEach((key) => {
         const day = store[key];
-        if (!day || day.completed) return;
+        if (!day || day.sessionDone || day.completed) return;
+        const tables = tablesForDate(key);
 
         if (!day.answered) {
           store[key] = createDayState(key);
@@ -1645,13 +1853,13 @@
         const desiredRemaining = Math.max(0, newCount - day.answered);
         while (day.queue.length > desiredRemaining) day.queue.pop();
         while (day.queue.length < desiredRemaining) {
-          day.queue.push(makeProblem(settings.tables));
+          day.queue.push(makeProblem(tables));
         }
+        day.tables = tables;
         day.startCount = newCount;
         changed += 1;
       });
 
-      // Ensure today exists with new settings if needed
       const today = todayKey();
       if (today >= PROGRAM_START && !store[today]) {
         store[today] = createDayState(today);
@@ -1659,7 +1867,7 @@
       }
 
       saveStore(store);
-      if (state && !state.completed && store[state.date]) {
+      if (state && !state.sessionDone && store[state.date]) {
         state = store[state.date];
       }
       return changed;
@@ -1688,6 +1896,11 @@
       renderCalendar();
     });
     document.getElementById("startBtn").addEventListener("click", startTraining);
+    document.getElementById("repeatBtn").addEventListener("click", startRepeatLesson);
+    document.getElementById("repeatHomeBtn").addEventListener("click", () => {
+      state = getDayState(todayKey());
+      startRepeatLesson();
+    });
     document.getElementById("planBtn").addEventListener("click", openPlan);
     document.getElementById("planBackBtn").addEventListener("click", () => {
       updateHome();
@@ -1701,9 +1914,6 @@
     document.getElementById("backHomeBtn").addEventListener("click", () => {
       updateHome();
       show("home");
-    });
-    document.getElementById("settingsBtn").addEventListener("click", () => {
-      document.getElementById("settingsCard").classList.toggle("hidden");
     });
     document.getElementById("pinOkBtn").addEventListener("click", () => {
       const value = document.getElementById("pinInput").value.trim();
@@ -1743,7 +1953,6 @@
     const startMonth = monthStart(parseKey(PROGRAM_START));
     if (calMonth < startMonth) calMonth = startMonth;
 
-    renderTableButtons();
     applyI18n();
     renderCoins();
     updateHome();
