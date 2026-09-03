@@ -3,23 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1c2430" />
+  <meta name="theme-color" content="#2f6fed" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Задание дня — таблица умножения</title>
+  <title>Миша и таблица умножения</title>
   <style>
     :root {
-      --ink: #1c2430;
-      --muted: #5b6675;
-      --paper: #f4efe6;
-      --card: #fffdf8;
-      --line: #d8cfc0;
-      --accent: #c45c26;
-      --accent-ink: #fffaf4;
-      --ok: #2d7a4f;
-      --ok-bg: #e5f4ea;
-      --bad: #b42318;
-      --bad-bg: #fdecea;
-      --focus: #2f5d8a;
+      --ink: #1a2450;
+      --muted: #5a6490;
+      --paper: #dff3ff;
+      --card: #ffffff;
+      --line: #c7dbf5;
+      --accent: #ff7a18;
+      --accent-2: #ff3d81;
+      --sky: #2f6fed;
+      --mint: #18c59a;
+      --gold: #f5b400;
+      --gold-dark: #c88400;
+      --ok: #0f9f6e;
+      --ok-bg: #d8fff0;
+      --bad: #e11d48;
+      --bad-bg: #ffe1e8;
+      --focus: #2f6fed;
+      --shadow: 0 10px 28px rgba(36, 72, 140, 0.14);
     }
 
     * { box-sizing: border-box; }
@@ -27,45 +32,169 @@
     html, body {
       margin: 0;
       min-height: 100%;
-      background: var(--paper);
       color: var(--ink);
       font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(circle at 12% 10%, #fff7b0 0%, transparent 28%),
+        radial-gradient(circle at 90% 0%, #ffb4d8 0%, transparent 32%),
+        radial-gradient(circle at 80% 90%, #9ef0d2 0%, transparent 34%),
+        linear-gradient(180deg, #d7efff 0%, #ffe9d6 55%, #ffd8ef 100%);
+      background-attachment: fixed;
     }
 
     body {
-      padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+      padding: 18px 14px calc(28px + env(safe-area-inset-bottom));
+      overflow-x: hidden;
     }
 
     .wrap {
       max-width: 440px;
       margin: 0 auto;
+      position: relative;
     }
 
     h1 {
       margin: 0 0 4px;
-      font-size: 26px;
+      font-size: 28px;
       letter-spacing: -0.03em;
     }
 
     .subtitle {
-      margin: 0 0 20px;
+      margin: 0 0 16px;
       color: var(--muted);
       font-size: 15px;
     }
 
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .coins {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 6px 14px 6px 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ffe566, #ffb703);
+      color: #5a3b00;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(245, 180, 0, 0.35);
+      animation: coinGlow 2.2s ease-in-out infinite;
+    }
+
+    .coins .coin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
+      border: 2px solid #fff1a0;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+      font-size: 14px;
+      animation: spinSoft 4s linear infinite;
+    }
+
+    .coins.pop {
+      animation: coinPop 0.55s ease;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .hero-avatar-wrap {
+      position: relative;
+      width: 112px;
+      height: 112px;
+    }
+
+    .hero-avatar {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: center 18%;
+      border: 4px solid #fff;
+      box-shadow: var(--shadow), 0 0 0 4px rgba(47, 111, 237, 0.25);
+      animation: floatY 3s ease-in-out infinite;
+      background: #fff;
+    }
+
+    .hero-avatar-wrap::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #2f6fed, #18c59a, #ffb703, #ff3d81, #2f6fed);
+      z-index: -1;
+      animation: spinSoft 6s linear infinite;
+      opacity: 0.85;
+    }
+
+    .hero-bubble {
+      position: relative;
+      background: #fff;
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      box-shadow: var(--shadow);
+      border: 2px solid #dceaff;
+      min-height: 78px;
+    }
+
+    .hero-bubble::before {
+      content: "";
+      position: absolute;
+      left: -8px;
+      top: 34px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-left: 2px solid #dceaff;
+      border-bottom: 2px solid #dceaff;
+      transform: rotate(45deg);
+    }
+
+    .hero-name {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--sky);
+      margin-bottom: 4px;
+    }
+
+    .hero-text {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
     .card {
       background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 16px;
+      border: 2px solid #e5f0ff;
+      border-radius: 20px;
       padding: 18px;
       margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      animation: fadeUp 0.45s ease;
     }
 
     .label {
       display: block;
       margin-bottom: 8px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--muted);
@@ -79,10 +208,11 @@
     }
 
     .stat {
-      background: #efe7da;
-      border-radius: 12px;
+      background: linear-gradient(180deg, #eef5ff, #f7fbff);
+      border-radius: 14px;
       padding: 10px 8px;
       text-align: center;
+      border: 1px solid #dceaff;
     }
 
     .stat strong {
@@ -101,32 +231,40 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      min-height: 52px;
+      min-height: 54px;
       border: 0;
-      border-radius: 14px;
+      border-radius: 16px;
       padding: 0 16px;
       font: inherit;
       font-size: 18px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      box-shadow: 0 8px 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.08);
     }
 
     .btn + .btn { margin-top: 10px; }
 
     .btn-accent {
-      background: var(--accent);
-      color: var(--accent-ink);
+      background: linear-gradient(135deg, #ff8a2b, #ff3d81);
+      color: #fff;
     }
 
     .btn-ink {
-      background: var(--ink);
+      background: linear-gradient(135deg, #2f6fed, #6a4dff);
       color: #fff;
     }
 
     .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.75);
+      border: 2px solid #cfe0ff;
       color: var(--ink);
+      box-shadow: none;
     }
 
     .btn:disabled {
@@ -138,6 +276,7 @@
       margin-top: 8px;
       font-size: 15px;
       color: var(--muted);
+      font-weight: 700;
     }
 
     .days {
@@ -149,49 +288,51 @@
 
     .day {
       aspect-ratio: 1;
-      border-radius: 10px;
-      border: 1px solid var(--line);
+      border-radius: 12px;
+      border: 2px solid #dceaff;
       background: #fff;
       display: grid;
       place-items: center;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .day.done {
       background: var(--ok-bg);
-      border-color: #b7ddc4;
+      border-color: #7de0b8;
       color: var(--ok);
+      animation: popIn 0.35s ease;
     }
 
     .day.today {
-      border-color: var(--ink);
-      box-shadow: inset 0 0 0 1px var(--ink);
+      border-color: var(--sky);
+      box-shadow: inset 0 0 0 1px var(--sky);
     }
 
     .day.miss {
       background: var(--bad-bg);
-      border-color: #f3c0bb;
+      border-color: #ffb0c0;
       color: var(--bad);
     }
 
     .hidden { display: none !important; }
 
     .progress-bar {
-      height: 10px;
-      background: #efe7da;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.7);
       border-radius: 999px;
       overflow: hidden;
       margin: 12px 0 6px;
+      border: 2px solid #cfe0ff;
     }
 
     .progress-bar > i {
       display: block;
       height: 100%;
       width: 0;
-      background: var(--ink);
+      background: linear-gradient(90deg, #2f6fed, #18c59a, #ffb703);
       border-radius: inherit;
-      transition: width 0.2s ease;
+      transition: width 0.25s ease;
     }
 
     .progress-text {
@@ -199,20 +340,23 @@
       justify-content: space-between;
       font-size: 13px;
       color: var(--muted);
-      margin-bottom: 18px;
+      margin-bottom: 14px;
+      font-weight: 700;
     }
 
     .problem-card {
       text-align: center;
-      padding: 28px 18px 22px;
+      padding: 26px 18px 20px;
+      transition: background 0.2s ease, transform 0.2s ease;
     }
 
     .problem {
-      font-size: 44px;
-      font-weight: 800;
+      font-size: 46px;
+      font-weight: 900;
       letter-spacing: 0.02em;
       margin: 8px 0 22px;
       white-space: nowrap;
+      animation: popIn 0.28s ease;
     }
 
     .answer-row {
@@ -223,43 +367,70 @@
 
     .answer-row input {
       width: 100%;
-      min-height: 56px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
+      min-height: 58px;
+      border: 2px solid #cfe0ff;
+      border-radius: 16px;
       text-align: center;
-      font-size: 28px;
-      font-weight: 800;
+      font-size: 30px;
+      font-weight: 900;
       background: #fff;
       color: var(--ink);
     }
 
     .answer-row input:focus {
-      outline: 2px solid var(--focus);
+      outline: 3px solid rgba(47, 111, 237, 0.25);
       border-color: var(--focus);
     }
 
     .answer-row .btn {
       width: 110px;
-      min-height: 56px;
+      min-height: 58px;
     }
 
     .feedback {
       min-height: 28px;
       margin-top: 14px;
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 800;
     }
 
     .feedback.ok { color: var(--ok); }
     .feedback.bad { color: var(--bad); }
 
-    .flash-ok { background: var(--ok-bg); }
-    .flash-bad { background: var(--bad-bg); }
+    .flash-ok {
+      background: var(--ok-bg) !important;
+      animation: successPulse 0.4s ease;
+    }
+
+    .flash-bad {
+      background: var(--bad-bg) !important;
+      animation: shakeX 0.4s ease;
+    }
 
     .done-title {
-      font-size: 28px;
-      font-weight: 800;
+      font-size: 30px;
+      font-weight: 900;
       margin: 0 0 8px;
+      background: linear-gradient(90deg, #2f6fed, #ff3d81, #ffb703);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .reward-box {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fff4b8, #ffe08a);
+      border: 2px solid #ffd24d;
+      text-align: left;
+      font-weight: 700;
+      color: #6a4700;
+    }
+
+    .reward-box ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
     }
 
     .tables {
@@ -271,19 +442,20 @@
     .tables button {
       width: 42px;
       height: 42px;
-      border: 1px solid var(--line);
+      border: 2px solid #cfe0ff;
       background: #fff;
       color: var(--ink);
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 17px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
     }
 
     .tables button.on {
-      background: var(--ink);
-      border-color: var(--ink);
+      background: linear-gradient(135deg, #2f6fed, #6a4dff);
+      border-color: transparent;
       color: #fff;
+      transform: scale(1.05);
     }
 
     .note {
@@ -305,7 +477,7 @@
       align-items: center;
       width: 100%;
       padding: 12px 14px;
-      border: 1px solid var(--line);
+      border: 2px solid #dceaff;
       border-radius: 14px;
       background: #fff;
       color: var(--ink);
@@ -314,48 +486,33 @@
       cursor: default;
     }
 
-    .plan-item.action {
-      cursor: pointer;
-    }
-
+    .plan-item.action { cursor: pointer; }
     .plan-item.today {
-      border-color: var(--ink);
-      box-shadow: inset 0 0 0 1px var(--ink);
+      border-color: var(--sky);
+      box-shadow: inset 0 0 0 1px var(--sky);
     }
-
     .plan-item.done {
       background: var(--ok-bg);
-      border-color: #b7ddc4;
+      border-color: #7de0b8;
     }
-
     .plan-item.miss {
       background: var(--bad-bg);
-      border-color: #f3c0bb;
+      border-color: #ffb0c0;
     }
-
     .plan-item.future {
-      background: #f7f2ea;
+      background: #f3f7ff;
       color: var(--muted);
     }
-
     .plan-item .title {
       font-size: 15px;
       font-weight: 800;
       text-transform: capitalize;
     }
-
     .plan-item .meta {
       grid-column: 1 / -1;
       font-size: 13px;
       color: var(--muted);
     }
-
-    .plan-item.done .meta,
-    .plan-item.miss .meta {
-      color: inherit;
-      opacity: 0.85;
-    }
-
     .plan-badge {
       font-size: 12px;
       font-weight: 800;
@@ -363,20 +520,126 @@
       text-transform: uppercase;
       white-space: nowrap;
     }
+
+    .fx-layer {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .burst {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      animation: burstFly 0.9s ease forwards;
+    }
+
+    .floating-coin {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
+      border: 2px solid #fff1a0;
+      font-size: 14px;
+      font-weight: 900;
+      color: #6a4700;
+      animation: coinRise 1s ease forwards;
+    }
+
+    @keyframes floatY {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-7px); }
+    }
+
+    @keyframes spinSoft {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes coinGlow {
+      0%, 100% { filter: brightness(1); transform: scale(1); }
+      50% { filter: brightness(1.06); transform: scale(1.03); }
+    }
+
+    @keyframes coinPop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes successPulse {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes shakeX {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    @keyframes burstFly {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4); }
+    }
+
+    @keyframes coinRise {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -90px) scale(1.3); }
+    }
   </style>
 </head>
 <body>
+  <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
   <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Миша × Умножение</h1>
+      </div>
+      <div class="coins" id="coinsBadge" title="Золотые монеты">
+        <span class="coin">★</span>
+        <span id="coinsValue">0</span>
+      </div>
+    </div>
+
+    <div class="hero" id="heroBlock">
+      <div class="hero-avatar-wrap">
+        <img class="hero-avatar" src="assets/misha.jpg" alt="Миша" width="112" height="112" />
+      </div>
+      <div class="hero-bubble">
+        <div class="hero-name">Герой Миша</div>
+        <p class="hero-text" id="heroText">Привет! Давай заработаем золотые монеты!</p>
+      </div>
+    </div>
+
     <section id="homeView">
-      <h1>Задание дня</h1>
       <p class="subtitle" id="dateLabel">Таблица умножения для Миши</p>
 
       <div class="card">
-        <span class="label">Сегодня</span>
-        <div id="todayStatus" style="font-size:20px;font-weight:800;margin-top:4px;">50 примеров</div>
+        <span class="label">Задание дня</span>
+        <div id="todayStatus" style="font-size:22px;font-weight:900;margin-top:4px;">50 примеров</div>
         <p class="note" style="margin-top:8px;">
           Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2.
-          Тренировка готова, когда не осталось неотвеченных примеров.
+          За прохождение вовремя и точность — золотые монеты!
         </p>
         <div class="stats">
           <div class="stat"><strong id="homeRemain">50</strong><span>осталось</span></div>
@@ -387,9 +650,9 @@
         <div class="days" id="weekDays"></div>
       </div>
 
-      <button class="btn btn-accent" id="startBtn" type="button">Начать тренировку</button>
+      <button class="btn btn-accent" id="startBtn" type="button">Вперёд к примерам!</button>
       <button class="btn btn-ghost" id="planBtn" type="button">Все задания · 14 дней</button>
-      <button class="btn btn-ghost hidden" id="settingsBtn" type="button">Настройки таблиц</button>
+      <button class="btn btn-ghost" id="settingsBtn" type="button">Настройки таблиц</button>
 
       <div class="card hidden" id="settingsCard" style="margin-top:14px;">
         <span class="label">Какие таблицы в заданиях</span>
@@ -399,7 +662,6 @@
     </section>
 
     <section id="planView" class="hidden">
-      <h1>Все задания</h1>
       <p class="subtitle">14 дней: прошедшие, сегодня и ещё не наступившие</p>
       <div class="card">
         <div class="plan-list" id="planList"></div>
@@ -408,7 +670,6 @@
     </section>
 
     <section id="trainView" class="hidden">
-      <h1>Тренировка</h1>
       <p class="subtitle" id="trainDateLabel">Задание дня</p>
 
       <div class="progress-bar"><i id="progressFill"></i></div>
@@ -432,12 +693,16 @@
 
     <section id="doneView" class="hidden">
       <div class="card" style="text-align:center;padding:28px 18px;">
-        <p class="done-title">Тренировка выполнена</p>
-        <p class="subtitle" style="margin-bottom:18px;" id="doneSubtitle">Сегодняшнее задание закрыто.</p>
+        <p class="done-title">Ура, Миша!</p>
+        <p class="subtitle" style="margin-bottom:12px;" id="doneSubtitle">Тренировка выполнена.</p>
         <div class="stats">
           <div class="stat"><strong id="doneOk">0</strong><span>верно</span></div>
           <div class="stat"><strong id="doneFail">0</strong><span>фейлы</span></div>
           <div class="stat"><strong id="doneTotal">0</strong><span>ответов</span></div>
+        </div>
+        <div class="reward-box" id="rewardBox">
+          <div>Награда: <strong id="rewardTotal">+0 ★</strong></div>
+          <ul id="rewardList"></ul>
         </div>
       </div>
       <button class="btn btn-ink" id="backHomeBtn" type="button">На главную</button>
@@ -449,9 +714,12 @@
     const FAIL_EXTRA = 2;
     const STORAGE_KEY = "misha-daily-math-v1";
     const SETTINGS_KEY = "misha-math-settings-v1";
-
+    const COINS_KEY = "misha-coins-v1";
     const PLAN_DAYS = 14;
     const PLAN_PAST_DAYS = 7;
+
+    const PRAISE = ["Супер!", "Молодец!", "Ура!", "Красавчик!", "Точно!", "Огонь!"];
+    const CHEER = ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"];
 
     const homeView = document.getElementById("homeView");
     const trainView = document.getElementById("trainView");
@@ -460,10 +728,14 @@
     const answerInput = document.getElementById("answerInput");
     const problemCard = document.getElementById("problemCard");
     const feedbackEl = document.getElementById("feedback");
+    const heroText = document.getElementById("heroText");
+    const coinsBadge = document.getElementById("coinsBadge");
+    const fxLayer = document.getElementById("fxLayer");
 
     let settings = loadSettings();
     let state = null;
     let busy = false;
+    let coins = loadCoins();
 
     function todayKey(date = new Date()) {
       const y = date.getFullYear();
@@ -479,6 +751,14 @@
         day: "numeric",
         month: "long",
       });
+    }
+
+    function pick(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function setHero(text) {
+      heroText.textContent = text;
     }
 
     function shuffle(list) {
@@ -518,6 +798,35 @@
 
     function saveStore(store) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }
+
+    function loadCoins() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(COINS_KEY) || "{}");
+        return {
+          balance: Number(raw.balance) || 0,
+        };
+      } catch {
+        return { balance: 0 };
+      }
+    }
+
+    function saveCoins() {
+      localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+    }
+
+    function renderCoins() {
+      document.getElementById("coinsValue").textContent = String(coins.balance);
+    }
+
+    function addCoins(amount) {
+      if (!amount) return;
+      coins.balance += amount;
+      saveCoins();
+      renderCoins();
+      coinsBadge.classList.remove("pop");
+      void coinsBadge.offsetWidth;
+      coinsBadge.classList.add("pop");
     }
 
     function buildPool(tables) {
@@ -574,6 +883,8 @@
         completed: false,
         completedAt: null,
         startedAt: null,
+        coinsAwarded: 0,
+        coinParts: null,
       };
     }
 
@@ -596,7 +907,6 @@
       let streak = 0;
       const [y, m, d] = fromDate.split("-").map(Number);
       let cursor = new Date(y, m - 1, d);
-      // If today is not done yet, start counting from yesterday
       if (!store[fromDate]?.completed) {
         cursor.setDate(cursor.getDate() - 1);
       }
@@ -657,10 +967,13 @@
       }
 
       if (dayState?.completed) {
+        const coinText = dayState.coinsAwarded
+          ? ` · +${dayState.coinsAwarded} ★`
+          : "";
         return {
           kind: "done",
           badge: "Сделано",
-          meta: `Верно ${dayState.correct} · Фейлы ${dayState.fails} · Ответов ${dayState.answered}`,
+          meta: `Верно ${dayState.correct} · Фейлы ${dayState.fails}${coinText}`,
           action: true,
         };
       }
@@ -717,20 +1030,122 @@
       }
     }
 
+    function spawnBurst(ok) {
+      const colors = ok
+        ? ["#18c59a", "#2f6fed", "#ffb703", "#ff7a18"]
+        : ["#ff3d81", "#ff7a18", "#ffb0c0"];
+      const rect = problemCard.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height * 0.35;
+      for (let i = 0; i < 12; i += 1) {
+        const el = document.createElement("span");
+        el.className = "burst";
+        const angle = (Math.PI * 2 * i) / 12;
+        const dist = 40 + Math.random() * 50;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.background = colors[i % colors.length];
+        el.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+        el.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+        fxLayer.appendChild(el);
+        window.setTimeout(() => el.remove(), 900);
+      }
+    }
+
+    function spawnCoinFly() {
+      const rect = coinsBadge.getBoundingClientRect();
+      const el = document.createElement("span");
+      el.className = "floating-coin";
+      el.textContent = "★";
+      el.style.left = `${rect.left + rect.width / 2}px`;
+      el.style.top = `${rect.top + 8}px`;
+      fxLayer.appendChild(el);
+      window.setTimeout(() => el.remove(), 1000);
+    }
+
+    function calcRewards(dayState) {
+      const parts = [];
+      let total = 0;
+      const completedDay = dayState.completedAt
+        ? todayKey(new Date(dayState.completedAt))
+        : todayKey();
+      const onTime = completedDay === dayState.date;
+      if (onTime) {
+        parts.push({ label: "Пройдено вовремя", amount: 1 });
+        total += 1;
+      }
+
+      const failRate = dayState.answered
+        ? (dayState.fails / dayState.answered) * 100
+        : 100;
+
+      if (failRate < 5) {
+        parts.push({ label: `Мало ошибок (${failRate.toFixed(1)}% < 5%)`, amount: 3 });
+        total += 3;
+      } else if (failRate <= 10) {
+        parts.push({ label: `Ошибки ${failRate.toFixed(1)}% (5–10%)`, amount: 1 });
+        total += 1;
+      } else {
+        parts.push({ label: `Ошибок много (${failRate.toFixed(1)}% > 10%)`, amount: 0 });
+      }
+
+      return { total, parts, failRate, onTime };
+    }
+
+    function renderReward(dayState) {
+      const reward = dayState.coinParts || calcRewards(dayState);
+      document.getElementById("rewardTotal").textContent = `+${dayState.coinsAwarded || reward.total} ★`;
+      const list = document.getElementById("rewardList");
+      list.innerHTML = "";
+      (reward.parts || []).forEach((part) => {
+        const li = document.createElement("li");
+        li.textContent = part.amount
+          ? `${part.label}: +${part.amount}`
+          : `${part.label}: 0`;
+        list.appendChild(li);
+      });
+    }
+
+    function ensureCoinsAwarded() {
+      if (!state?.completed || state.coinParts) return;
+      const reward = calcRewards(state);
+      state.coinParts = reward;
+      state.coinsAwarded = reward.total;
+      if (reward.total > 0) {
+        addCoins(reward.total);
+        for (let i = 0; i < Math.min(reward.total, 6); i += 1) {
+          window.setTimeout(spawnCoinFly, i * 120);
+        }
+      }
+      persist();
+    }
+
+    function showDoneScreen(subtitle) {
+      ensureCoinsAwarded();
+      document.getElementById("doneOk").textContent = String(state.correct);
+      document.getElementById("doneFail").textContent = String(state.fails);
+      document.getElementById("doneTotal").textContent = String(state.answered);
+      document.getElementById("doneSubtitle").textContent = subtitle;
+      renderReward(state);
+      setHero(
+        state.coinsAwarded
+          ? `Ура! +${state.coinsAwarded} золотых монет!`
+          : "Тренировка закрыта. Ты молодец!"
+      );
+      show("done");
+    }
+
     function openAssignmentDay(date) {
       const today = todayKey();
       if (date > today) return;
 
       state = getDayState(date);
       if (state.completed) {
-        document.getElementById("doneOk").textContent = String(state.correct);
-        document.getElementById("doneFail").textContent = String(state.fails);
-        document.getElementById("doneTotal").textContent = String(state.answered);
-        document.getElementById("doneSubtitle").textContent =
+        showDoneScreen(
           date === today
             ? "Сегодняшнее задание уже закрыто."
-            : `Задание за ${formatDateRu(date)} уже выполнено.`;
-        show("done");
+            : `Задание за ${formatDateRu(date)} уже выполнено.`
+        );
         return;
       }
 
@@ -738,11 +1153,13 @@
         state.startedAt = new Date().toISOString();
         persist();
       }
+      setHero("Вперёд! Один пример за другим!");
       show("train");
       showCurrentProblem();
     }
 
     function openPlan() {
+      setHero("Смотри план на 14 дней!");
       renderPlanList();
       show("plan");
     }
@@ -763,15 +1180,19 @@
       if (state.completed) {
         document.getElementById("todayStatus").textContent = "Задание выполнено";
         startBtn.textContent = "Смотреть результат";
+        setHero("Сегодня ты уже герой! Можно смотреть монеты.");
       } else if (state.answered > 0) {
         document.getElementById("todayStatus").textContent = "Тренировка начата";
-        startBtn.textContent = "Продолжить";
+        startBtn.textContent = "Продолжить приключение";
+        setHero(`Осталось ${remain} примеров. Продолжим?`);
       } else {
         document.getElementById("todayStatus").textContent = `${START_COUNT} примеров`;
-        startBtn.textContent = "Начать тренировку";
+        startBtn.textContent = "Вперёд к примерам!";
+        setHero("Привет! Давай заработаем золотые монеты!");
       }
 
       renderWeek(store);
+      renderCoins();
     }
 
     function updateTrainChrome() {
@@ -791,7 +1212,11 @@
         return;
       }
       const problem = state.queue[0];
-      document.getElementById("problemText").textContent = `${problem.a} × ${problem.b} =`;
+      const problemEl = document.getElementById("problemText");
+      problemEl.textContent = `${problem.a} × ${problem.b} =`;
+      problemEl.style.animation = "none";
+      void problemEl.offsetWidth;
+      problemEl.style.animation = "";
       answerInput.value = "";
       feedbackEl.textContent = "";
       feedbackEl.className = "feedback";
@@ -801,37 +1226,35 @@
     }
 
     function finishTraining() {
+      const firstCompletion = !state.completed;
       state.completed = true;
-      state.completedAt = new Date().toISOString();
+      state.completedAt = state.completedAt || new Date().toISOString();
       state.queue = [];
-      persist();
 
-      document.getElementById("doneOk").textContent = String(state.correct);
-      document.getElementById("doneFail").textContent = String(state.fails);
-      document.getElementById("doneTotal").textContent = String(state.answered);
-      document.getElementById("doneSubtitle").textContent =
+      if (firstCompletion && !state.coinsAwarded) {
+        const reward = calcRewards(state);
+        state.coinParts = reward;
+        state.coinsAwarded = reward.total;
+        if (reward.total > 0) {
+          addCoins(reward.total);
+          for (let i = 0; i < Math.min(reward.total, 6); i += 1) {
+            window.setTimeout(spawnCoinFly, i * 120);
+          }
+        }
+      }
+
+      persist();
+      spawnBurst(true);
+
+      const subtitle =
         state.fails === 0
-          ? "Отлично: все ответы верные."
+          ? "Идеально: все ответы верные!"
           : `Готово. Было ${state.fails} фейлов — из‑за них примеров стало больше.`;
-      show("done");
+      showDoneScreen(subtitle);
     }
 
     function startTraining() {
-      state = getDayState(todayKey());
-      if (state.completed) {
-        document.getElementById("doneOk").textContent = String(state.correct);
-        document.getElementById("doneFail").textContent = String(state.fails);
-        document.getElementById("doneTotal").textContent = String(state.answered);
-        document.getElementById("doneSubtitle").textContent = "Сегодняшнее задание уже закрыто.";
-        show("done");
-        return;
-      }
-      if (!state.startedAt) {
-        state.startedAt = new Date().toISOString();
-        persist();
-      }
-      show("train");
-      showCurrentProblem();
+      openAssignmentDay(todayKey());
     }
 
     function submitAnswer() {
@@ -857,14 +1280,18 @@
 
       if (value === problem.answer) {
         state.correct += 1;
-        feedbackEl.textContent = "Верно";
+        feedbackEl.textContent = "Верно!";
         feedbackEl.className = "feedback ok";
         problemCard.classList.add("flash-ok");
+        setHero(pick(PRAISE));
+        spawnBurst(true);
       } else {
         state.fails += 1;
         feedbackEl.textContent = `Фейл. Правильно: ${problem.answer}. +${FAIL_EXTRA} примера`;
         feedbackEl.className = "feedback bad";
         problemCard.classList.add("flash-bad");
+        setHero(pick(CHEER));
+        spawnBurst(false);
         for (let i = 0; i < FAIL_EXTRA; i += 1) {
           state.queue.push(makeProblem(settings.tables));
         }
@@ -876,7 +1303,7 @@
       window.setTimeout(() => {
         if (!state.queue.length) finishTraining();
         else showCurrentProblem();
-      }, value === problem.answer ? 350 : 900);
+      }, value === problem.answer ? 380 : 950);
     }
 
     function renderTableButtons() {
@@ -926,8 +1353,8 @@
       }
     });
 
-    document.getElementById("settingsBtn").classList.remove("hidden");
     renderTableButtons();
+    renderCoins();
     updateHome();
     show("home");
   </script>
