@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Таблица умножения — тренировка для Миши</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5b6675;
+      --paper: #f4efe6;
+      --card: #fffdf8;
+      --line: #d8cfc0;
+      --accent: #c45c26;
+      --accent-ink: #fffaf4;
+      --ok: #2d7a4f;
+      --ok-bg: #e5f4ea;
+      --bad: #b42318;
+      --bad-bg: #fdecea;
+      --focus: #2f5d8a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+
+    body {
+      padding: 24px 16px 48px;
+    }
+
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .score {
+      text-align: right;
+      min-width: 160px;
+    }
+
+    .score strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .score span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .tables {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tables button {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tables button.on {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select, .btn {
+      height: 42px;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 700;
+    }
+
+    select {
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 0 12px;
+      color: var(--ink);
+    }
+
+    .btn {
+      border: 0;
+      padding: 0 16px;
+      cursor: pointer;
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+
+    .btn-ink {
+      background: var(--ink);
+      color: #fff;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .item {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .item.ok {
+      background: var(--ok-bg);
+      border-color: #b7ddc4;
+    }
+
+    .item.bad {
+      background: var(--bad-bg);
+      border-color: #f3c0bb;
+    }
+
+    .expr {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .item input {
+      width: 72px;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .item input:focus {
+      outline: 2px solid var(--focus);
+      border-color: var(--focus);
+    }
+
+    .item.ok input,
+    .item.bad input {
+      border-color: transparent;
+      background: #fff;
+    }
+
+    .hint {
+      grid-column: 1 / -1;
+      font-size: 13px;
+      color: var(--bad);
+      min-height: 16px;
+    }
+
+    .result {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .result.hidden { display: none; }
+
+    .table-card {
+      margin-top: 22px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: auto;
+    }
+
+    .table-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-card th,
+    .table-card td {
+      padding: 8px 6px;
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-card th {
+      background: #efe7da;
+      font-size: 13px;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      header { flex-direction: column; align-items: flex-start; }
+      .score { text-align: left; }
+      .expr { font-size: 20px; }
+      .item { padding: 12px 10px; gap: 6px; }
+      .item input { width: 60px; height: 40px; font-size: 20px; }
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .no-print, .hint, .result, input { display: none !important; }
+      .item {
+        border: 1px solid #bbb;
+        break-inside: avoid;
+      }
+      .item::after {
+        content: "________";
+        font-size: 20px;
+        color: #333;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Таблица умножения</h1>
+        <p class="subtitle">Тренировка для Миши. Реши примеры на странице.</p>
+      </div>
+      <div class="score" id="scoreBox">
+        <strong id="scoreValue">0 / 0</strong>
+        <span>верно из проверенных</span>
+      </div>
+    </header>
+
+    <section class="panel no-print">
+      <div>
+        <span class="label">Какие таблицы тренируем</span>
+        <div class="tables" id="tableButtons"></div>
+      </div>
+      <div class="row">
+        <label>
+          <span class="label">Сколько примеров</span>
+          <select id="count">
+            <option value="12">12</option>
+            <option value="18" selected>18</option>
+            <option value="24">24</option>
+          </select>
+        </label>
+        <button class="btn btn-ink" id="newBtn" type="button">Новые примеры</button>
+        <button class="btn btn-accent" id="checkBtn" type="button">Проверить</button>
+        <button class="btn btn-ghost" id="hintBtn" type="button">Показать таблицу</button>
+      </div>
+    </section>
+
+    <main class="grid" id="grid"></main>
+    <div class="result hidden" id="result"></div>
+
+    <section class="table-card hidden" id="hintTable"></section>
+  </div>
+
+  <script>
+    const tablesEl = document.getElementById("tableButtons");
+    const gridEl = document.getElementById("grid");
+    const countEl = document.getElementById("count");
+    const resultEl = document.getElementById("result");
+    const hintEl = document.getElementById("hintTable");
+    const scoreValueEl = document.getElementById("scoreValue");
+
+    const selected = new Set([2, 3, 4, 5, 6, 7, 8, 9]);
+    let problems = [];
+    let checkedCount = 0;
+    let correctCount = 0;
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(list) {
+      const copy = list.slice();
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function renderTableButtons() {
+      tablesEl.innerHTML = "";
+      for (let n = 2; n <= 9; n += 1) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = n;
+        btn.className = selected.has(n) ? "on" : "";
+        btn.addEventListener("click", () => {
+          if (selected.has(n) && selected.size === 1) return;
+          if (selected.has(n)) selected.delete(n);
+          else selected.add(n);
+          renderTableButtons();
+          makeProblems();
+        });
+        tablesEl.appendChild(btn);
+      }
+    }
+
+    function makeProblems() {
+      const count = Number(countEl.value);
+      const tables = [...selected];
+      const pool = [];
+
+      const seen = new Set();
+      tables.forEach((a) => {
+        for (let b = 2; b <= 9; b += 1) {
+          const variants = [{ a, b, answer: a * b }];
+          if (a !== b) variants.push({ a: b, b: a, answer: a * b });
+          variants.forEach((item) => {
+            const key = `${item.a}x${item.b}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            pool.push(item);
+          });
+        }
+      });
+
+      const shuffled = shuffle(pool);
+      problems = [];
+      while (problems.length < count && pool.length) {
+        if (!shuffled.length) shuffled.push(...shuffle(pool));
+        problems.push({ ...shuffled.pop() });
+      }
+      resultEl.classList.add("hidden");
+      renderProblems();
+    }
+
+    function renderProblems() {
+      gridEl.innerHTML = "";
+      problems.forEach((problem, index) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <div class="expr">${problem.a} × ${problem.b} =</div>
+          <input inputmode="numeric" maxlength="3" data-index="${index}" aria-label="Ответ ${problem.a} умножить на ${problem.b}" />
+          <div class="hint" data-hint="${index}"></div>
+        `;
+        gridEl.appendChild(item);
+      });
+
+      const inputs = [...gridEl.querySelectorAll("input")];
+      inputs.forEach((input, i) => {
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            if (inputs[i + 1]) inputs[i + 1].focus();
+            else checkAnswers();
+          }
+        });
+      });
+      if (inputs[0]) inputs[0].focus();
+    }
+
+    function checkAnswers() {
+      const inputs = [...gridEl.querySelectorAll("input")];
+      let pageCorrect = 0;
+      let filled = 0;
+
+      inputs.forEach((input) => {
+        const index = Number(input.dataset.index);
+        const problem = problems[index];
+        const item = input.closest(".item");
+        const hint = gridEl.querySelector(`[data-hint="${index}"]`);
+        const value = input.value.trim();
+
+        item.classList.remove("ok", "bad");
+        hint.textContent = "";
+
+        if (value === "") return;
+        filled += 1;
+        const answer = Number(value);
+        if (answer === problem.answer) {
+          item.classList.add("ok");
+          pageCorrect += 1;
+        } else {
+          item.classList.add("bad");
+          hint.textContent = `Правильно: ${problem.answer}`;
+        }
+      });
+
+      if (filled === 0) {
+        resultEl.classList.remove("hidden");
+        resultEl.textContent = "Сначала впиши ответы.";
+        return;
+      }
+
+      checkedCount += filled;
+      correctCount += pageCorrect;
+      scoreValueEl.textContent = `${correctCount} / ${checkedCount}`;
+      resultEl.classList.remove("hidden");
+      resultEl.textContent = `На этой странице: ${pageCorrect} из ${filled} верно.`;
+    }
+
+    function renderHintTable() {
+      let html = "<table><thead><tr><th>×</th>";
+      for (let n = 2; n <= 9; n += 1) html += `<th>${n}</th>`;
+      html += "</tr></thead><tbody>";
+      for (let a = 2; a <= 9; a += 1) {
+        html += `<tr><th>${a}</th>`;
+        for (let b = 2; b <= 9; b += 1) html += `<td>${a * b}</td>`;
+        html += "</tr>";
+      }
+      html += "</tbody></table>";
+      hintEl.innerHTML = html;
+    }
+
+    document.getElementById("newBtn").addEventListener("click", makeProblems);
+    document.getElementById("checkBtn").addEventListener("click", checkAnswers);
+    document.getElementById("hintBtn").addEventListener("click", () => {
+      hintEl.classList.toggle("hidden");
+      document.getElementById("hintBtn").textContent = hintEl.classList.contains("hidden")
+        ? "Показать таблицу"
+        : "Скрыть таблицу";
+    });
+    countEl.addEventListener("change", makeProblems);
+
+    renderTableButtons();
+    renderHintTable();
+    makeProblems();
+  </script>
+</body>
+</html>
