@@ -292,6 +292,77 @@
       color: var(--muted);
       line-height: 1.4;
     }
+
+    .plan-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .plan-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 12px;
+      align-items: center;
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      cursor: default;
+    }
+
+    .plan-item.action {
+      cursor: pointer;
+    }
+
+    .plan-item.today {
+      border-color: var(--ink);
+      box-shadow: inset 0 0 0 1px var(--ink);
+    }
+
+    .plan-item.done {
+      background: var(--ok-bg);
+      border-color: #b7ddc4;
+    }
+
+    .plan-item.miss {
+      background: var(--bad-bg);
+      border-color: #f3c0bb;
+    }
+
+    .plan-item.future {
+      background: #f7f2ea;
+      color: var(--muted);
+    }
+
+    .plan-item .title {
+      font-size: 15px;
+      font-weight: 800;
+      text-transform: capitalize;
+    }
+
+    .plan-item .meta {
+      grid-column: 1 / -1;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .plan-item.done .meta,
+    .plan-item.miss .meta {
+      color: inherit;
+      opacity: 0.85;
+    }
+
+    .plan-badge {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -317,6 +388,7 @@
       </div>
 
       <button class="btn btn-accent" id="startBtn" type="button">Начать тренировку</button>
+      <button class="btn btn-ghost" id="planBtn" type="button">Все задания · 14 дней</button>
       <button class="btn btn-ghost hidden" id="settingsBtn" type="button">Настройки таблиц</button>
 
       <div class="card hidden" id="settingsCard" style="margin-top:14px;">
@@ -324,6 +396,15 @@
         <div class="tables" id="tableButtons"></div>
         <p class="note" style="margin-top:10px;">Изменения применятся к новой тренировке. Текущий день не сбрасывается.</p>
       </div>
+    </section>
+
+    <section id="planView" class="hidden">
+      <h1>Все задания</h1>
+      <p class="subtitle">14 дней: прошедшие, сегодня и ещё не наступившие</p>
+      <div class="card">
+        <div class="plan-list" id="planList"></div>
+      </div>
+      <button class="btn btn-ink" id="planBackBtn" type="button">Назад</button>
     </section>
 
     <section id="trainView" class="hidden">
@@ -369,9 +450,13 @@
     const STORAGE_KEY = "misha-daily-math-v1";
     const SETTINGS_KEY = "misha-math-settings-v1";
 
+    const PLAN_DAYS = 14;
+    const PLAN_PAST_DAYS = 7;
+
     const homeView = document.getElementById("homeView");
     const trainView = document.getElementById("trainView");
     const doneView = document.getElementById("doneView");
+    const planView = document.getElementById("planView");
     const answerInput = document.getElementById("answerInput");
     const problemCard = document.getElementById("problemCard");
     const feedbackEl = document.getElementById("feedback");
@@ -549,6 +634,117 @@
       homeView.classList.toggle("hidden", view !== "home");
       trainView.classList.toggle("hidden", view !== "train");
       doneView.classList.toggle("hidden", view !== "done");
+      planView.classList.toggle("hidden", view !== "plan");
+    }
+
+    function dayOffset(base, offset) {
+      const date = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+      date.setDate(date.getDate() + offset);
+      return date;
+    }
+
+    function planStatus(key, store, today) {
+      const dayState = store[key];
+      const isToday = key === today;
+
+      if (key > today) {
+        return {
+          kind: "future",
+          badge: "Ещё нет",
+          meta: `${START_COUNT} примеров · откроется в этот день`,
+          action: false,
+        };
+      }
+
+      if (dayState?.completed) {
+        return {
+          kind: "done",
+          badge: "Сделано",
+          meta: `Верно ${dayState.correct} · Фейлы ${dayState.fails} · Ответов ${dayState.answered}`,
+          action: true,
+        };
+      }
+
+      if (dayState && dayState.answered > 0) {
+        return {
+          kind: isToday ? "today" : "miss",
+          badge: isToday ? "В процессе" : "Не закончено",
+          meta: `Осталось ${dayState.queue.length} · Верно ${dayState.correct} · Фейлы ${dayState.fails}`,
+          action: true,
+        };
+      }
+
+      if (isToday) {
+        return {
+          kind: "today",
+          badge: "Сегодня",
+          meta: `${START_COUNT} примеров · можно начать`,
+          action: true,
+        };
+      }
+
+      return {
+        kind: "miss",
+        badge: "Пропущено",
+        meta: `${START_COUNT} примеров · не выполнено`,
+        action: true,
+      };
+    }
+
+    function renderPlanList() {
+      const box = document.getElementById("planList");
+      box.innerHTML = "";
+      const store = loadStore();
+      const today = todayKey();
+      const base = new Date();
+
+      for (let i = -PLAN_PAST_DAYS; i < PLAN_DAYS - PLAN_PAST_DAYS; i += 1) {
+        const day = dayOffset(base, i);
+        const key = todayKey(day);
+        const status = planStatus(key, store, today);
+        const item = document.createElement(status.action ? "button" : "div");
+        if (status.action) item.type = "button";
+        item.className = `plan-item ${status.kind}${status.action ? " action" : ""}`;
+        item.innerHTML = `
+          <div class="title">${formatDateRu(key)}</div>
+          <div class="plan-badge">${status.badge}</div>
+          <div class="meta">${status.meta}</div>
+        `;
+        if (status.action) {
+          item.addEventListener("click", () => openAssignmentDay(key));
+        }
+        box.appendChild(item);
+      }
+    }
+
+    function openAssignmentDay(date) {
+      const today = todayKey();
+      if (date > today) return;
+
+      state = getDayState(date);
+      if (state.completed) {
+        document.getElementById("doneOk").textContent = String(state.correct);
+        document.getElementById("doneFail").textContent = String(state.fails);
+        document.getElementById("doneTotal").textContent = String(state.answered);
+        document.getElementById("doneSubtitle").textContent =
+          date === today
+            ? "Сегодняшнее задание уже закрыто."
+            : `Задание за ${formatDateRu(date)} уже выполнено.`;
+        show("done");
+        return;
+      }
+
+      if (!state.startedAt) {
+        state.startedAt = new Date().toISOString();
+        persist();
+      }
+      show("train");
+      showCurrentProblem();
+    }
+
+    function openPlan() {
+      renderPlanList();
+      show("plan");
     }
 
     function updateHome() {
@@ -706,6 +902,11 @@
     }
 
     document.getElementById("startBtn").addEventListener("click", startTraining);
+    document.getElementById("planBtn").addEventListener("click", openPlan);
+    document.getElementById("planBackBtn").addEventListener("click", () => {
+      updateHome();
+      show("home");
+    });
     document.getElementById("submitBtn").addEventListener("click", submitAnswer);
     document.getElementById("exitBtn").addEventListener("click", () => {
       updateHome();
