@@ -2,8 +2,10 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Таблица умножения — тренировка для Миши</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1c2430" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Задание дня — таблица умножения</title>
   <style>
     :root {
       --ink: #1c2430;
@@ -31,118 +33,85 @@
     }
 
     body {
-      padding: 24px 16px 48px;
+      padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
     }
 
     .wrap {
-      max-width: 920px;
+      max-width: 440px;
       margin: 0 auto;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 16px;
-      margin-bottom: 22px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid var(--ink);
     }
 
     h1 {
       margin: 0 0 4px;
-      font-size: 28px;
+      font-size: 26px;
       letter-spacing: -0.03em;
     }
 
     .subtitle {
-      margin: 0;
+      margin: 0 0 20px;
       color: var(--muted);
       font-size: 15px;
     }
 
-    .score {
-      text-align: right;
-      min-width: 160px;
-    }
-
-    .score strong {
-      display: block;
-      font-size: 28px;
-      line-height: 1;
-    }
-
-    .score span {
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .panel {
-      display: grid;
-      gap: 14px;
-      margin-bottom: 20px;
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 14px;
     }
 
     .label {
       display: block;
       margin-bottom: 8px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--muted);
     }
 
-    .tables {
-      display: flex;
-      flex-wrap: wrap;
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
+      margin-top: 14px;
     }
 
-    .tables button {
-      width: 44px;
-      height: 44px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      color: var(--ink);
-      border-radius: 10px;
+    .stat {
+      background: #efe7da;
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .stat span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 14px;
+      padding: 0 16px;
+      font: inherit;
       font-size: 18px;
       font-weight: 700;
       cursor: pointer;
     }
 
-    .tables button.on {
-      background: var(--ink);
-      border-color: var(--ink);
-      color: #fff;
-    }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    select, .btn {
-      height: 42px;
-      border-radius: 10px;
-      font: inherit;
-      font-weight: 700;
-    }
-
-    select {
-      border: 1px solid var(--line);
-      background: var(--card);
-      padding: 0 12px;
-      color: var(--ink);
-    }
-
-    .btn {
-      border: 0;
-      padding: 0 16px;
-      cursor: pointer;
-    }
+    .btn + .btn { margin-top: 10px; }
 
     .btn-accent {
       background: var(--accent);
@@ -160,188 +129,271 @@
       color: var(--ink);
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
 
-    .item {
-      background: var(--card);
+    .streak {
+      margin-top: 8px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .day {
+      aspect-ratio: 1;
+      border-radius: 10px;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px 12px;
+      background: #fff;
       display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 8px;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
     }
 
-    .item.ok {
+    .day.done {
       background: var(--ok-bg);
       border-color: #b7ddc4;
+      color: var(--ok);
     }
 
-    .item.bad {
+    .day.today {
+      border-color: var(--ink);
+      box-shadow: inset 0 0 0 1px var(--ink);
+    }
+
+    .day.miss {
       background: var(--bad-bg);
       border-color: #f3c0bb;
+      color: var(--bad);
     }
 
-    .expr {
-      font-size: 24px;
-      font-weight: 700;
+    .hidden { display: none !important; }
+
+    .progress-bar {
+      height: 10px;
+      background: #efe7da;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 12px 0 6px;
+    }
+
+    .progress-bar > i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: var(--ink);
+      border-radius: inherit;
+      transition: width 0.2s ease;
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .problem-card {
+      text-align: center;
+      padding: 28px 18px 22px;
+    }
+
+    .problem {
+      font-size: 44px;
+      font-weight: 800;
       letter-spacing: 0.02em;
+      margin: 8px 0 22px;
       white-space: nowrap;
     }
 
-    .item input {
-      width: 72px;
-      height: 44px;
+    .answer-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+
+    .answer-row input {
+      width: 100%;
+      min-height: 56px;
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 14px;
       text-align: center;
-      font-size: 22px;
-      font-weight: 700;
+      font-size: 28px;
+      font-weight: 800;
       background: #fff;
       color: var(--ink);
     }
 
-    .item input:focus {
+    .answer-row input:focus {
       outline: 2px solid var(--focus);
       border-color: var(--focus);
     }
 
-    .item.ok input,
-    .item.bad input {
-      border-color: transparent;
-      background: #fff;
+    .answer-row .btn {
+      width: 110px;
+      min-height: 56px;
     }
 
-    .hint {
-      grid-column: 1 / -1;
-      font-size: 13px;
-      color: var(--bad);
-      min-height: 16px;
-    }
-
-    .result {
-      margin-top: 18px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      font-size: 18px;
+    .feedback {
+      min-height: 28px;
+      margin-top: 14px;
+      font-size: 16px;
       font-weight: 700;
     }
 
-    .result.hidden { display: none; }
+    .feedback.ok { color: var(--ok); }
+    .feedback.bad { color: var(--bad); }
 
-    .table-card {
-      margin-top: 22px;
-      background: var(--card);
+    .flash-ok { background: var(--ok-bg); }
+    .flash-bad { background: var(--bad-bg); }
+
+    .done-title {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+
+    .tables {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tables button {
+      width: 42px;
+      height: 42px;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: auto;
+      background: #fff;
+      color: var(--ink);
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    .table-card table {
-      width: 100%;
-      border-collapse: collapse;
-      font-variant-numeric: tabular-nums;
+    .tables button.on {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
     }
 
-    .table-card th,
-    .table-card td {
-      padding: 8px 6px;
-      text-align: center;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .table-card th {
-      background: #efe7da;
+    .note {
+      margin: 0;
       font-size: 13px;
-    }
-
-    .hidden { display: none; }
-
-    @media (max-width: 760px) {
-      .grid { grid-template-columns: 1fr 1fr; }
-      header { flex-direction: column; align-items: flex-start; }
-      .score { text-align: left; }
-      .expr { font-size: 20px; }
-      .item { padding: 12px 10px; gap: 6px; }
-      .item input { width: 60px; height: 40px; font-size: 20px; }
-    }
-
-    @media print {
-      body { background: #fff; padding: 0; }
-      .no-print, .hint, .result, input { display: none !important; }
-      .item {
-        border: 1px solid #bbb;
-        break-inside: avoid;
-      }
-      .item::after {
-        content: "________";
-        font-size: 20px;
-        color: #333;
-      }
+      color: var(--muted);
+      line-height: 1.4;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div>
-        <h1>Таблица умножения</h1>
-        <p class="subtitle">Тренировка для Миши. Реши примеры на странице.</p>
-      </div>
-      <div class="score" id="scoreBox">
-        <strong id="scoreValue">0 / 0</strong>
-        <span>верно из проверенных</span>
-      </div>
-    </header>
+    <section id="homeView">
+      <h1>Задание дня</h1>
+      <p class="subtitle" id="dateLabel">Таблица умножения для Миши</p>
 
-    <section class="panel no-print">
-      <div>
-        <span class="label">Какие таблицы тренируем</span>
-        <div class="tables" id="tableButtons"></div>
+      <div class="card">
+        <span class="label">Сегодня</span>
+        <div id="todayStatus" style="font-size:20px;font-weight:800;margin-top:4px;">50 примеров</div>
+        <p class="note" style="margin-top:8px;">
+          Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2.
+          Тренировка готова, когда не осталось неотвеченных примеров.
+        </p>
+        <div class="stats">
+          <div class="stat"><strong id="homeRemain">50</strong><span>осталось</span></div>
+          <div class="stat"><strong id="homeOk">0</strong><span>верно</span></div>
+          <div class="stat"><strong id="homeFail">0</strong><span>фейлы</span></div>
+        </div>
+        <p class="streak" id="streakText">Серия дней: 0</p>
+        <div class="days" id="weekDays"></div>
       </div>
-      <div class="row">
-        <label>
-          <span class="label">Сколько примеров</span>
-          <select id="count">
-            <option value="12">12</option>
-            <option value="18" selected>18</option>
-            <option value="24">24</option>
-          </select>
-        </label>
-        <button class="btn btn-ink" id="newBtn" type="button">Новые примеры</button>
-        <button class="btn btn-accent" id="checkBtn" type="button">Проверить</button>
-        <button class="btn btn-ghost" id="hintBtn" type="button">Показать таблицу</button>
+
+      <button class="btn btn-accent" id="startBtn" type="button">Начать тренировку</button>
+      <button class="btn btn-ghost hidden" id="settingsBtn" type="button">Настройки таблиц</button>
+
+      <div class="card hidden" id="settingsCard" style="margin-top:14px;">
+        <span class="label">Какие таблицы в заданиях</span>
+        <div class="tables" id="tableButtons"></div>
+        <p class="note" style="margin-top:10px;">Изменения применятся к новой тренировке. Текущий день не сбрасывается.</p>
       </div>
     </section>
 
-    <main class="grid" id="grid"></main>
-    <div class="result hidden" id="result"></div>
+    <section id="trainView" class="hidden">
+      <h1>Тренировка</h1>
+      <p class="subtitle" id="trainDateLabel">Задание дня</p>
 
-    <section class="table-card hidden" id="hintTable"></section>
+      <div class="progress-bar"><i id="progressFill"></i></div>
+      <div class="progress-text">
+        <span id="remainText">Осталось: 50</span>
+        <span id="scoreText">Верно 0 · Фейлы 0</span>
+      </div>
+
+      <div class="card problem-card" id="problemCard">
+        <span class="label">Реши пример</span>
+        <div class="problem" id="problemText">0 × 0 =</div>
+        <div class="answer-row">
+          <input id="answerInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" aria-label="Ответ" />
+          <button class="btn btn-ink" id="submitBtn" type="button">OK</button>
+        </div>
+        <div class="feedback" id="feedback"></div>
+      </div>
+
+      <button class="btn btn-ghost" id="exitBtn" type="button">Выйти в меню</button>
+    </section>
+
+    <section id="doneView" class="hidden">
+      <div class="card" style="text-align:center;padding:28px 18px;">
+        <p class="done-title">Тренировка выполнена</p>
+        <p class="subtitle" style="margin-bottom:18px;" id="doneSubtitle">Сегодняшнее задание закрыто.</p>
+        <div class="stats">
+          <div class="stat"><strong id="doneOk">0</strong><span>верно</span></div>
+          <div class="stat"><strong id="doneFail">0</strong><span>фейлы</span></div>
+          <div class="stat"><strong id="doneTotal">0</strong><span>ответов</span></div>
+        </div>
+      </div>
+      <button class="btn btn-ink" id="backHomeBtn" type="button">На главную</button>
+    </section>
   </div>
 
   <script>
-    const tablesEl = document.getElementById("tableButtons");
-    const gridEl = document.getElementById("grid");
-    const countEl = document.getElementById("count");
-    const resultEl = document.getElementById("result");
-    const hintEl = document.getElementById("hintTable");
-    const scoreValueEl = document.getElementById("scoreValue");
+    const START_COUNT = 50;
+    const FAIL_EXTRA = 2;
+    const STORAGE_KEY = "misha-daily-math-v1";
+    const SETTINGS_KEY = "misha-math-settings-v1";
 
-    const selected = new Set([2, 3, 4, 5, 6, 7, 8, 9]);
-    let problems = [];
-    let checkedCount = 0;
-    let correctCount = 0;
+    const homeView = document.getElementById("homeView");
+    const trainView = document.getElementById("trainView");
+    const doneView = document.getElementById("doneView");
+    const answerInput = document.getElementById("answerInput");
+    const problemCard = document.getElementById("problemCard");
+    const feedbackEl = document.getElementById("feedback");
 
-    function rand(min, max) {
-      return Math.floor(Math.random() * (max - min + 1)) + min;
+    let settings = loadSettings();
+    let state = null;
+    let busy = false;
+
+    function todayKey(date = new Date()) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDateRu(key) {
+      const [y, m, d] = key.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("ru-RU", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
     }
 
     function shuffle(list) {
@@ -353,145 +405,330 @@
       return copy;
     }
 
-    function renderTableButtons() {
-      tablesEl.innerHTML = "";
-      for (let n = 2; n <= 9; n += 1) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = n;
-        btn.className = selected.has(n) ? "on" : "";
-        btn.addEventListener("click", () => {
-          if (selected.has(n) && selected.size === 1) return;
-          if (selected.has(n)) selected.delete(n);
-          else selected.add(n);
-          renderTableButtons();
-          makeProblems();
-        });
-        tablesEl.appendChild(btn);
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return { tables: [2, 3, 4, 5, 6, 7, 8, 9] };
+        const parsed = JSON.parse(raw);
+        const tables = Array.isArray(parsed.tables)
+          ? parsed.tables.filter((n) => n >= 2 && n <= 9)
+          : [];
+        return { tables: tables.length ? tables : [2, 3, 4, 5, 6, 7, 8, 9] };
+      } catch {
+        return { tables: [2, 3, 4, 5, 6, 7, 8, 9] };
       }
     }
 
-    function makeProblems() {
-      const count = Number(countEl.value);
-      const tables = [...selected];
-      const pool = [];
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
 
+    function loadStore() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveStore(store) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }
+
+    function buildPool(tables) {
+      const pool = [];
       const seen = new Set();
       tables.forEach((a) => {
         for (let b = 2; b <= 9; b += 1) {
-          const variants = [{ a, b, answer: a * b }];
-          if (a !== b) variants.push({ a: b, b: a, answer: a * b });
-          variants.forEach((item) => {
+          [{ a, b }, { a: b, b: a }].forEach((item) => {
             const key = `${item.a}x${item.b}`;
             if (seen.has(key)) return;
             seen.add(key);
-            pool.push(item);
+            pool.push({ a: item.a, b: item.b, answer: item.a * item.b });
           });
         }
       });
+      return pool;
+    }
 
+    function makeProblem(tables) {
+      const pool = buildPool(tables);
+      const item = pool[Math.floor(Math.random() * pool.length)];
+      return {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        a: item.a,
+        b: item.b,
+        answer: item.answer,
+      };
+    }
+
+    function makeQueue(count, tables) {
+      const pool = buildPool(tables);
       const shuffled = shuffle(pool);
-      problems = [];
-      while (problems.length < count && pool.length) {
+      const queue = [];
+      while (queue.length < count && pool.length) {
         if (!shuffled.length) shuffled.push(...shuffle(pool));
-        problems.push({ ...shuffled.pop() });
-      }
-      resultEl.classList.add("hidden");
-      renderProblems();
-    }
-
-    function renderProblems() {
-      gridEl.innerHTML = "";
-      problems.forEach((problem, index) => {
-        const item = document.createElement("div");
-        item.className = "item";
-        item.innerHTML = `
-          <div class="expr">${problem.a} × ${problem.b} =</div>
-          <input inputmode="numeric" maxlength="3" data-index="${index}" aria-label="Ответ ${problem.a} умножить на ${problem.b}" />
-          <div class="hint" data-hint="${index}"></div>
-        `;
-        gridEl.appendChild(item);
-      });
-
-      const inputs = [...gridEl.querySelectorAll("input")];
-      inputs.forEach((input, i) => {
-        input.addEventListener("keydown", (event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            if (inputs[i + 1]) inputs[i + 1].focus();
-            else checkAnswers();
-          }
+        const item = shuffled.pop();
+        queue.push({
+          id: `${queue.length}-${item.a}x${item.b}-${Math.random().toString(16).slice(2, 6)}`,
+          a: item.a,
+          b: item.b,
+          answer: item.answer,
         });
-      });
-      if (inputs[0]) inputs[0].focus();
+      }
+      return queue;
     }
 
-    function checkAnswers() {
-      const inputs = [...gridEl.querySelectorAll("input")];
-      let pageCorrect = 0;
-      let filled = 0;
+    function createDayState(date) {
+      return {
+        date,
+        queue: makeQueue(START_COUNT, settings.tables),
+        correct: 0,
+        fails: 0,
+        answered: 0,
+        completed: false,
+        completedAt: null,
+        startedAt: null,
+      };
+    }
 
-      inputs.forEach((input) => {
-        const index = Number(input.dataset.index);
-        const problem = problems[index];
-        const item = input.closest(".item");
-        const hint = gridEl.querySelector(`[data-hint="${index}"]`);
-        const value = input.value.trim();
+    function getDayState(date = todayKey()) {
+      const store = loadStore();
+      if (!store[date]) {
+        store[date] = createDayState(date);
+        saveStore(store);
+      }
+      return store[date];
+    }
 
-        item.classList.remove("ok", "bad");
-        hint.textContent = "";
+    function persist() {
+      const store = loadStore();
+      store[state.date] = state;
+      saveStore(store);
+    }
 
-        if (value === "") return;
-        filled += 1;
-        const answer = Number(value);
-        if (answer === problem.answer) {
-          item.classList.add("ok");
-          pageCorrect += 1;
-        } else {
-          item.classList.add("bad");
-          hint.textContent = `Правильно: ${problem.answer}`;
+    function calcStreak(store, fromDate = todayKey()) {
+      let streak = 0;
+      const [y, m, d] = fromDate.split("-").map(Number);
+      let cursor = new Date(y, m - 1, d);
+      // If today is not done yet, start counting from yesterday
+      if (!store[fromDate]?.completed) {
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      while (true) {
+        const key = todayKey(cursor);
+        if (store[key]?.completed) {
+          streak += 1;
+          cursor.setDate(cursor.getDate() - 1);
+        } else break;
+      }
+      return streak;
+    }
+
+    function renderWeek(store) {
+      const box = document.getElementById("weekDays");
+      box.innerHTML = "";
+      const today = new Date();
+      for (let i = 6; i >= 0; i -= 1) {
+        const day = new Date(today);
+        day.setDate(today.getDate() - i);
+        const key = todayKey(day);
+        const el = document.createElement("div");
+        el.className = "day";
+        el.textContent = String(day.getDate());
+        if (key === todayKey()) el.classList.add("today");
+        if (store[key]?.completed) el.classList.add("done");
+        else if (i > 0 && store[key] && store[key].answered > 0 && !store[key].completed) {
+          el.classList.add("miss");
         }
-      });
+        box.appendChild(el);
+      }
+    }
 
-      if (filled === 0) {
-        resultEl.classList.remove("hidden");
-        resultEl.textContent = "Сначала впиши ответы.";
+    function show(view) {
+      homeView.classList.toggle("hidden", view !== "home");
+      trainView.classList.toggle("hidden", view !== "train");
+      doneView.classList.toggle("hidden", view !== "done");
+    }
+
+    function updateHome() {
+      const date = todayKey();
+      state = getDayState(date);
+      const store = loadStore();
+      const remain = state.queue.length;
+
+      document.getElementById("dateLabel").textContent = formatDateRu(date);
+      document.getElementById("homeRemain").textContent = String(remain);
+      document.getElementById("homeOk").textContent = String(state.correct);
+      document.getElementById("homeFail").textContent = String(state.fails);
+      document.getElementById("streakText").textContent = `Серия дней: ${calcStreak(store, date)}`;
+
+      const startBtn = document.getElementById("startBtn");
+      if (state.completed) {
+        document.getElementById("todayStatus").textContent = "Задание выполнено";
+        startBtn.textContent = "Смотреть результат";
+      } else if (state.answered > 0) {
+        document.getElementById("todayStatus").textContent = "Тренировка начата";
+        startBtn.textContent = "Продолжить";
+      } else {
+        document.getElementById("todayStatus").textContent = `${START_COUNT} примеров`;
+        startBtn.textContent = "Начать тренировку";
+      }
+
+      renderWeek(store);
+    }
+
+    function updateTrainChrome() {
+      const remain = state.queue.length;
+      const planned = Math.max(state.answered + remain, START_COUNT);
+      const doneShare = planned === 0 ? 0 : (state.answered / (state.answered + remain)) * 100;
+      document.getElementById("progressFill").style.width = `${Math.min(100, doneShare)}%`;
+      document.getElementById("remainText").textContent = `Осталось: ${remain}`;
+      document.getElementById("scoreText").textContent = `Верно ${state.correct} · Фейлы ${state.fails}`;
+      document.getElementById("trainDateLabel").textContent = formatDateRu(state.date);
+    }
+
+    function showCurrentProblem() {
+      updateTrainChrome();
+      if (!state.queue.length) {
+        finishTraining();
+        return;
+      }
+      const problem = state.queue[0];
+      document.getElementById("problemText").textContent = `${problem.a} × ${problem.b} =`;
+      answerInput.value = "";
+      feedbackEl.textContent = "";
+      feedbackEl.className = "feedback";
+      problemCard.classList.remove("flash-ok", "flash-bad");
+      busy = false;
+      answerInput.focus({ preventScroll: true });
+    }
+
+    function finishTraining() {
+      state.completed = true;
+      state.completedAt = new Date().toISOString();
+      state.queue = [];
+      persist();
+
+      document.getElementById("doneOk").textContent = String(state.correct);
+      document.getElementById("doneFail").textContent = String(state.fails);
+      document.getElementById("doneTotal").textContent = String(state.answered);
+      document.getElementById("doneSubtitle").textContent =
+        state.fails === 0
+          ? "Отлично: все ответы верные."
+          : `Готово. Было ${state.fails} фейлов — из‑за них примеров стало больше.`;
+      show("done");
+    }
+
+    function startTraining() {
+      state = getDayState(todayKey());
+      if (state.completed) {
+        document.getElementById("doneOk").textContent = String(state.correct);
+        document.getElementById("doneFail").textContent = String(state.fails);
+        document.getElementById("doneTotal").textContent = String(state.answered);
+        document.getElementById("doneSubtitle").textContent = "Сегодняшнее задание уже закрыто.";
+        show("done");
+        return;
+      }
+      if (!state.startedAt) {
+        state.startedAt = new Date().toISOString();
+        persist();
+      }
+      show("train");
+      showCurrentProblem();
+    }
+
+    function submitAnswer() {
+      if (busy || !state || state.completed) return;
+      const problem = state.queue[0];
+      if (!problem) {
+        finishTraining();
         return;
       }
 
-      checkedCount += filled;
-      correctCount += pageCorrect;
-      scoreValueEl.textContent = `${correctCount} / ${checkedCount}`;
-      resultEl.classList.remove("hidden");
-      resultEl.textContent = `На этой странице: ${pageCorrect} из ${filled} верно.`;
-    }
-
-    function renderHintTable() {
-      let html = "<table><thead><tr><th>×</th>";
-      for (let n = 2; n <= 9; n += 1) html += `<th>${n}</th>`;
-      html += "</tr></thead><tbody>";
-      for (let a = 2; a <= 9; a += 1) {
-        html += `<tr><th>${a}</th>`;
-        for (let b = 2; b <= 9; b += 1) html += `<td>${a * b}</td>`;
-        html += "</tr>";
+      const raw = answerInput.value.trim();
+      if (raw === "" || Number.isNaN(Number(raw))) {
+        feedbackEl.textContent = "Впиши ответ числом";
+        feedbackEl.className = "feedback bad";
+        answerInput.focus();
+        return;
       }
-      html += "</tbody></table>";
-      hintEl.innerHTML = html;
+
+      busy = true;
+      const value = Number(raw);
+      state.queue.shift();
+      state.answered += 1;
+
+      if (value === problem.answer) {
+        state.correct += 1;
+        feedbackEl.textContent = "Верно";
+        feedbackEl.className = "feedback ok";
+        problemCard.classList.add("flash-ok");
+      } else {
+        state.fails += 1;
+        feedbackEl.textContent = `Фейл. Правильно: ${problem.answer}. +${FAIL_EXTRA} примера`;
+        feedbackEl.className = "feedback bad";
+        problemCard.classList.add("flash-bad");
+        for (let i = 0; i < FAIL_EXTRA; i += 1) {
+          state.queue.push(makeProblem(settings.tables));
+        }
+      }
+
+      persist();
+      updateTrainChrome();
+
+      window.setTimeout(() => {
+        if (!state.queue.length) finishTraining();
+        else showCurrentProblem();
+      }, value === problem.answer ? 350 : 900);
     }
 
-    document.getElementById("newBtn").addEventListener("click", makeProblems);
-    document.getElementById("checkBtn").addEventListener("click", checkAnswers);
-    document.getElementById("hintBtn").addEventListener("click", () => {
-      hintEl.classList.toggle("hidden");
-      document.getElementById("hintBtn").textContent = hintEl.classList.contains("hidden")
-        ? "Показать таблицу"
-        : "Скрыть таблицу";
-    });
-    countEl.addEventListener("change", makeProblems);
+    function renderTableButtons() {
+      const box = document.getElementById("tableButtons");
+      box.innerHTML = "";
+      const selected = new Set(settings.tables);
+      for (let n = 2; n <= 9; n += 1) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = String(n);
+        btn.className = selected.has(n) ? "on" : "";
+        btn.addEventListener("click", () => {
+          if (selected.has(n)) {
+            if (selected.size === 1) return;
+            selected.delete(n);
+          } else selected.add(n);
+          settings.tables = [...selected].sort((a, b) => a - b);
+          saveSettings();
+          renderTableButtons();
+        });
+        box.appendChild(btn);
+      }
+    }
 
+    document.getElementById("startBtn").addEventListener("click", startTraining);
+    document.getElementById("submitBtn").addEventListener("click", submitAnswer);
+    document.getElementById("exitBtn").addEventListener("click", () => {
+      updateHome();
+      show("home");
+    });
+    document.getElementById("backHomeBtn").addEventListener("click", () => {
+      updateHome();
+      show("home");
+    });
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      document.getElementById("settingsCard").classList.toggle("hidden");
+    });
+    answerInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitAnswer();
+      }
+    });
+
+    document.getElementById("settingsBtn").classList.remove("hidden");
     renderTableButtons();
-    renderHintTable();
-    makeProblems();
+    updateHome();
+    show("home");
   </script>
 </body>
 </html>
