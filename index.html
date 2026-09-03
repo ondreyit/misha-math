@@ -90,6 +90,7 @@
     .hero-bubble {
       position: relative; background: #fff; border-radius: 16px; padding: 10px 12px;
       box-shadow: var(--shadow); border: 2px solid #dceaff; width: 100%;
+      min-height: 88px; flex-shrink: 0;
       cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     .hero-bubble:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(36,72,140,0.18); }
@@ -97,7 +98,11 @@
       font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
       text-transform: uppercase; color: var(--sky); margin-bottom: 3px;
     }
-    .hero-text { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.35; }
+    .hero-text {
+      margin: 0; font-size: 14px; font-weight: 700; line-height: 1.35;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+      overflow: hidden; min-height: calc(1.35em * 3);
+    }
     .sidebar-nav {
       display: flex; flex-direction: column; gap: 6px; margin-top: 14px;
       flex: 1; min-height: 0; overflow-y: auto;
@@ -385,8 +390,8 @@
       .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
       .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
       .sidebar-controls { flex: 1; justify-content: flex-end; }
-      .hero-bubble { padding: 8px 10px; }
-      .hero-text { font-size: 12px; }
+      .hero-bubble { padding: 8px 10px; min-height: 64px; }
+      .hero-text { font-size: 12px; min-height: calc(1.35em * 2); -webkit-line-clamp: 2; }
       .sidebar-nav {
         flex-direction: row; flex-wrap: nowrap; overflow-x: auto; margin-top: 8px;
         gap: 6px; padding-bottom: 2px; -webkit-overflow-scrolling: touch;
@@ -405,6 +410,20 @@
     @keyframes rewardPop { 0% { opacity: 0; transform: scale(0.7) translateY(20px); } 60% { opacity: 1; transform: scale(1.06) translateY(0); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
     @keyframes statusHappy { 0% { transform: scale(0.92); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
     @keyframes statusThink { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+    .toast-modal .modal-card {
+      text-align: center; border: 3px solid #ffb0c0;
+      background: linear-gradient(180deg, #fff7fa, #ffe4eb);
+      animation: rewardPop 0.4s ease;
+    }
+    .toast-modal .toast-emoji { font-size: 52px; line-height: 1; margin: 4px 0 10px; }
+    .toast-modal h2 { margin: 0 0 8px; font-size: 22px; font-weight: 900; color: #b01040; }
+    .toast-modal p { margin: 0 0 16px; font-size: 15px; font-weight: 700; color: #7a3048; line-height: 1.4; }
+    .toast-modal.ok .modal-card {
+      border-color: #7de0b8;
+      background: linear-gradient(180deg, #f3fff9, #d8fff0);
+    }
+    .toast-modal.ok h2 { color: #0b8f63; }
+    .toast-modal.ok p { color: #26614c; }
   </style>
 </head>
 <body>
@@ -443,6 +462,14 @@
       <div id="dayMissionContent"></div>
       <button class="btn btn-accent" id="dayMissionOpenBtn" type="button" data-i18n="open">Open</button>
       <button class="btn btn-ghost hidden" id="dayMissionRepeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
+    </div>
+  </div>
+  <div class="modal toast-modal hidden" id="toastModal">
+    <div class="modal-card">
+      <div class="toast-emoji" id="toastEmoji">🪙</div>
+      <h2 id="toastTitle">...</h2>
+      <p id="toastText">...</p>
+      <button class="btn btn-ink" id="toastOkBtn" type="button">OK</button>
     </div>
   </div>
   <div class="app">
@@ -618,8 +645,9 @@
     const POOL_VERSION = 2;
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
-    const CLOUD_NTFY_TOPIC = "misha-math-ondreyit-f7c3a91e";
-    const CLOUD_NTFY_URL = `https://ntfy.sh/${CLOUD_NTFY_TOPIC}`;
+    const CLOUD_KV_APP = "lz51usfi";
+    const CLOUD_KV_KEY = "family";
+    const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
 
     const I18N = {
       ru: {
@@ -705,9 +733,9 @@
         coinHistoryBalance: (n) => `Баланс: ${n} Мишкоинов`,
         mishcoin: "Мишкоин", mishcoins: "Мишкоины",
         tablesSettingsTitle: "Настройки таблиц",
-        tablesSettingsHint: "Можно открыть больше таблиц, чем по плану. Ниже минимума — нельзя.",
+        tablesSettingsHint: "Можно добавить таблицы выше минимума и вернуть назад до него.",
         tablesFloorLabel: "Открыто прогрессом",
-        tablesFloorNote: (floor, max) => `Минимум сегодня: таблицы 1–${floor}. Активно: 1–${max}.`,
+        tablesFloorNote: (floor, max) => `Сейчас открыто: 1–${max}. Минимум: 1–${floor}.`,
         tablesSelectLabel: "Активные таблицы (1–9)",
         tablesSettingsSaved: "Таблицы обновлены!",
         pythagorasTitle: "Таблица Пифагора",
@@ -718,8 +746,11 @@
         redeemBuy: "Купить",
         redeemPurchased: "Куплено",
         redeemNotEnough: "Не хватает Мишкоинов",
+        redeemNotEnoughHint: "Ещё чуть-чуть потренируйся — и копилка наполнится!",
         redeemSuccess: (title) => `Ура! Ты получил: ${title}`,
+        redeemSuccessHint: "Приз уже в твоём списке желаний.",
         redeemSpend: (title) => `Приз: ${title}`,
+        toastOk: "Понятно",
         weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
       },
       en: {
@@ -800,9 +831,9 @@
         coinHistoryBalance: (n) => `Balance: ${n} Mishcoins`,
         mishcoin: "Mishcoin", mishcoins: "Mishcoins",
         tablesSettingsTitle: "Table settings",
-        tablesSettingsHint: "Unlock extra tables above your daily progress. Cannot go below the floor.",
+        tablesSettingsHint: "You can add tables above the minimum and lower them back to it.",
         tablesFloorLabel: "Unlocked by progress",
-        tablesFloorNote: (floor, max) => `Today's floor: tables 1–${floor}. Active: 1–${max}.`,
+        tablesFloorNote: (floor, max) => `Open now: 1–${max}. Minimum: 1–${floor}.`,
         tablesSelectLabel: "Active tables (1–9)",
         tablesSettingsSaved: "Tables updated!",
         pythagorasTitle: "Pythagoras table",
@@ -812,8 +843,11 @@
         redeemEmpty: "Dad hasn't added prizes yet. Surprises coming soon!",
         redeemBuy: "Buy", redeemPurchased: "Purchased",
         redeemNotEnough: "Not enough Mishcoins",
+        redeemNotEnoughHint: "Train a little more and your piggy bank will grow!",
         redeemSuccess: (title) => `Yay! You got: ${title}`,
+        redeemSuccessHint: "The prize is already on your wishlist.",
         redeemSpend: (title) => `Prize: ${title}`,
+        toastOk: "Got it",
         weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       },
     };
@@ -853,6 +887,7 @@
     const pinModal = document.getElementById("pinModal");
     const historyModal = document.getElementById("historyModal");
     const dayMissionModal = document.getElementById("dayMissionModal");
+    const toastModal = document.getElementById("toastModal");
 
     function t(key, ...args) {
       const value = I18N[lang][key];
@@ -958,13 +993,7 @@
     function loadCloudMeta() {
       try {
         const raw = JSON.parse(localStorage.getItem(CLOUD_META_KEY) || "{}");
-        let updatedAt = Number(raw.updatedAt) || 0;
-        if (!updatedAt) {
-          const hasLocal = (Number(JSON.parse(localStorage.getItem(COINS_KEY) || "{}").balance) || 0) > 0
-            || Object.keys(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")).length > 0;
-          if (hasLocal) updatedAt = Date.now();
-        }
-        return { updatedAt };
+        return { updatedAt: Number(raw.updatedAt) || 0 };
       } catch { return { updatedAt: 0 }; }
     }
     function saveCloudMeta() {
@@ -979,18 +1008,42 @@
     function buildCloudPayload() {
       return {
         updatedAt: cloudMeta.updatedAt || Date.now(),
-        coins: { balance: coins.balance, history: (coins.history || []).slice(0, 40) },
+        coins: { balance: coins.balance, history: (coins.history || []).slice(0, 12) },
         settings: {
           questionCount: settings.questionCount,
           tablesMax: settings.tablesMax,
           wishlist: settings.wishlist || [],
         },
-        store: loadStore(),
-        lang,
       };
+    }
+    function toCompactCloud(payload) {
+      return {
+        u: Number(payload.updatedAt) || Date.now(),
+        b: Number(payload.coins?.balance) || 0,
+        h: Array.isArray(payload.coins?.history) ? payload.coins.history.slice(0, 8) : [],
+        q: Number(payload.settings?.questionCount) || 50,
+        m: Number(payload.settings?.tablesMax) || 0,
+        w: Array.isArray(payload.settings?.wishlist) ? payload.settings.wishlist.slice(0, 8) : [],
+      };
+    }
+    function fromCompactCloud(compact) {
+      if (!compact || typeof compact !== "object") return null;
+      return normalizeCloudPayload({
+        updatedAt: compact.u || compact.updatedAt,
+        coins: {
+          balance: compact.b ?? compact.coins?.balance,
+          history: compact.h || compact.coins?.history || [],
+        },
+        settings: {
+          questionCount: compact.q ?? compact.settings?.questionCount,
+          tablesMax: compact.m ?? compact.settings?.tablesMax,
+          wishlist: compact.w || compact.settings?.wishlist || [],
+        },
+      });
     }
     function normalizeCloudPayload(raw) {
       if (!raw || typeof raw !== "object") return null;
+      if (raw.u != null && raw.b != null && !raw.coins) return fromCompactCloud(raw);
       if (raw.coins) {
         return {
           updatedAt: Number(raw.updatedAt) || 0,
@@ -999,8 +1052,6 @@
             history: Array.isArray(raw.coins.history) ? raw.coins.history : [],
           },
           settings: raw.settings || null,
-          store: raw.store && typeof raw.store === "object" ? raw.store : null,
-          lang: raw.lang === "en" || raw.lang === "ru" ? raw.lang : null,
         };
       }
       if ("balance" in raw) {
@@ -1011,24 +1062,26 @@
             history: Array.isArray(raw.history) ? raw.history : [],
           },
           settings: raw.settings || null,
-          store: raw.store && typeof raw.store === "object" ? raw.store : null,
-          lang: null,
         };
       }
       return null;
     }
+    function shouldApplyCloud(remote) {
+      if (!remote) return false;
+      const localAt = cloudMeta.updatedAt || 0;
+      if (remote.updatedAt > localAt) return true;
+      if (remote.coins.balance > coins.balance) return true;
+      if (coins.balance === 0 && remote.coins.balance > 0) return true;
+      return false;
+    }
     function applyCloudPayload(payload) {
       const remote = normalizeCloudPayload(payload);
-      if (!remote || !remote.updatedAt) return false;
-      const localAt = cloudMeta.updatedAt || 0;
-      const remoteNewer = remote.updatedAt > localAt;
-      const rescueEmptyCoins = coins.balance === 0 && remote.coins.balance > 0;
-      if (!remoteNewer && !rescueEmptyCoins) return false;
+      if (!remote || !shouldApplyCloud(remote)) return false;
       suppressCloudPush = true;
       try {
         coins = {
           balance: remote.coins.balance,
-          history: remote.coins.history,
+          history: remote.coins.history.length ? remote.coins.history : coins.history,
         };
         localStorage.setItem(COINS_KEY, JSON.stringify(coins));
         if (remote.settings) {
@@ -1041,11 +1094,7 @@
           };
           localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
         }
-        if (remote.store) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(remote.store));
-        }
-        if (remote.lang) lang = remote.lang;
-        cloudMeta.updatedAt = remote.updatedAt;
+        cloudMeta.updatedAt = Math.max(remote.updatedAt || 0, cloudMeta.updatedAt || 0, Date.now());
         saveCloudMeta();
         renderCoins();
         return true;
@@ -1053,34 +1102,48 @@
         suppressCloudPush = false;
       }
     }
+    function bytesToHex(str) {
+      return Array.from(new TextEncoder().encode(str))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+    function hexToBytes(hex) {
+      const clean = String(hex || "").replace(/[^0-9a-f]/gi, "");
+      if (!clean || clean.length % 2) return "";
+      const bytes = new Uint8Array(clean.length / 2);
+      for (let i = 0; i < clean.length; i += 2) bytes[i / 2] = parseInt(clean.slice(i, i + 2), 16);
+      return new TextDecoder().decode(bytes);
+    }
+    function encodeCloudValue(payload) {
+      let compact = toCompactCloud(payload);
+      let json = JSON.stringify(compact);
+      let hex = bytesToHex(json);
+      while (hex.length > 1000 && compact.h.length) {
+        compact.h.pop();
+        json = JSON.stringify(compact);
+        hex = bytesToHex(json);
+      }
+      while (hex.length > 1000 && compact.w.length) {
+        compact.w.pop();
+        json = JSON.stringify(compact);
+        hex = bytesToHex(json);
+      }
+      return hex;
+    }
+    async function fetchCloudFromKv() {
+      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${CLOUD_KV_KEY}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      const text = (await res.text()).replace(/^"|"$/g, "").trim();
+      if (!text) return null;
+      try {
+        if (/^[0-9a-f]+$/i.test(text)) return normalizeCloudPayload(JSON.parse(hexToBytes(text)));
+        return normalizeCloudPayload(JSON.parse(text));
+      } catch { return null; }
+    }
     async function fetchCloudFromGist() {
-      const url = `${CLOUD_GIST_RAW}?t=${Date.now()}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(`${CLOUD_GIST_RAW}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("gist");
       return normalizeCloudPayload(await res.json());
-    }
-    async function fetchCloudFromNtfy() {
-      const res = await fetch(`${CLOUD_NTFY_URL}/json?poll=1`, { cache: "no-store" });
-      if (!res.ok) return null;
-      const text = await res.text();
-      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-      let best = null;
-      for (const line of lines) {
-        try {
-          const msg = JSON.parse(line);
-          if (msg.event !== "message") continue;
-          let payload = null;
-          if (msg.attachment?.url) {
-            const fileRes = await fetch(msg.attachment.url, { cache: "no-store" });
-            if (fileRes.ok) payload = normalizeCloudPayload(await fileRes.json());
-          } else if (msg.message) {
-            try { payload = normalizeCloudPayload(JSON.parse(msg.message)); } catch { /* ignore */ }
-          }
-          if (!payload) continue;
-          if (!best || payload.updatedAt >= best.updatedAt) best = payload;
-        } catch { /* ignore bad line */ }
-      }
-      return best;
     }
     async function fetchCloudFromLocalFile() {
       try {
@@ -1089,35 +1152,40 @@
         return normalizeCloudPayload(await res.json());
       } catch { return null; }
     }
+    function refreshAfterCloudApply() {
+      applyI18n();
+      updateHome();
+      if (currentView === "plan") renderPlanList();
+      if (currentView === "calendar") renderCalendar();
+      if (currentView === "tables") renderTablesSettings();
+      if (currentView === "pythagoras") renderPythagoras();
+      if (currentView === "redeem") renderRedeem();
+    }
     async function pullCloudSync() {
       if (cloudSyncing) return false;
       cloudSyncing = true;
       try {
         const results = await Promise.allSettled([
-          fetchCloudFromNtfy(),
+          fetchCloudFromKv(),
           fetchCloudFromGist(),
           fetchCloudFromLocalFile(),
         ]);
         let best = null;
         results.forEach((r) => {
           if (r.status !== "fulfilled" || !r.value) return;
-          if (!best || r.value.updatedAt > best.updatedAt) best = r.value;
+          if (!best
+            || r.value.updatedAt > best.updatedAt
+            || (r.value.updatedAt === best.updatedAt && r.value.coins.balance > best.coins.balance)) {
+            best = r.value;
+          }
         });
         if (!best) return false;
-        if (best.updatedAt > (cloudMeta.updatedAt || 0)) {
+        if (shouldApplyCloud(best)) {
           const changed = applyCloudPayload(best);
-          if (changed) {
-            applyI18n();
-            updateHome();
-            if (currentView === "plan") renderPlanList();
-            if (currentView === "calendar") renderCalendar();
-            if (currentView === "tables") renderTablesSettings();
-            if (currentView === "pythagoras") renderPythagoras();
-            if (currentView === "redeem") renderRedeem();
-          }
+          if (changed) refreshAfterCloudApply();
           return changed;
         }
-        if ((cloudMeta.updatedAt || 0) > best.updatedAt) {
+        if ((cloudMeta.updatedAt || 0) > (best.updatedAt || 0) || coins.balance > best.coins.balance) {
           scheduleCloudPush();
         }
         return false;
@@ -1129,24 +1197,30 @@
     }
     async function pushCloudSync() {
       const payload = buildCloudPayload();
-      const body = JSON.stringify(payload);
+      const hex = encodeCloudValue(payload);
       try {
-        await fetch(CLOUD_NTFY_URL, {
-          method: "PUT",
-          headers: {
-            Title: "family-sync",
-            Filename: "family_sync.json",
-            "Content-Type": "application/json",
-          },
-          body,
+        await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${CLOUD_KV_KEY}/${hex}`, {
+          method: "POST",
+          body: "",
+          cache: "no-store",
         });
       } catch { /* offline ok */ }
     }
     function scheduleCloudPush() {
       if (suppressCloudPush) return;
       window.clearTimeout(cloudPushTimer);
-      cloudPushTimer = window.setTimeout(() => { pushCloudSync(); }, 400);
+      cloudPushTimer = window.setTimeout(() => { pushCloudSync(); }, 250);
     }
+    function showToast(kind, title, text, emoji) {
+      toastModal.classList.toggle("ok", kind === "ok");
+      toastModal.classList.toggle("bad", kind !== "ok");
+      document.getElementById("toastEmoji").textContent = emoji || (kind === "ok" ? "🎉" : "🪙");
+      document.getElementById("toastTitle").textContent = title;
+      document.getElementById("toastText").textContent = text;
+      document.getElementById("toastOkBtn").textContent = t("toastOk");
+      toastModal.classList.remove("hidden");
+    }
+    function closeToast() { toastModal.classList.add("hidden"); }
     function renderCoins() { document.getElementById("coinsValue").textContent = String(coins.balance); }
     function bumpCoinsDisplay() {
       coinsBadge.classList.remove("pop");
@@ -1441,8 +1515,8 @@
         if (isLocked) btn.classList.add("locked");
         btn.addEventListener("click", () => {
           if (n <= floor) return;
-          if (n <= maxN) return;
-          settings.tablesMax = n;
+          if (n === maxN) settings.tablesMax = Math.max(floor, n - 1);
+          else settings.tablesMax = n;
           saveSettings();
           renderTablesSettings();
           renderPythagoras();
@@ -1504,7 +1578,10 @@
     function buyPrize(id) {
       const prize = (settings.wishlist || []).find((p) => p.id === id);
       if (!prize || prize.purchasedAt) return;
-      if (coins.balance < prize.cost) { alert(t("redeemNotEnough")); return; }
+      if (coins.balance < prize.cost) {
+        showToast("bad", t("redeemNotEnough"), t("redeemNotEnoughHint"), "😢");
+        return;
+      }
       const title = prizeTitle(prize);
       const entry = {
         id: uid(), at: new Date().toISOString(), dateKey: todayKey(),
@@ -1514,7 +1591,7 @@
       spendCoins(prize.cost, entry);
       prize.purchasedAt = new Date().toISOString();
       saveSettings();
-      alert(t("redeemSuccess", title));
+      showToast("ok", t("redeemSuccess", title), t("redeemSuccessHint"), "🎁");
       renderRedeem();
     }
 
@@ -1917,6 +1994,8 @@
     historyModal.addEventListener("click", (e) => { if (e.target === historyModal) closeCoinHistory(); });
     document.getElementById("dayMissionCloseBtn").addEventListener("click", closeDayMissionModal);
     dayMissionModal.addEventListener("click", (e) => { if (e.target === dayMissionModal) closeDayMissionModal(); });
+    document.getElementById("toastOkBtn").addEventListener("click", closeToast);
+    toastModal.addEventListener("click", (e) => { if (e.target === toastModal) closeToast(); });
     document.getElementById("dayMissionOpenBtn").addEventListener("click", () => {
       const key = dayMissionKey;
       closeDayMissionModal();
