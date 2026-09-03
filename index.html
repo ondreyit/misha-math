@@ -20,14 +20,11 @@
       --bad-bg: #ffe1e8;
       --focus: #2f6fed;
       --shadow: 0 10px 28px rgba(36, 72, 140, 0.14);
+      --sidebar-w: 240px;
     }
-
     * { box-sizing: border-box; }
-
     html, body {
-      margin: 0;
-      min-height: 100%;
-      color: var(--ink);
+      margin: 0; min-height: 100%; color: var(--ink);
       font-family: "Segoe UI", "Trebuchet MS", sans-serif;
       background:
         radial-gradient(circle at 12% 10%, #fff7b0 0%, transparent 28%),
@@ -36,423 +33,193 @@
         linear-gradient(180deg, #d7efff 0%, #ffe9d6 55%, #ffd8ef 100%);
       background-attachment: fixed;
     }
-
-    body {
-      padding: 18px 14px calc(28px + env(safe-area-inset-bottom));
-      overflow-x: hidden;
+    body { overflow-x: hidden; }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
+      display: flex; flex-direction: column; padding: 16px 14px;
+      background: rgba(255,255,255,0.88); backdrop-filter: blur(10px);
+      border-right: 2px solid #dceaff; box-shadow: 4px 0 24px rgba(36,72,140,0.08);
+      z-index: 20; overflow: hidden;
     }
-
-    .wrap { max-width: 440px; margin: 0 auto; position: relative; }
-
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      letter-spacing: -0.03em;
-      cursor: default;
-      user-select: none;
+    .sidebar-title {
+      margin: 0 0 12px; font-size: 15px; font-weight: 900; letter-spacing: -0.02em;
+      cursor: default; user-select: none; text-align: center;
+      background: linear-gradient(90deg, #2f6fed, #ff3d81);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-
-    .subtitle { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .top-actions { display: flex; align-items: center; gap: 8px; }
-
-    .lang-switch {
-      display: inline-flex;
-      border: 2px solid #cfe0ff;
-      border-radius: 999px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .lang-switch button {
-      border: 0;
-      background: transparent;
-      min-height: 36px;
-      padding: 0 10px;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--muted);
+    .sidebar-top { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+    .sidebar-avatar-wrap { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
+    .sidebar-avatar {
+      width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+      object-position: center 20%; border: 4px solid #fff;
+      box-shadow: var(--shadow), 0 0 0 3px rgba(47,111,237,0.25); background: #fff;
       cursor: pointer;
     }
-
-    .lang-switch button.on {
-      background: linear-gradient(135deg, #2f6fed, #6a4dff);
-      color: #fff;
-    }
-
-    .coins {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 44px;
-      padding: 6px 14px 6px 8px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, #ffe566, #ffb703);
-      color: #5a3b00;
-      font-weight: 800;
-      box-shadow: 0 8px 18px rgba(245, 180, 0, 0.35);
-      animation: coinGlow 2.2s ease-in-out infinite;
-    }
-
-    .coins .coin {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
-      border: 2px solid #fff1a0;
-      font-size: 14px;
-      animation: spinSoft 4s linear infinite;
-    }
-
-    .coins.pop { animation: coinPop 0.55s ease; }
-
-    .hero {
-      display: grid;
-      grid-template-columns: 112px 1fr;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .hero-avatar-wrap { position: relative; width: 112px; height: 112px; }
-
-    .hero-avatar {
-      width: 112px;
-      height: 112px;
-      border-radius: 50%;
-      object-fit: cover;
-      object-position: center 18%;
-      border: 4px solid #fff;
-      box-shadow: var(--shadow), 0 0 0 4px rgba(47, 111, 237, 0.25);
-      animation: floatY 3s ease-in-out infinite;
-      background: #fff;
-    }
-
-    .hero-avatar-wrap::after {
-      content: "";
-      position: absolute;
-      inset: -8px;
-      border-radius: 50%;
+    .sidebar-avatar-wrap::after {
+      content: ""; position: absolute; inset: -6px; border-radius: 50%; z-index: -1;
       background: conic-gradient(from 0deg, #2f6fed, #18c59a, #ffb703, #ff3d81, #2f6fed);
-      z-index: -1;
-      animation: spinSoft 6s linear infinite;
-      opacity: 0.85;
+      opacity: 0.75;
     }
-
+    .sidebar-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+    .lang-switch {
+      display: inline-flex; border: 2px solid #cfe0ff; border-radius: 999px;
+      overflow: hidden; background: #fff;
+    }
+    .lang-switch button {
+      border: 0; background: transparent; min-height: 34px; padding: 0 10px;
+      font: inherit; font-size: 12px; font-weight: 800; color: var(--muted); cursor: pointer;
+    }
+    .lang-switch button.on {
+      background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
+    }
+    .coins {
+      display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+      padding: 5px 12px 5px 7px; border-radius: 999px;
+      background: linear-gradient(135deg, #ffe566, #ffb703); color: #5a3b00;
+      font-weight: 800; font-size: 14px; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(245,180,0,0.35); transition: transform 0.15s ease;
+    }
+    .coins:hover { transform: scale(1.04); }
+    .coins .coin {
+      width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+      background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
+      border: 2px solid #fff1a0; font-size: 13px;
+    }
+    .coins.pop { animation: coinPop 0.55s ease; }
     .hero-bubble {
-      position: relative;
-      background: #fff;
-      border-radius: 18px;
-      padding: 14px 14px 12px;
-      box-shadow: var(--shadow);
-      border: 2px solid #dceaff;
-      min-height: 78px;
+      position: relative; background: #fff; border-radius: 16px; padding: 10px 12px;
+      box-shadow: var(--shadow); border: 2px solid #dceaff; width: 100%;
+      cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-
-    .hero-bubble::before {
-      content: "";
-      position: absolute;
-      left: -8px;
-      top: 34px;
-      width: 16px;
-      height: 16px;
-      background: #fff;
-      border-left: 2px solid #dceaff;
-      border-bottom: 2px solid #dceaff;
-      transform: rotate(45deg);
-    }
-
+    .hero-bubble:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(36,72,140,0.18); }
     .hero-name {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--sky);
-      margin-bottom: 4px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--sky); margin-bottom: 3px;
     }
-
-    .hero-text { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; }
-
+    .hero-text { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.35; }
+    .sidebar-nav {
+      display: flex; flex-direction: column; gap: 6px; margin-top: 14px;
+      flex: 1; min-height: 0; overflow-y: auto;
+    }
+    .nav-btn {
+      display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+      padding: 0 12px; border: 2px solid #dceaff; border-radius: 14px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 14px;
+      font-weight: 800; cursor: pointer; text-align: left; transition: all 0.12s ease;
+    }
+    .nav-btn:hover { border-color: #a8c8ff; background: #f3f8ff; }
+    .nav-btn.on {
+      background: linear-gradient(135deg, #2f6fed, #6a4dff);
+      border-color: transparent; color: #fff;
+    }
+    .nav-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
+    .main {
+      margin-left: var(--sidebar-w); flex: 1; min-width: 0;
+      padding: 20px 18px calc(28px + env(safe-area-inset-bottom));
+      overflow-y: auto; max-height: 100vh;
+    }
+    .main-inner { max-width: 520px; margin: 0 auto; }
+    .subtitle { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
+    .view-title { margin: 0 0 4px; font-size: 24px; font-weight: 900; letter-spacing: -0.03em; }
     .card {
-      background: var(--card);
-      border: 2px solid #e5f0ff;
-      border-radius: 20px;
-      padding: 18px;
-      margin-bottom: 14px;
-      box-shadow: var(--shadow);
+      background: var(--card); border: 2px solid #e5f0ff; border-radius: 20px;
+      padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow);
       animation: fadeUp 0.45s ease;
     }
-
     .label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--muted);
+      display: block; margin-bottom: 8px; font-size: 12px; font-weight: 800;
+      letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
     }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 14px;
-    }
-
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
     .stat {
-      background: linear-gradient(180deg, #eef5ff, #f7fbff);
-      border-radius: 14px;
-      padding: 10px 8px;
-      text-align: center;
-      border: 1px solid #dceaff;
+      background: linear-gradient(180deg, #eef5ff, #f7fbff); border-radius: 14px;
+      padding: 10px 8px; text-align: center; border: 1px solid #dceaff;
     }
-
     .stat strong { display: block; font-size: 22px; line-height: 1.1; }
     .stat span { font-size: 12px; color: var(--muted); }
-
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 54px;
-      border: 0;
-      border-radius: 16px;
-      padding: 0 16px;
-      font: inherit;
-      font-size: 18px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: transform 0.12s ease;
-      box-shadow: 0 8px 0 rgba(0, 0, 0, 0.08);
+      display: inline-flex; align-items: center; justify-content: center; width: 100%;
+      min-height: 54px; border: 0; border-radius: 16px; padding: 0 16px;
+      font: inherit; font-size: 18px; font-weight: 800; cursor: pointer;
+      transition: transform 0.12s ease; box-shadow: 0 8px 0 rgba(0,0,0,0.08);
     }
-
-    .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.08); }
+    .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,0.08); }
     .btn + .btn { margin-top: 10px; }
     .btn-accent { background: linear-gradient(135deg, #ff8a2b, #ff3d81); color: #fff; }
     .btn-ink { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
-    .btn-ghost {
-      background: rgba(255, 255, 255, 0.75);
-      border: 2px solid #cfe0ff;
-      color: var(--ink);
-      box-shadow: none;
-    }
+    .btn-ghost { background: rgba(255,255,255,0.75); border: 2px solid #cfe0ff; color: var(--ink); box-shadow: none; }
+    .btn-sm { min-height: 42px; font-size: 15px; width: auto; padding: 0 16px; }
     .btn:disabled { opacity: 0.45; cursor: default; }
-
     .streak { margin-top: 8px; font-size: 15px; color: var(--muted); font-weight: 700; }
-
-    .cal-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .cal-head strong {
-      font-size: 16px;
-      text-transform: capitalize;
-    }
-
+    .hidden { display: none !important; }
+    .cal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .cal-head strong { font-size: 16px; text-transform: capitalize; }
     .cal-nav {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      border: 2px solid #cfe0ff;
-      background: #fff;
-      font-weight: 900;
-      cursor: pointer;
+      width: 38px; height: 38px; border-radius: 12px; border: 2px solid #cfe0ff;
+      background: #fff; font-weight: 900; cursor: pointer;
     }
-
-    .cal-weekdays, .cal-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-    }
-
-    .cal-weekdays span {
-      text-align: center;
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--muted);
-      text-transform: uppercase;
-    }
-
+    .cal-weekdays, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .cal-weekdays span { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
     .cal-cell {
-      aspect-ratio: 1;
-      border-radius: 14px;
-      border: 2px solid #dceaff;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1px;
-      font-size: 12px;
-      font-weight: 800;
-      min-height: 0;
-      padding: 2px;
+      aspect-ratio: 1; border-radius: 14px; border: 2px solid #dceaff; background: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; font-size: 12px; font-weight: 800; min-height: 0; padding: 2px;
     }
-
     .cal-cell .mark { font-size: 16px; line-height: 1; }
     .cal-cell.empty { border-color: transparent; background: transparent; }
     .cal-cell.future { color: var(--muted); background: #f7faff; }
     .cal-cell.before { opacity: 0.25; }
     .cal-cell.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
-    .cal-cell.done {
-      background: linear-gradient(180deg, #d8fff0, #baf7df);
-      border-color: #7de0b8;
-      color: var(--ok);
-      animation: popIn 0.35s ease;
-    }
-    .cal-cell.bad {
-      background: linear-gradient(180deg, #ffe1e8, #ffc2cf);
-      border-color: #ff9aaf;
-      color: var(--bad);
-      animation: shakeX 0.35s ease;
-    }
-    .cal-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 12px;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-    }
+    .cal-cell.done { background: linear-gradient(180deg, #d8fff0, #baf7df); border-color: #7de0b8; color: var(--ok); animation: popIn 0.35s ease; }
+    .cal-cell.bad { background: linear-gradient(180deg, #ffe1e8, #ffc2cf); border-color: #ff9aaf; color: var(--bad); animation: shakeX 0.35s ease; }
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--muted); }
     .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
-
-    .hidden { display: none !important; }
-
-    .progress-bar {
-      height: 12px;
-      background: rgba(255, 255, 255, 0.7);
-      border-radius: 999px;
-      overflow: hidden;
-      margin: 12px 0 6px;
-      border: 2px solid #cfe0ff;
-    }
-
-    .progress-bar > i {
-      display: block;
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, #2f6fed, #18c59a, #ffb703);
-      border-radius: inherit;
-      transition: width 0.25s ease;
-    }
-
-    .progress-text {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 14px;
-      font-weight: 700;
-    }
-
+    .progress-bar { height: 12px; background: rgba(255,255,255,0.7); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; border: 2px solid #cfe0ff; }
+    .progress-bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2f6fed, #18c59a, #ffb703); border-radius: inherit; transition: width 0.25s ease; }
+    .progress-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 14px; font-weight: 700; }
     .problem-card { text-align: center; padding: 26px 18px 20px; transition: background 0.2s ease; }
-    .problem {
-      font-size: 46px;
-      font-weight: 900;
-      margin: 8px 0 22px;
-      white-space: nowrap;
-      animation: popIn 0.28s ease;
-    }
-
+    .problem { font-size: 46px; font-weight: 900; margin: 8px 0 22px; white-space: nowrap; animation: popIn 0.28s ease; }
     .answer-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .answer-row input {
-      width: 100%;
-      min-height: 58px;
-      border: 2px solid #cfe0ff;
-      border-radius: 16px;
-      text-align: center;
-      font-size: 30px;
-      font-weight: 900;
-      background: #fff;
-      color: var(--ink);
+      width: 100%; min-height: 58px; border: 2px solid #cfe0ff; border-radius: 16px;
+      text-align: center; font-size: 30px; font-weight: 900; background: #fff; color: var(--ink);
     }
-    .answer-row input:focus {
-      outline: 3px solid rgba(47, 111, 237, 0.25);
-      border-color: var(--focus);
-    }
+    .answer-row input:focus { outline: 3px solid rgba(47,111,237,0.25); border-color: var(--focus); }
     .answer-row .btn { width: 110px; min-height: 58px; }
-
     .feedback { min-height: 28px; margin-top: 14px; font-size: 17px; font-weight: 800; }
     .feedback.ok { color: var(--ok); }
     .feedback.bad { color: var(--bad); }
     .flash-ok { background: var(--ok-bg) !important; animation: successPulse 0.4s ease; }
     .flash-bad { background: var(--bad-bg) !important; animation: shakeX 0.4s ease; }
-
     .done-title {
-      font-size: 30px;
-      font-weight: 900;
-      margin: 0 0 8px;
+      font-size: 30px; font-weight: 900; margin: 0 0 8px;
       background: linear-gradient(90deg, #2f6fed, #ff3d81, #ffb703);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-
     .reward-box {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #fff4b8, #ffe08a);
-      border: 2px solid #ffd24d;
-      text-align: left;
-      font-weight: 700;
-      color: #6a4700;
+      margin-top: 14px; padding: 12px; border-radius: 14px;
+      background: linear-gradient(135deg, #fff4b8, #ffe08a); border: 2px solid #ffd24d;
+      text-align: left; font-weight: 700; color: #6a4700;
     }
     .reward-box ul { margin: 8px 0 0; padding-left: 18px; }
-
     .tables { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tables button {
-      width: 42px;
-      height: 42px;
-      border: 2px solid #cfe0ff;
-      background: #fff;
-      color: var(--ink);
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 800;
-      cursor: pointer;
+    .tables button, .table-chip {
+      width: 46px; height: 46px; border: 2px solid #cfe0ff; background: #fff;
+      color: var(--ink); border-radius: 12px; font-size: 17px; font-weight: 800; cursor: pointer;
+      position: relative; transition: all 0.12s ease;
     }
-    .tables button.on {
-      background: linear-gradient(135deg, #2f6fed, #6a4dff);
-      border-color: transparent;
-      color: #fff;
+    .tables button.on, .table-chip.on {
+      background: linear-gradient(135deg, #2f6fed, #6a4dff); border-color: transparent; color: #fff;
     }
-
+    .table-chip.locked { cursor: default; opacity: 1; }
+    .table-chip.locked::after { content: "🔒"; position: absolute; top: -6px; right: -6px; font-size: 10px; }
     .note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
-
     .plan-list { display: grid; gap: 8px; }
     .plan-item {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px 12px;
-      align-items: center;
-      width: 100%;
-      padding: 12px 14px;
-      border: 2px solid #dceaff;
-      border-radius: 14px;
-      background: #fff;
-      color: var(--ink);
-      font: inherit;
-      text-align: left;
-      cursor: default;
+      display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center;
+      width: 100%; padding: 12px 14px; border: 2px solid #dceaff; border-radius: 14px;
+      background: #fff; color: var(--ink); font: inherit; text-align: left; cursor: default;
     }
     .plan-item.action { cursor: pointer; }
     .plan-item.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
@@ -462,215 +229,143 @@
     .plan-item .title { font-size: 15px; font-weight: 800; text-transform: capitalize; }
     .plan-item .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
     .plan-badge { font-size: 12px; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
-
+    .tables-today { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .tables-today span {
+      min-width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+      font-size: 18px; font-weight: 900; color: #fff;
+      background: linear-gradient(135deg, #2f6fed, #18c59a);
+      box-shadow: 0 6px 0 rgba(47,111,237,0.25); animation: popIn 0.35s ease;
+    }
+    /* Pythagoras grid */
+    .pyth-grid { overflow-x: auto; margin-top: 10px; }
+    .pyth-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 280px; }
+    .pyth-table th, .pyth-table td {
+      text-align: center; padding: 8px 6px; border-radius: 10px; font-weight: 800; font-size: 14px;
+    }
+    .pyth-table th { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
+    .pyth-table td { background: #f3f8ff; border: 1px solid #dceaff; }
+    .pyth-table td.corner { background: transparent; border: none; }
+    .pyth-table td.highlight { background: linear-gradient(135deg, #d8fff0, #baf7df); border-color: #7de0b8; }
+    /* Redeem */
+    .prize-list { display: grid; gap: 10px; }
+    .prize-item {
+      display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center;
+      padding: 14px; border: 2px solid #dceaff; border-radius: 16px; background: #fff;
+    }
+    .prize-item.purchased { background: var(--ok-bg); border-color: #7de0b8; opacity: 0.85; }
+    .prize-title { font-size: 16px; font-weight: 800; }
+    .prize-cost { font-size: 14px; color: #8a5a00; font-weight: 800; }
+    .prize-item .btn-sm { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+    .empty-state {
+      text-align: center; padding: 32px 16px; color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 10px; }
+    .empty-state p { margin: 0; font-size: 15px; font-weight: 700; }
+    /* Modals */
     .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(20, 30, 70, 0.45);
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      z-index: 80;
+      position: fixed; inset: 0; background: rgba(20,30,70,0.45);
+      display: grid; place-items: center; padding: 18px; z-index: 80;
     }
-
     .modal-card {
-      width: min(380px, 100%);
-      background: #fff;
-      border-radius: 20px;
-      padding: 18px;
-      box-shadow: var(--shadow);
-      border: 2px solid #dceaff;
+      width: min(420px, 100%); max-height: min(85vh, 640px); overflow-y: auto;
+      background: #fff; border-radius: 20px; padding: 18px;
+      box-shadow: var(--shadow); border: 2px solid #dceaff;
+      animation: fadeUp 0.35s ease;
     }
-
-    .modal-card input {
-      width: 100%;
-      min-height: 48px;
-      border: 2px solid #cfe0ff;
-      border-radius: 14px;
-      padding: 0 12px;
-      font-size: 22px;
-      font-weight: 800;
-      text-align: center;
-      margin: 10px 0 12px;
+    .modal-card.wide { width: min(480px, 100%); }
+    .modal-card input, .admin-row input[type="number"], .admin-row input[type="text"] {
+      width: 100%; min-height: 48px; border: 2px solid #cfe0ff; border-radius: 14px;
+      padding: 0 12px; font-size: 18px; font-weight: 800; margin: 6px 0;
     }
-
-    .admin-row {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
+    .modal-card input[type="text"] { text-align: left; font-size: 16px; font-weight: 700; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modal-head h2 { margin: 0; font-size: 20px; font-weight: 900; }
+    .modal-close {
+      width: 36px; height: 36px; border-radius: 10px; border: 2px solid #cfe0ff;
+      background: #fff; font-size: 20px; cursor: pointer; font-weight: 900;
     }
-
-    .admin-row input[type="number"] {
-      width: 100%;
-      min-height: 48px;
-      border: 2px solid #cfe0ff;
-      border-radius: 14px;
-      padding: 0 12px;
-      font-size: 20px;
-      font-weight: 800;
+    .history-list { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
+    .history-item {
+      padding: 12px 14px; border-radius: 14px; border: 2px solid #dceaff;
+      background: linear-gradient(180deg, #f7fbff, #fff);
+      animation: fadeUp 0.3s ease;
     }
-
-    .fx-layer {
-      pointer-events: none;
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      z-index: 50;
+    .history-item.spend { background: linear-gradient(180deg, #fff0f3, #fff); border-color: #ffc2cf; }
+    .history-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .history-amount { font-size: 18px; font-weight: 900; color: #8a5a00; }
+    .history-amount.neg { color: var(--bad); }
+    .history-parts { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted); }
+    .admin-row { display: grid; gap: 6px; margin-bottom: 14px; }
+    .admin-prize-row {
+      display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+      padding: 10px; border: 2px solid #dceaff; border-radius: 12px; margin-bottom: 8px;
     }
-
-    .burst {
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      border-radius: 4px;
-      animation: burstFly 0.9s ease forwards;
-    }
-
+    .fx-layer { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
+    .burst { position: absolute; width: 12px; height: 12px; border-radius: 4px; animation: burstFly 0.9s ease forwards; }
     .floating-coin {
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
+      position: absolute; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
       background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
-      border: 2px solid #fff1a0;
-      font-size: 14px;
-      font-weight: 900;
-      color: #6a4700;
+      border: 2px solid #fff1a0; font-size: 14px; font-weight: 900; color: #6a4700;
       animation: coinRise 1s ease forwards;
     }
-
     .reward-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 90;
-      display: grid;
-      place-items: center;
-      background: rgba(18, 28, 70, 0.55);
-      padding: 20px;
+      position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+      background: rgba(18,28,70,0.55); padding: 20px;
     }
-
     .reward-popup {
-      width: min(340px, 100%);
-      text-align: center;
-      background: linear-gradient(180deg, #fff7c2, #ffe27a);
-      border: 3px solid #ffd24d;
-      border-radius: 24px;
-      padding: 22px 18px 18px;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
-      animation: rewardPop 0.45s ease;
+      width: min(340px, 100%); text-align: center;
+      background: linear-gradient(180deg, #fff7c2, #ffe27a); border: 3px solid #ffd24d;
+      border-radius: 24px; padding: 22px 18px 18px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.25); animation: rewardPop 0.45s ease;
     }
-
-    .reward-big {
-      font-size: 64px;
-      font-weight: 900;
-      color: #8a5a00;
-      line-height: 1;
-      margin-bottom: 8px;
-      text-shadow: 0 3px 0 rgba(255, 255, 255, 0.7);
-    }
-
+    .reward-big { font-size: 64px; font-weight: 900; color: #8a5a00; line-height: 1; margin-bottom: 8px; text-shadow: 0 3px 0 rgba(255,255,255,0.7); }
     .reward-fly-coin {
-      position: fixed;
-      z-index: 95;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
+      position: fixed; z-index: 95; width: 36px; height: 36px; border-radius: 50%;
+      display: grid; place-items: center;
       background: radial-gradient(circle at 30% 30%, #fff4a8, #f5b400 55%, #c88400);
-      border: 2px solid #fff1a0;
-      font-size: 18px;
-      font-weight: 900;
-      color: #6a4700;
-      pointer-events: none;
-      box-shadow: 0 6px 14px rgba(200, 132, 0, 0.45);
+      border: 2px solid #fff1a0; font-size: 18px; font-weight: 900; color: #6a4700;
+      pointer-events: none; box-shadow: 0 6px 14px rgba(200,132,0,0.45);
     }
-
-    .tables-today {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 10px;
+    @media (max-width: 720px) {
+      .app { flex-direction: column; }
+      .sidebar {
+        position: sticky; top: 0; left: 0; right: 0; bottom: auto; width: 100%;
+        flex-direction: column; padding: 10px 12px; border-right: 0;
+        border-bottom: 2px solid #dceaff; z-index: 30;
+      }
+      .sidebar-title { margin-bottom: 8px; font-size: 14px; }
+      .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
+      .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
+      .sidebar-controls { flex: 1; justify-content: flex-end; }
+      .hero-bubble { padding: 8px 10px; }
+      .hero-text { font-size: 12px; }
+      .sidebar-nav {
+        flex-direction: row; flex-wrap: nowrap; overflow-x: auto; margin-top: 8px;
+        gap: 6px; padding-bottom: 2px; -webkit-overflow-scrolling: touch;
+      }
+      .nav-btn { width: auto; flex-shrink: 0; min-height: 38px; padding: 0 12px; font-size: 13px; }
+      .nav-icon { font-size: 16px; width: 18px; }
+      .main { margin-left: 0; max-height: none; padding: 14px 12px calc(24px + env(safe-area-inset-bottom)); }
     }
-
-    .tables-today span {
-      min-width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      display: grid;
-      place-items: center;
-      font-size: 18px;
-      font-weight: 900;
-      color: #fff;
-      background: linear-gradient(135deg, #2f6fed, #18c59a);
-      box-shadow: 0 6px 0 rgba(47, 111, 237, 0.25);
-      animation: popIn 0.35s ease;
-    }
-
-    @keyframes floatY {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-7px); }
-    }
-    @keyframes spinSoft {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    @keyframes coinGlow {
-      0%, 100% { filter: brightness(1); transform: scale(1); }
-      50% { filter: brightness(1.06); transform: scale(1.03); }
-    }
-    @keyframes coinPop {
-      0% { transform: scale(1); }
-      40% { transform: scale(1.18); }
-      100% { transform: scale(1); }
-    }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes popIn {
-      from { opacity: 0; transform: scale(0.92); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    @keyframes successPulse {
-      0% { transform: scale(1); }
-      40% { transform: scale(1.03); }
-      100% { transform: scale(1); }
-    }
-    @keyframes shakeX {
-      0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-6px); }
-      40% { transform: translateX(6px); }
-      60% { transform: translateX(-4px); }
-      80% { transform: translateX(4px); }
-    }
-    @keyframes burstFly {
-      0% { opacity: 1; transform: translate(0, 0) scale(1); }
-      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4); }
-    }
-    @keyframes coinRise {
-      0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-      100% { opacity: 0; transform: translate(-50%, -90px) scale(1.3); }
-    }
-    @keyframes rewardPop {
-      0% { opacity: 0; transform: scale(0.7) translateY(20px); }
-      60% { opacity: 1; transform: scale(1.06) translateY(0); }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
-    }
+    @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    @keyframes successPulse { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+    @keyframes shakeX { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+    @keyframes burstFly { 0% { opacity: 1; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4); } }
+    @keyframes coinRise { 0% { opacity: 1; transform: translate(-50%,0) scale(1); } 100% { opacity: 0; transform: translate(-50%,-90px) scale(1.3); } }
+    @keyframes rewardPop { 0% { opacity: 0; transform: scale(0.7) translateY(20px); } 60% { opacity: 1; transform: scale(1.06) translateY(0); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
   </style>
 </head>
 <body>
   <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
-
   <div class="reward-overlay hidden" id="rewardOverlay">
     <div class="reward-popup">
       <div class="reward-big" id="rewardBig">+0</div>
       <p class="note" id="rewardFlyText" style="color:#6a4700;font-weight:800;font-size:16px;">...</p>
     </div>
   </div>
-
   <div class="modal hidden" id="pinModal">
     <div class="modal-card">
       <div class="label" data-i18n="adminPinTitle">Dad only</div>
@@ -681,131 +376,172 @@
       <button class="btn btn-ghost" id="pinCancelBtn" type="button" data-i18n="cancel">Cancel</button>
     </div>
   </div>
-
-  <div class="wrap">
-    <div class="topbar">
-      <h1 id="appTitle" data-i18n="appTitle">Misha × Math</h1>
-      <div class="top-actions">
-        <div class="lang-switch" role="group" aria-label="Language">
-          <button type="button" id="langRuBtn">RU</button>
-          <button type="button" id="langEnBtn">EN</button>
-        </div>
-        <div class="coins" id="coinsBadge" title="Coins">
-          <span class="coin">★</span>
-          <span id="coinsValue">0</span>
-        </div>
+  <div class="modal hidden" id="historyModal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2 data-i18n="coinHistoryTitle">Mishcoin history</h2>
+        <button class="modal-close" id="historyCloseBtn" type="button" aria-label="Close">&times;</button>
       </div>
+      <div id="historyContent"></div>
     </div>
-
-    <div class="hero" id="heroBlock">
-      <div class="hero-avatar-wrap">
-        <img class="hero-avatar" src="assets/misha.jpg" alt="Misha" width="112" height="112" />
+  </div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Misha × Math</h1>
+      <div class="sidebar-top">
+        <div class="sidebar-avatar-wrap">
+          <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=3" alt="Misha" width="96" height="96" />
+        </div>
+        <div class="sidebar-controls">
+          <div class="lang-switch" role="group" aria-label="Language">
+            <button type="button" id="langRuBtn">RU</button>
+            <button type="button" id="langEnBtn">EN</button>
+          </div>
+          <div class="coins" id="coinsBadge" title="Mishcoin">
+            <span class="coin">★</span>
+            <span id="coinsValue">0</span>
+          </div>
+        </div>
       </div>
-      <div class="hero-bubble">
+      <div class="hero-bubble" id="heroBubble">
         <div class="hero-name" data-i18n="heroName">Hero Misha</div>
         <p class="hero-text" id="heroText">Hello!</p>
       </div>
-    </div>
-
-    <section id="homeView">
-      <p class="subtitle" id="dateLabel">Today</p>
-
-      <div class="card">
-        <span class="label" data-i18n="todayMission">Today's mission</span>
-        <div id="todayStatus" style="font-size:22px;font-weight:900;margin-top:4px;">50</div>
-        <p class="note" style="margin-top:8px;" data-i18n="rulesNote">
-          Correct answers count. A fail adds 2 more examples. Earn gold coins for finishing on time and accuracy!
-        </p>
-        <div class="stats">
-          <div class="stat"><strong id="homeRemain">50</strong><span data-i18n="left">left</span></div>
-          <div class="stat"><strong id="homeOk">0</strong><span data-i18n="correct">correct</span></div>
-          <div class="stat"><strong id="homeFail">0</strong><span data-i18n="fails">fails</span></div>
-        </div>
-        <p class="streak" id="streakText">Streak: 0</p>
-        <span class="label" style="margin-top:14px;" data-i18n="todayTables">Today's tables</span>
-        <div class="tables-today" id="tablesToday"></div>
-        <p class="note" style="margin-top:8px;" id="tablesProgressNote"></p>
+      <nav class="sidebar-nav" id="sidebarNav">
+        <button class="nav-btn on" data-view="home" type="button"><span class="nav-icon">🏠</span><span data-i18n="navHome">Training</span></button>
+        <button class="nav-btn" data-view="calendar" type="button"><span class="nav-icon">📅</span><span data-i18n="navCalendar">Calendar</span></button>
+        <button class="nav-btn" data-view="plan" type="button"><span class="nav-icon">🗺️</span><span data-i18n="navPlan">All missions</span></button>
+        <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
+        <button class="nav-btn" data-view="pythagoras" type="button"><span class="nav-icon">✖️</span><span data-i18n="navPythagoras">Pythagoras table</span></button>
+        <button class="nav-btn" data-view="redeem" type="button"><span class="nav-icon">🎁</span><span data-i18n="navRedeem">Redeem</span></button>
+      </nav>
+    </aside>
+    <main class="main" id="mainContent">
+      <div class="main-inner">
+        <section id="homeView">
+          <p class="subtitle" id="dateLabel">Today</p>
+          <div class="card">
+            <span class="label" data-i18n="todayMission">Today's mission</span>
+            <div id="todayStatus" style="font-size:22px;font-weight:900;margin-top:4px;">50</div>
+            <p class="note" style="margin-top:8px;" data-i18n="rulesNote">Correct answers count. A fail adds 2 more examples.</p>
+            <div class="stats">
+              <div class="stat"><strong id="homeRemain">50</strong><span data-i18n="left">left</span></div>
+              <div class="stat"><strong id="homeOk">0</strong><span data-i18n="correct">correct</span></div>
+              <div class="stat"><strong id="homeFail">0</strong><span data-i18n="fails">fails</span></div>
+            </div>
+            <p class="streak" id="streakText">Streak: 0</p>
+            <span class="label" style="margin-top:14px;" data-i18n="todayTables">Today's tables</span>
+            <div class="tables-today" id="tablesToday"></div>
+            <p class="note" style="margin-top:8px;" id="tablesProgressNote"></p>
+          </div>
+          <button class="btn btn-accent" id="startBtn" type="button">Start</button>
+          <button class="btn btn-ghost hidden" id="repeatHomeBtn" type="button">Repeat lesson</button>
+        </section>
+        <section id="calendarView" class="hidden">
+          <h2 class="view-title" data-i18n="navCalendar">Calendar</h2>
+          <p class="subtitle" data-i18n="calendarSubtitle">Your training progress</p>
+          <div class="card">
+            <div class="cal-head">
+              <button class="cal-nav" id="calPrev" type="button" aria-label="Previous">‹</button>
+              <strong id="calMonthLabel">September 2026</strong>
+              <button class="cal-nav" id="calNext" type="button" aria-label="Next">›</button>
+            </div>
+            <div class="cal-weekdays" id="calWeekdays"></div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-legend">
+              <span>✅ <span data-i18n="legendDone">done on time</span></span>
+              <span>😡 <span data-i18n="legendBad">missed / late</span></span>
+            </div>
+          </div>
+        </section>
+        <section id="planView" class="hidden">
+          <h2 class="view-title" data-i18n="navPlan">All missions</h2>
+          <p class="subtitle" data-i18n="planSubtitle">14 days: past, today, and upcoming</p>
+          <div class="card"><div class="plan-list" id="planList"></div></div>
+        </section>
+        <section id="tablesView" class="hidden">
+          <h2 class="view-title" data-i18n="tablesSettingsTitle">Table settings</h2>
+          <p class="subtitle" data-i18n="tablesSettingsHint">Unlock extra tables above your daily progress.</p>
+          <div class="card">
+            <span class="label" data-i18n="tablesFloorLabel">Unlocked by progress</span>
+            <p class="note" id="tablesFloorNote"></p>
+            <span class="label" style="margin-top:14px;" data-i18n="tablesSelectLabel">Active tables (1–9)</span>
+            <div class="tables" id="tablesSettingsChips"></div>
+            <p class="note" style="margin-top:10px;" id="tablesSettingsNote"></p>
+          </div>
+        </section>
+        <section id="pythagorasView" class="hidden">
+          <h2 class="view-title" data-i18n="pythagorasTitle">Pythagoras table</h2>
+          <p class="subtitle" data-i18n="pythagorasSubtitle">Multiplication grid for unlocked tables</p>
+          <div class="card"><div class="pyth-grid" id="pythagorasGrid"></div></div>
+        </section>
+        <section id="redeemView" class="hidden">
+          <h2 class="view-title" data-i18n="redeemTitle">Redeem prizes</h2>
+          <p class="subtitle" data-i18n="redeemSubtitle">Spend Mishcoins on wishes!</p>
+          <div id="redeemContent"></div>
+        </section>
+        <section id="trainView" class="hidden">
+          <p class="subtitle" id="trainDateLabel">Mission</p>
+          <div class="progress-bar"><i id="progressFill"></i></div>
+          <div class="progress-text">
+            <span id="remainText">Left: 50</span>
+            <span id="scoreText">Correct 0 · Fails 0</span>
+          </div>
+          <div class="card problem-card" id="problemCard">
+            <span class="label" data-i18n="solve">Solve</span>
+            <div class="problem" id="problemText">0 × 0 =</div>
+            <div class="answer-row">
+              <input id="answerInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" aria-label="Answer" />
+              <button class="btn btn-ink" id="submitBtn" type="button">OK</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+          </div>
+          <button class="btn btn-ghost" id="exitBtn" type="button" data-i18n="exitMenu">Exit to menu</button>
+        </section>
+        <section id="doneView" class="hidden">
+          <div class="card" style="text-align:center;padding:28px 18px;">
+            <p class="done-title" data-i18n="doneTitle">Yay, Misha!</p>
+            <p class="subtitle" style="margin-bottom:12px;" id="doneSubtitle">Done.</p>
+            <div class="stats">
+              <div class="stat"><strong id="doneOk">0</strong><span data-i18n="correct">correct</span></div>
+              <div class="stat"><strong id="doneFail">0</strong><span data-i18n="fails">fails</span></div>
+              <div class="stat"><strong id="doneTotal">0</strong><span data-i18n="answers">answers</span></div>
+            </div>
+            <div class="reward-box" id="rewardBox">
+              <div><span data-i18n="reward">Reward</span>: <strong id="rewardTotal">+0 ★</strong></div>
+              <ul id="rewardList"></ul>
+            </div>
+          </div>
+          <button class="btn btn-accent" id="repeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
+          <button class="btn btn-ink" id="backHomeBtn" type="button" data-i18n="home">Home</button>
+        </section>
+        <section id="adminView" class="hidden">
+          <h2 class="view-title" data-i18n="adminTitle">Dad admin</h2>
+          <div class="card">
+            <div class="admin-row">
+              <span class="label" data-i18n="adminQuestions">Questions per unfinished test</span>
+              <input id="adminCountInput" type="number" min="5" max="200" step="1" />
+              <p class="note" data-i18n="adminQuestionsHint">Applies to tests that are not completed yet.</p>
+            </div>
+            <p class="note" id="adminStatus"></p>
+          </div>
+          <div class="card">
+            <span class="label" data-i18n="adminWishlistTitle">Wishlist prizes</span>
+            <div id="adminWishlistList"></div>
+            <div class="admin-row" style="margin-top:12px;">
+              <span class="label" data-i18n="adminAddPrize">Add prize</span>
+              <input id="prizeTitleRu" type="text" placeholder="RU" data-i18n-placeholder="prizeTitleRuPh" />
+              <input id="prizeTitleEn" type="text" placeholder="EN" data-i18n-placeholder="prizeTitleEnPh" />
+              <input id="prizeCost" type="number" min="1" max="9999" step="1" placeholder="Cost" data-i18n-placeholder="prizeCostPh" />
+              <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add prize</button>
+            </div>
+          </div>
+          <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
+          <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
+        </section>
       </div>
-
-      <div class="card">
-        <div class="cal-head">
-          <button class="cal-nav" id="calPrev" type="button" aria-label="Previous">‹</button>
-          <strong id="calMonthLabel">September 2026</strong>
-          <button class="cal-nav" id="calNext" type="button" aria-label="Next">›</button>
-        </div>
-        <div class="cal-weekdays" id="calWeekdays"></div>
-        <div class="cal-grid" id="calGrid"></div>
-        <div class="cal-legend">
-          <span>✅ <span data-i18n="legendDone">done on time</span></span>
-          <span>😡 <span data-i18n="legendBad">missed / late</span></span>
-        </div>
-      </div>
-
-      <button class="btn btn-accent" id="startBtn" type="button">Start</button>
-      <button class="btn btn-ghost hidden" id="repeatHomeBtn" type="button">Repeat lesson</button>
-      <button class="btn btn-ghost" id="planBtn" type="button">All missions</button>
-    </section>
-
-    <section id="planView" class="hidden">
-      <p class="subtitle" data-i18n="planSubtitle">14 days: past, today, and upcoming</p>
-      <div class="card">
-        <div class="plan-list" id="planList"></div>
-      </div>
-      <button class="btn btn-ink" id="planBackBtn" type="button" data-i18n="back">Back</button>
-    </section>
-
-    <section id="trainView" class="hidden">
-      <p class="subtitle" id="trainDateLabel">Mission</p>
-      <div class="progress-bar"><i id="progressFill"></i></div>
-      <div class="progress-text">
-        <span id="remainText">Left: 50</span>
-        <span id="scoreText">Correct 0 · Fails 0</span>
-      </div>
-      <div class="card problem-card" id="problemCard">
-        <span class="label" data-i18n="solve">Solve</span>
-        <div class="problem" id="problemText">0 × 0 =</div>
-        <div class="answer-row">
-          <input id="answerInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" aria-label="Answer" />
-          <button class="btn btn-ink" id="submitBtn" type="button">OK</button>
-        </div>
-        <div class="feedback" id="feedback"></div>
-      </div>
-      <button class="btn btn-ghost" id="exitBtn" type="button" data-i18n="exitMenu">Exit to menu</button>
-    </section>
-
-    <section id="doneView" class="hidden">
-      <div class="card" style="text-align:center;padding:28px 18px;">
-        <p class="done-title" data-i18n="doneTitle">Yay, Misha!</p>
-        <p class="subtitle" style="margin-bottom:12px;" id="doneSubtitle">Done.</p>
-        <div class="stats">
-          <div class="stat"><strong id="doneOk">0</strong><span data-i18n="correct">correct</span></div>
-          <div class="stat"><strong id="doneFail">0</strong><span data-i18n="fails">fails</span></div>
-          <div class="stat"><strong id="doneTotal">0</strong><span data-i18n="answers">answers</span></div>
-        </div>
-        <div class="reward-box" id="rewardBox">
-          <div><span data-i18n="reward">Reward</span>: <strong id="rewardTotal">+0 ★</strong></div>
-          <ul id="rewardList"></ul>
-        </div>
-      </div>
-      <button class="btn btn-accent" id="repeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
-      <button class="btn btn-ink" id="backHomeBtn" type="button" data-i18n="home">Home</button>
-    </section>
-
-    <section id="adminView" class="hidden">
-      <p class="subtitle" data-i18n="adminTitle">Dad admin</p>
-      <div class="card">
-        <div class="admin-row">
-          <span class="label" data-i18n="adminQuestions">Questions per unfinished test</span>
-          <input id="adminCountInput" type="number" min="5" max="200" step="1" />
-          <p class="note" data-i18n="adminQuestionsHint">Applies to tests that are not completed yet. Completed days stay unchanged.</p>
-        </div>
-        <p class="note" id="adminStatus"></p>
-      </div>
-      <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
-      <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
-    </section>
+    </main>
   </div>
-
   <script>
     const PROGRAM_START = "2026-09-03";
     const FAIL_EXTRA = 2;
@@ -815,76 +551,75 @@
     const COINS_KEY = "misha-coins-v1";
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
+    const CLOUD_META_KEY = "misha-cloud-meta-v1";
     const PLAN_DAYS = 14;
+    const COIN_SYMBOL = "★";
+    const POOL_VERSION = 2;
+    const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
+    const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
+    const CLOUD_NTFY_TOPIC = "misha-math-ondreyit-f7c3a91e";
+    const CLOUD_NTFY_URL = `https://ntfy.sh/${CLOUD_NTFY_TOPIC}`;
 
     const I18N = {
       ru: {
         appTitle: "Миша × Умножение",
         heroName: "Герой Миша",
+        navHome: "Тренировка",
+        navCalendar: "Календарь",
+        navPlan: "Все задания",
+        navTables: "Таблицы",
+        navPythagoras: "Таблица Пифагора",
+        navRedeem: "Обмен",
         todayMission: "Задание дня",
-        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить монеты!",
-        left: "осталось",
-        correct: "верно",
-        fails: "фейлы",
-        answers: "ответов",
-        legendDone: "вовремя",
-        legendBad: "пропуск / опоздание",
-        start: "Вперёд к примерам!",
-        continue: "Продолжить приключение",
-        seeResult: "Смотреть результат",
-        repeat: "Повторить урок",
-        allMissions: "Все задания · 14 дней",
-        todayTables: "Таблицы сегодня",
+        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
+        left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
+        legendDone: "вовремя", legendBad: "пропуск / опоздание",
+        calendarSubtitle: "Твой прогресс тренировок",
+        start: "Вперёд к примерам!", continue: "Продолжить приключение", seeResult: "Смотреть результат",
+        repeat: "Повторить урок", todayTables: "Таблицы сегодня",
         tablesProgress: (list, nextIn) => `Сейчас: ${list}. Через ${nextIn} дн. добавится новая.`,
         tablesProgressMax: (list) => `Сейчас: ${list}. Все таблицы открыты!`,
         planSubtitle: "14 дней: прошедшие, сегодня и ещё не наступившие",
-        back: "Назад",
-        home: "На главную",
-        solve: "Реши пример",
-        exitMenu: "Выйти в меню",
-        doneTitle: "Ура, Миша!",
-        reward: "Награда",
-        rewardFly: "Монеты летят в копилку!",
+        back: "Назад", home: "На главную", solve: "Реши пример", exitMenu: "Выйти в меню",
+        doneTitle: "Ура, Миша!", reward: "Награда",
+        rewardFly: "Мишкоины летят в копилку!",
         runsToday: (n) => `Уроков сегодня: ${n}`,
         adminTitle: "Админка папы",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
-        save: "Сохранить",
-        open: "Открыть",
-        cancel: "Отмена",
-        adminPinTitle: "Только для папы",
-        adminPinHint: "Введи секретный PIN",
-        pinWrong: "Неверный PIN",
+        adminWishlistTitle: "Призы в вишлисте",
+        adminAddPrize: "Добавить приз",
+        adminAddPrizeBtn: "Добавить",
+        prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
+        adminRemove: "Удалить",
+        save: "Сохранить", open: "Открыть", cancel: "Отмена",
+        adminPinTitle: "Только для папы", adminPinHint: "Введи секретный PIN", pinWrong: "Неверный PIN",
         adminSaved: (n, c) => `Готово: ${n} вопросов. Обновлено незавершённых дней: ${c}.`,
         streak: (n) => `Серия дней: ${n}`,
-        statusDone: "Задание выполнено",
-        statusStarted: "Тренировка начата",
+        statusDone: "Задание выполнено", statusStarted: "Тренировка начата",
         statusReady: (n) => `${n} примеров`,
-        remain: (n) => `Осталось: ${n}`,
-        scoreLine: (ok, bad) => `Верно ${ok} · Фейлы ${bad}`,
-        enterNumber: "Впиши ответ числом",
-        correctShort: "Верно!",
+        remain: (n) => `Осталось: ${n}`, scoreLine: (ok, bad) => `Верно ${ok} · Фейлы ${bad}`,
+        enterNumber: "Впиши ответ числом", correctShort: "Верно!",
         failLine: (ans, extra) => `Фейл. Правильно: ${ans}. +${extra} примера`,
-        heroHello: "Привет! Давай заработаем золотые монеты!",
-        heroDone: "Можно повторить урок и заработать ещё монет!",
+        heroHello: "Ты уже герой сегодня! Проверь свои Мишкоины.",
+        heroDone: "Можно повторить урок и заработать ещё Мишкоинов!",
         heroContinue: (n) => `Осталось ${n} примеров. Продолжим?`,
         heroTrain: "Вперёд! Один пример за другим!",
         heroPlan: "Смотри план на 14 дней!",
-        heroCoins: (n) => `Ура! +${n} золотых монет!`,
+        heroCoins: (n) => `Ура! +${n} Мишкоинов!`,
         heroClosed: "Тренировка закрыта. Ты молодец!",
+        heroRedeem: "Потрать Мишкоины на мечты!",
+        heroTables: "Можно открыть больше таблиц!",
+        heroPythagoras: "Вот таблица умножения!",
+        heroCalendar: "Смотри календарь тренировок!",
         praise: ["Супер!", "Молодец!", "Ура!", "Красавчик!", "Точно!", "Огонь!"],
         cheer: ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"],
         doneIdeal: "Идеально: все ответы верные!",
         doneFails: (n) => `Готово. Было ${n} фейлов — из‑за них примеров стало больше.`,
         closedToday: "Урок выполнен. Можно пройти ещё раз!",
         closedDay: (d) => `Задание за ${d} уже выполнено. Можно повторить.`,
-        badgeFuture: "Ещё нет",
-        badgeDone: "Сделано",
-        badgeLate: "С опозданием",
-        badgeProgress: "В процессе",
-        badgeUnfinished: "Не закончено",
-        badgeToday: "Сегодня",
-        badgeMiss: "Пропущено",
+        badgeFuture: "Ещё нет", badgeDone: "Сделано", badgeLate: "С опозданием",
+        badgeProgress: "В процессе", badgeUnfinished: "Не закончено", badgeToday: "Сегодня", badgeMiss: "Пропущено",
         metaFuture: (n) => `${n} примеров · откроется в этот день`,
         metaStats: (ok, bad, coins) => `Верно ${ok} · Фейлы ${bad}${coins}`,
         metaProgress: (left, ok, bad) => `Осталось ${left} · Верно ${ok} · Фейлы ${bad}`,
@@ -894,75 +629,82 @@
         rewardLow: (r) => `Мало ошибок (${r}% < 5%)`,
         rewardMid: (r) => `Ошибки ${r}% (5–10%)`,
         rewardHigh: (r) => `Ошибок много (${r}% > 10%)`,
+        coinHistoryTitle: "История Мишкоинов",
+        coinHistoryEmpty: "Пока нет записей. Пройди урок и заработай Мишкоины!",
+        coinHistoryBalance: (n) => `Баланс: ${n} Мишкоинов`,
+        mishcoin: "Мишкоин", mishcoins: "Мишкоины",
+        tablesSettingsTitle: "Настройки таблиц",
+        tablesSettingsHint: "Можно открыть больше таблиц, чем по плану. Ниже минимума — нельзя.",
+        tablesFloorLabel: "Открыто прогрессом",
+        tablesFloorNote: (floor, max) => `Минимум сегодня: таблицы 1–${floor}. Активно: 1–${max}.`,
+        tablesSelectLabel: "Активные таблицы (1–9)",
+        tablesSettingsSaved: "Таблицы обновлены!",
+        pythagorasTitle: "Таблица Пифагора",
+        pythagorasSubtitle: "Сетка умножения для открытых таблиц",
+        redeemTitle: "Обмен призов",
+        redeemSubtitle: "Потрать Мишкоины на желания!",
+        redeemEmpty: "Папа ещё не добавил призы. Скоро будут сюрпризы!",
+        redeemBuy: "Купить",
+        redeemPurchased: "Куплено",
+        redeemNotEnough: "Не хватает Мишкоинов",
+        redeemSuccess: (title) => `Ура! Ты получил: ${title}`,
+        redeemSpend: (title) => `Приз: ${title}`,
         weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
       },
       en: {
         appTitle: "Misha × Math",
         heroName: "Hero Misha",
+        navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
+        navTables: "Table settings", navPythagoras: "Pythagoras table", navRedeem: "Redeem",
         todayMission: "Today's mission",
-        rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more coins!",
-        left: "left",
-        correct: "correct",
-        fails: "fails",
-        answers: "answers",
-        legendDone: "on time",
-        legendBad: "missed / late",
-        start: "Let's go!",
-        continue: "Continue adventure",
-        seeResult: "See result",
-        repeat: "Repeat lesson",
-        allMissions: "All missions · 14 days",
-        todayTables: "Today's tables",
+        rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
+        left: "left", correct: "correct", fails: "fails", answers: "answers",
+        legendDone: "on time", legendBad: "missed / late",
+        calendarSubtitle: "Your training progress",
+        start: "Let's go!", continue: "Continue adventure", seeResult: "See result",
+        repeat: "Repeat lesson", todayTables: "Today's tables",
         tablesProgress: (list, nextIn) => `Now: ${list}. New table in ${nextIn} day(s).`,
         tablesProgressMax: (list) => `Now: ${list}. All tables unlocked!`,
         planSubtitle: "14 days: past, today, and upcoming",
-        back: "Back",
-        home: "Home",
-        solve: "Solve",
-        exitMenu: "Exit to menu",
-        doneTitle: "Yay, Misha!",
-        reward: "Reward",
-        rewardFly: "Coins are flying into your balance!",
+        back: "Back", home: "Home", solve: "Solve", exitMenu: "Exit to menu",
+        doneTitle: "Yay, Misha!", reward: "Reward",
+        rewardFly: "Mishcoins are flying into your balance!",
         runsToday: (n) => `Lessons today: ${n}`,
         adminTitle: "Dad admin",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
-        save: "Save",
-        open: "Open",
-        cancel: "Cancel",
-        adminPinTitle: "Dad only",
-        adminPinHint: "Enter the secret PIN",
-        pinWrong: "Wrong PIN",
+        adminWishlistTitle: "Wishlist prizes",
+        adminAddPrize: "Add prize", adminAddPrizeBtn: "Add prize",
+        prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
+        adminRemove: "Remove",
+        save: "Save", open: "Open", cancel: "Cancel",
+        adminPinTitle: "Dad only", adminPinHint: "Enter the secret PIN", pinWrong: "Wrong PIN",
         adminSaved: (n, c) => `Saved: ${n} questions. Updated unfinished days: ${c}.`,
         streak: (n) => `Day streak: ${n}`,
-        statusDone: "Mission complete",
-        statusStarted: "Training started",
+        statusDone: "Mission complete", statusStarted: "Training started",
         statusReady: (n) => `${n} examples`,
-        remain: (n) => `Left: ${n}`,
-        scoreLine: (ok, bad) => `Correct ${ok} · Fails ${bad}`,
-        enterNumber: "Type a number",
-        correctShort: "Correct!",
+        remain: (n) => `Left: ${n}`, scoreLine: (ok, bad) => `Correct ${ok} · Fails ${bad}`,
+        enterNumber: "Type a number", correctShort: "Correct!",
         failLine: (ans, extra) => `Fail. Right answer: ${ans}. +${extra} examples`,
-        heroHello: "Hi! Let's earn gold coins!",
-        heroDone: "You can repeat the lesson and earn more coins!",
+        heroHello: "You're already today's hero! Check your coins.",
+        heroDone: "You can repeat the lesson and earn more Mishcoins!",
         heroContinue: (n) => `${n} examples left. Continue?`,
         heroTrain: "Go! One example at a time!",
         heroPlan: "Here is the 14-day plan!",
-        heroCoins: (n) => `Yay! +${n} gold coins!`,
+        heroCoins: (n) => `Yay! +${n} Mishcoins!`,
         heroClosed: "Training closed. Great job!",
+        heroRedeem: "Spend Mishcoins on wishes!",
+        heroTables: "You can unlock more tables!",
+        heroPythagoras: "Here's the multiplication grid!",
+        heroCalendar: "Check your training calendar!",
         praise: ["Awesome!", "Great job!", "Yes!", "Nailed it!", "Fire!", "Perfect!"],
         cheer: ["Don't give up!", "Try again!", "You've got this!", "Keep going!"],
         doneIdeal: "Perfect: all answers correct!",
         doneFails: (n) => `Done. There were ${n} fails — that added more examples.`,
         closedToday: "Lesson done. You can play it again!",
         closedDay: (d) => `Mission for ${d} is done. You can repeat it.`,
-        badgeFuture: "Not yet",
-        badgeDone: "Done",
-        badgeLate: "Late",
-        badgeProgress: "In progress",
-        badgeUnfinished: "Unfinished",
-        badgeToday: "Today",
-        badgeMiss: "Missed",
+        badgeFuture: "Not yet", badgeDone: "Done", badgeLate: "Late",
+        badgeProgress: "In progress", badgeUnfinished: "Unfinished", badgeToday: "Today", badgeMiss: "Missed",
         metaFuture: (n) => `${n} examples · opens that day`,
         metaStats: (ok, bad, coins) => `Correct ${ok} · Fails ${bad}${coins}`,
         metaProgress: (left, ok, bad) => `Left ${left} · Correct ${ok} · Fails ${bad}`,
@@ -972,6 +714,25 @@
         rewardLow: (r) => `Few mistakes (${r}% < 5%)`,
         rewardMid: (r) => `Mistakes ${r}% (5–10%)`,
         rewardHigh: (r) => `Too many mistakes (${r}% > 10%)`,
+        coinHistoryTitle: "Mishcoin history",
+        coinHistoryEmpty: "No entries yet. Complete a lesson to earn Mishcoins!",
+        coinHistoryBalance: (n) => `Balance: ${n} Mishcoins`,
+        mishcoin: "Mishcoin", mishcoins: "Mishcoins",
+        tablesSettingsTitle: "Table settings",
+        tablesSettingsHint: "Unlock extra tables above your daily progress. Cannot go below the floor.",
+        tablesFloorLabel: "Unlocked by progress",
+        tablesFloorNote: (floor, max) => `Today's floor: tables 1–${floor}. Active: 1–${max}.`,
+        tablesSelectLabel: "Active tables (1–9)",
+        tablesSettingsSaved: "Tables updated!",
+        pythagorasTitle: "Pythagoras table",
+        pythagorasSubtitle: "Multiplication grid for unlocked tables",
+        redeemTitle: "Redeem prizes",
+        redeemSubtitle: "Spend Mishcoins on wishes!",
+        redeemEmpty: "Dad hasn't added prizes yet. Surprises coming soon!",
+        redeemBuy: "Buy", redeemPurchased: "Purchased",
+        redeemNotEnough: "Not enough Mishcoins",
+        redeemSuccess: (title) => `Yay! You got: ${title}`,
+        redeemSpend: (title) => `Prize: ${title}`,
         weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       },
     };
@@ -981,14 +742,26 @@
     let state = null;
     let busy = false;
     let coins = loadCoins();
+    let cloudMeta = loadCloudMeta();
     let calMonth = monthStart(new Date());
     let titleTaps = [];
+    let currentView = "home";
+    let pendingHistoryEntry = null;
+    let cloudPushTimer = null;
+    let cloudSyncing = false;
+    let suppressCloudPush = false;
 
-    const homeView = document.getElementById("homeView");
-    const trainView = document.getElementById("trainView");
-    const doneView = document.getElementById("doneView");
-    const planView = document.getElementById("planView");
-    const adminView = document.getElementById("adminView");
+    const views = {
+      home: document.getElementById("homeView"),
+      calendar: document.getElementById("calendarView"),
+      plan: document.getElementById("planView"),
+      tables: document.getElementById("tablesView"),
+      pythagoras: document.getElementById("pythagorasView"),
+      redeem: document.getElementById("redeemView"),
+      train: document.getElementById("trainView"),
+      done: document.getElementById("doneView"),
+      admin: document.getElementById("adminView"),
+    };
     const answerInput = document.getElementById("answerInput");
     const problemCard = document.getElementById("problemCard");
     const feedbackEl = document.getElementById("feedback");
@@ -996,6 +769,7 @@
     const coinsBadge = document.getElementById("coinsBadge");
     const fxLayer = document.getElementById("fxLayer");
     const pinModal = document.getElementById("pinModal");
+    const historyModal = document.getElementById("historyModal");
 
     function t(key, ...args) {
       const value = I18N[lang][key];
@@ -1008,63 +782,46 @@
       const d = String(date.getDate()).padStart(2, "0");
       return `${y}-${m}-${d}`;
     }
-
-    function parseKey(key) {
-      const [y, m, d] = key.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    }
-
-    function monthStart(date) {
-      return new Date(date.getFullYear(), date.getMonth(), 1);
-    }
-
+    function parseKey(key) { const [y, m, d] = key.split("-").map(Number); return new Date(y, m - 1, d); }
+    function monthStart(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
     function formatDateLong(key) {
-      return parseKey(key).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
+      return parseKey(key).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { weekday: "long", day: "numeric", month: "long" });
     }
-
     function formatMonthLabel(date) {
-      return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
-        month: "long",
-        year: "numeric",
-      });
+      return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
     }
-
-    function questionCount() {
-      return Number(settings.questionCount) || 50;
+    function formatHistoryDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     }
-
+    function questionCount() { return Number(settings.questionCount) || 50; }
     function dayIndex(dateKey) {
       const ms = parseKey(dateKey).getTime() - parseKey(PROGRAM_START).getTime();
       return Math.max(0, Math.floor(ms / 86400000));
     }
-
-    function tablesForDate(dateKey) {
+    function progressiveMax(dateKey) {
       const idx = dayIndex(dateKey);
-      const maxN = Math.min(9, 3 + Math.floor(idx / 2));
+      return Math.min(9, 3 + Math.floor(idx / 2));
+    }
+    function effectiveTablesMax(dateKey) {
+      const floor = progressiveMax(dateKey);
+      const boost = Number(settings.tablesMax) || 0;
+      return Math.min(9, Math.max(floor, boost));
+    }
+    function tablesForDate(dateKey) {
+      const maxN = effectiveTablesMax(dateKey);
       const tables = [];
       for (let n = 1; n <= maxN; n += 1) tables.push(n);
       return tables;
     }
-
     function daysUntilNextTable(dateKey) {
       const idx = dayIndex(dateKey);
-      const maxN = Math.min(9, 3 + Math.floor(idx / 2));
+      const maxN = progressiveMax(dateKey);
       if (maxN >= 9) return 0;
       return 2 - (idx % 2);
     }
-
-    function pick(list) {
-      return list[Math.floor(Math.random() * list.length)];
-    }
-
-    function setHero(text) {
-      heroText.textContent = text;
-    }
-
+    function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+    function setHero(text) { heroText.textContent = text; }
     function shuffle(list) {
       const copy = list.slice();
       for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -1073,123 +830,301 @@
       }
       return copy;
     }
+    function uid() { return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`; }
 
     function loadSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
-        if (!raw) return { questionCount: 50 };
+        if (!raw) return { questionCount: 50, tablesMax: 0, wishlist: [] };
         const parsed = JSON.parse(raw);
         const count = Number(parsed.questionCount);
+        const tablesMax = Number(parsed.tablesMax) || 0;
+        const wishlist = Array.isArray(parsed.wishlist) ? parsed.wishlist : [];
         return {
           questionCount: count >= 5 && count <= 200 ? count : 50,
+          tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : 0,
+          wishlist,
         };
-      } catch {
-        return { questionCount: 50 };
-      }
+      } catch { return { questionCount: 50, tablesMax: 0, wishlist: [] }; }
     }
-
     function saveSettings() {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      touchCloudAndPush();
     }
-
     function loadStore() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      } catch {
-        return {};
-      }
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch { return {}; }
     }
-
-    function saveStore(store) {
+    function saveStore(store, options = {}) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      if (!options.quiet) touchCloudAndPush();
     }
-
     function loadCoins() {
       try {
         const raw = JSON.parse(localStorage.getItem(COINS_KEY) || "{}");
-        return { balance: Number(raw.balance) || 0 };
-      } catch {
-        return { balance: 0 };
-      }
+        return {
+          balance: Number(raw.balance) || 0,
+          history: Array.isArray(raw.history) ? raw.history : [],
+        };
+      } catch { return { balance: 0, history: [] }; }
     }
-
     function saveCoins() {
       localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+      touchCloudAndPush();
     }
-
-    function renderCoins() {
-      document.getElementById("coinsValue").textContent = String(coins.balance);
+    function loadCloudMeta() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(CLOUD_META_KEY) || "{}");
+        let updatedAt = Number(raw.updatedAt) || 0;
+        if (!updatedAt) {
+          const hasLocal = (Number(JSON.parse(localStorage.getItem(COINS_KEY) || "{}").balance) || 0) > 0
+            || Object.keys(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")).length > 0;
+          if (hasLocal) updatedAt = Date.now();
+        }
+        return { updatedAt };
+      } catch { return { updatedAt: 0 }; }
     }
-
+    function saveCloudMeta() {
+      localStorage.setItem(CLOUD_META_KEY, JSON.stringify(cloudMeta));
+    }
+    function touchCloudAndPush() {
+      if (suppressCloudPush) return;
+      cloudMeta.updatedAt = Date.now();
+      saveCloudMeta();
+      scheduleCloudPush();
+    }
+    function buildCloudPayload() {
+      return {
+        updatedAt: cloudMeta.updatedAt || Date.now(),
+        coins: { balance: coins.balance, history: (coins.history || []).slice(0, 40) },
+        settings: {
+          questionCount: settings.questionCount,
+          tablesMax: settings.tablesMax,
+          wishlist: settings.wishlist || [],
+        },
+        store: loadStore(),
+        lang,
+      };
+    }
+    function normalizeCloudPayload(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      if (raw.coins) {
+        return {
+          updatedAt: Number(raw.updatedAt) || 0,
+          coins: {
+            balance: Number(raw.coins.balance) || 0,
+            history: Array.isArray(raw.coins.history) ? raw.coins.history : [],
+          },
+          settings: raw.settings || null,
+          store: raw.store && typeof raw.store === "object" ? raw.store : null,
+          lang: raw.lang === "en" || raw.lang === "ru" ? raw.lang : null,
+        };
+      }
+      if ("balance" in raw) {
+        return {
+          updatedAt: Number(raw.updatedAt) || 0,
+          coins: {
+            balance: Number(raw.balance) || 0,
+            history: Array.isArray(raw.history) ? raw.history : [],
+          },
+          settings: raw.settings || null,
+          store: raw.store && typeof raw.store === "object" ? raw.store : null,
+          lang: null,
+        };
+      }
+      return null;
+    }
+    function applyCloudPayload(payload) {
+      const remote = normalizeCloudPayload(payload);
+      if (!remote || !remote.updatedAt) return false;
+      const localAt = cloudMeta.updatedAt || 0;
+      const remoteNewer = remote.updatedAt > localAt;
+      const rescueEmptyCoins = coins.balance === 0 && remote.coins.balance > 0;
+      if (!remoteNewer && !rescueEmptyCoins) return false;
+      suppressCloudPush = true;
+      try {
+        coins = {
+          balance: remote.coins.balance,
+          history: remote.coins.history,
+        };
+        localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+        if (remote.settings) {
+          const count = Number(remote.settings.questionCount);
+          const tablesMax = Number(remote.settings.tablesMax) || 0;
+          settings = {
+            questionCount: count >= 5 && count <= 200 ? count : settings.questionCount,
+            tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : settings.tablesMax,
+            wishlist: Array.isArray(remote.settings.wishlist) ? remote.settings.wishlist : settings.wishlist,
+          };
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+        if (remote.store) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(remote.store));
+        }
+        if (remote.lang) lang = remote.lang;
+        cloudMeta.updatedAt = remote.updatedAt;
+        saveCloudMeta();
+        renderCoins();
+        return true;
+      } finally {
+        suppressCloudPush = false;
+      }
+    }
+    async function fetchCloudFromGist() {
+      const url = `${CLOUD_GIST_RAW}?t=${Date.now()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("gist");
+      return normalizeCloudPayload(await res.json());
+    }
+    async function fetchCloudFromNtfy() {
+      const res = await fetch(`${CLOUD_NTFY_URL}/json?poll=1`, { cache: "no-store" });
+      if (!res.ok) return null;
+      const text = await res.text();
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      let best = null;
+      for (const line of lines) {
+        try {
+          const msg = JSON.parse(line);
+          if (msg.event !== "message") continue;
+          let payload = null;
+          if (msg.attachment?.url) {
+            const fileRes = await fetch(msg.attachment.url, { cache: "no-store" });
+            if (fileRes.ok) payload = normalizeCloudPayload(await fileRes.json());
+          } else if (msg.message) {
+            try { payload = normalizeCloudPayload(JSON.parse(msg.message)); } catch { /* ignore */ }
+          }
+          if (!payload) continue;
+          if (!best || payload.updatedAt >= best.updatedAt) best = payload;
+        } catch { /* ignore bad line */ }
+      }
+      return best;
+    }
+    async function fetchCloudFromLocalFile() {
+      try {
+        const res = await fetch(`family_sync.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return null;
+        return normalizeCloudPayload(await res.json());
+      } catch { return null; }
+    }
+    async function pullCloudSync() {
+      if (cloudSyncing) return false;
+      cloudSyncing = true;
+      try {
+        const results = await Promise.allSettled([
+          fetchCloudFromNtfy(),
+          fetchCloudFromGist(),
+          fetchCloudFromLocalFile(),
+        ]);
+        let best = null;
+        results.forEach((r) => {
+          if (r.status !== "fulfilled" || !r.value) return;
+          if (!best || r.value.updatedAt > best.updatedAt) best = r.value;
+        });
+        if (!best) return false;
+        if (best.updatedAt > (cloudMeta.updatedAt || 0)) {
+          const changed = applyCloudPayload(best);
+          if (changed) {
+            applyI18n();
+            updateHome();
+            if (currentView === "plan") renderPlanList();
+            if (currentView === "calendar") renderCalendar();
+            if (currentView === "tables") renderTablesSettings();
+            if (currentView === "pythagoras") renderPythagoras();
+            if (currentView === "redeem") renderRedeem();
+          }
+          return changed;
+        }
+        if ((cloudMeta.updatedAt || 0) > best.updatedAt) {
+          scheduleCloudPush();
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        cloudSyncing = false;
+      }
+    }
+    async function pushCloudSync() {
+      const payload = buildCloudPayload();
+      const body = JSON.stringify(payload);
+      try {
+        await fetch(CLOUD_NTFY_URL, {
+          method: "PUT",
+          headers: {
+            Title: "family-sync",
+            Filename: "family_sync.json",
+            "Content-Type": "application/json",
+          },
+          body,
+        });
+      } catch { /* offline ok */ }
+    }
+    function scheduleCloudPush() {
+      if (suppressCloudPush) return;
+      window.clearTimeout(cloudPushTimer);
+      cloudPushTimer = window.setTimeout(() => { pushCloudSync(); }, 400);
+    }
+    function renderCoins() { document.getElementById("coinsValue").textContent = String(coins.balance); }
     function bumpCoinsDisplay() {
       coinsBadge.classList.remove("pop");
       void coinsBadge.offsetWidth;
       coinsBadge.classList.add("pop");
     }
-
-    function addCoins(amount) {
+    function pushCoinHistory(entry) {
+      if (!coins.history) coins.history = [];
+      coins.history.unshift(entry);
+      if (coins.history.length > 100) coins.history.length = 100;
+      saveCoins();
+    }
+    function addCoins(amount, historyEntry) {
       if (!amount) return;
       coins.balance += amount;
+      if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
       renderCoins();
       bumpCoinsDisplay();
     }
-
-    function sleep(ms) {
-      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    function spendCoins(amount, historyEntry) {
+      if (amount <= 0 || coins.balance < amount) return false;
+      coins.balance -= amount;
+      if (historyEntry) pushCoinHistory(historyEntry);
+      saveCoins();
+      renderCoins();
+      return true;
     }
+    function sleep(ms) { return new Promise((resolve) => window.setTimeout(resolve, ms)); }
 
-    async function playRewardToBalance(amount) {
+    async function playRewardToBalance(amount, historyEntry) {
       const overlay = document.getElementById("rewardOverlay");
       const big = document.getElementById("rewardBig");
       const flyText = document.getElementById("rewardFlyText");
       if (!amount || amount < 1) {
         overlay.classList.add("hidden");
+        if (historyEntry) pushCoinHistory(historyEntry);
         return;
       }
-
       big.textContent = `+${amount}`;
       flyText.textContent = t("rewardFly");
       overlay.classList.remove("hidden");
       await sleep(550);
-
       const startBalance = coins.balance;
       const badgeRect = coinsBadge.getBoundingClientRect();
       const targetX = badgeRect.left + badgeRect.width / 2;
       const targetY = badgeRect.top + badgeRect.height / 2;
       const originX = window.innerWidth / 2;
       const originY = window.innerHeight / 2;
-
       for (let i = 0; i < amount; i += 1) {
         const coinEl = document.createElement("div");
         coinEl.className = "reward-fly-coin";
-        coinEl.textContent = "★";
+        coinEl.textContent = COIN_SYMBOL;
         coinEl.style.left = `${originX - 18}px`;
         coinEl.style.top = `${originY - 18}px`;
         document.body.appendChild(coinEl);
-
-        const anim = coinEl.animate(
-          [
-            {
-              transform: "translate(0, 0) scale(1.25)",
-              opacity: 1,
-            },
-            {
-              transform: `translate(${(targetX - originX) * 0.4}px, ${(targetY - originY) * 0.2 - 40}px) scale(1.1)`,
-              opacity: 1,
-              offset: 0.45,
-            },
-            {
-              transform: `translate(${targetX - originX}px, ${targetY - originY}px) scale(0.55)`,
-              opacity: 0.85,
-            },
-          ],
-          {
-            duration: 700,
-            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-            fill: "forwards",
-          }
-        );
+        const anim = coinEl.animate([
+          { transform: "translate(0,0) scale(1.25)", opacity: 1 },
+          { transform: `translate(${(targetX - originX) * 0.4}px, ${(targetY - originY) * 0.2 - 40}px) scale(1.1)`, opacity: 1, offset: 0.45 },
+          { transform: `translate(${targetX - originX}px, ${targetY - originY}px) scale(0.55)`, opacity: 0.85 },
+        ], { duration: 700, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
         await anim.finished.catch(() => {});
         coinEl.remove();
         coins.balance = startBalance + i + 1;
@@ -1197,7 +1132,7 @@
         bumpCoinsDisplay();
         await sleep(70);
       }
-
+      if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
       await sleep(250);
       overlay.classList.add("hidden");
@@ -1206,28 +1141,18 @@
     function buildPool(tables) {
       const pool = [];
       tables.forEach((a) => {
-        tables.forEach((b) => {
-          pool.push({ a, b, answer: a * b });
-        });
+        for (let b = 1; b <= 9; b += 1) pool.push({ a, b, answer: a * b });
       });
       return pool;
     }
-
     function activeTables(dayState) {
       return dayState?.tables?.length ? dayState.tables : tablesForDate(dayState?.date || todayKey());
     }
-
     function makeProblem(tables) {
       const pool = buildPool(tables);
       const item = pool[Math.floor(Math.random() * pool.length)];
-      return {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        a: item.a,
-        b: item.b,
-        answer: item.answer,
-      };
+      return { id: uid(), a: item.a, b: item.b, answer: item.answer };
     }
-
     function makeQueue(count, tables) {
       const pool = buildPool(tables);
       const shuffled = shuffle(pool);
@@ -1235,91 +1160,68 @@
       while (queue.length < count && pool.length) {
         if (!shuffled.length) shuffled.push(...shuffle(pool));
         const item = shuffled.pop();
-        queue.push({
-          id: `${queue.length}-${item.a}x${item.b}-${Math.random().toString(16).slice(2, 6)}`,
-          a: item.a,
-          b: item.b,
-          answer: item.answer,
-        });
+        queue.push({ id: `${queue.length}-${item.a}x${item.b}-${Math.random().toString(16).slice(2, 6)}`, a: item.a, b: item.b, answer: item.answer });
       }
       return queue;
     }
-
     function createDayState(date) {
       const count = questionCount();
       const tables = tablesForDate(date);
       return {
-        date,
-        tables,
-        startCount: count,
-        queue: makeQueue(count, tables),
-        correct: 0,
-        fails: 0,
-        answered: 0,
-        completed: false,
-        sessionDone: false,
-        completedAt: null,
-        startedAt: null,
-        runsCompleted: 0,
-        totalCoins: 0,
-        coinsAwarded: 0,
-        coinParts: null,
+        date, tables, startCount: count, queue: makeQueue(count, tables),
+        correct: 0, fails: 0, answered: 0, completed: false, sessionDone: false,
+        completedAt: null, startedAt: null, runsCompleted: 0, totalCoins: 0,
+        coinsAwarded: 0, coinParts: null, poolVersion: POOL_VERSION,
       };
     }
-
     function resetSession(dayState) {
       const tables = tablesForDate(dayState.date);
       dayState.tables = tables;
+      dayState.poolVersion = POOL_VERSION;
       dayState.startCount = questionCount();
       dayState.queue = makeQueue(dayState.startCount, tables);
-      dayState.correct = 0;
-      dayState.fails = 0;
-      dayState.answered = 0;
+      dayState.correct = 0; dayState.fails = 0; dayState.answered = 0;
       dayState.sessionDone = false;
       dayState.startedAt = new Date().toISOString();
-      dayState.coinsAwarded = 0;
-      dayState.coinParts = null;
+      dayState.coinsAwarded = 0; dayState.coinParts = null;
       return dayState;
     }
-
     function getDayState(date = todayKey()) {
       if (date < PROGRAM_START) return null;
       const store = loadStore();
       if (!store[date]) {
         store[date] = createDayState(date);
-        saveStore(store);
+        saveStore(store, { quiet: true });
         return store[date];
       }
-
       const day = store[date];
       if (day.sessionDone == null) day.sessionDone = !!day.completed;
       if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
       if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
-
       const expected = tablesForDate(date).join(",");
       const current = Array.isArray(day.tables) ? day.tables.join(",") : "";
-      if (!day.completed && !day.answered && expected !== current) {
+      const poolStale = day.poolVersion !== POOL_VERSION;
+      if (!day.completed && !day.answered && (expected !== current || poolStale)) {
         store[date] = createDayState(date);
+        saveStore(store, { quiet: true });
       } else if (!day.tables) {
         day.tables = tablesForDate(date);
+        saveStore(store, { quiet: true });
+      } else {
+        saveStore(store, { quiet: true });
       }
-
-      saveStore(store);
       return store[date];
     }
-
     function persist() {
       if (!state) return;
       const store = loadStore();
       store[state.date] = state;
       saveStore(store);
     }
-
     function isLate(dayState) {
       if (!dayState?.completed || !dayState.completedAt) return false;
       return todayKey(new Date(dayState.completedAt)) > dayState.date;
     }
-
     function dayMark(key, store, today) {
       if (key < PROGRAM_START) return "before";
       if (key > today) return "future";
@@ -1328,23 +1230,37 @@
       if (key < today) return "bad";
       return "today";
     }
-
     function calcStreak(store, fromDate = todayKey()) {
       let streak = 0;
       let cursor = parseKey(fromDate);
-      if (!store[fromDate]?.completed || isLate(store[fromDate])) {
-        cursor.setDate(cursor.getDate() - 1);
-      }
+      if (!store[fromDate]?.completed || isLate(store[fromDate])) cursor.setDate(cursor.getDate() - 1);
       while (true) {
         const key = todayKey(cursor);
         if (key < PROGRAM_START) break;
         const day = store[key];
-        if (day?.completed && !isLate(day)) {
-          streak += 1;
-          cursor.setDate(cursor.getDate() - 1);
-        } else break;
+        if (day?.completed && !isLate(day)) { streak += 1; cursor.setDate(cursor.getDate() - 1); }
+        else break;
       }
       return streak;
+    }
+
+    function show(view) {
+      currentView = view;
+      Object.keys(views).forEach((key) => {
+        views[key].classList.toggle("hidden", key !== view);
+      });
+      document.querySelectorAll(".nav-btn").forEach((btn) => {
+        const v = btn.getAttribute("data-view");
+        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem"].includes(view));
+      });
+    }
+    function navigate(view) {
+      if (view === "home") { updateHome(); setHero(t("heroHello")); show("home"); return; }
+      if (view === "calendar") { renderCalendar(); setHero(t("heroCalendar")); show("calendar"); return; }
+      if (view === "plan") { renderPlanList(); setHero(t("heroPlan")); show("plan"); return; }
+      if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables"); return; }
+      if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras"); return; }
+      if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
     }
 
     function applyI18n() {
@@ -1355,31 +1271,30 @@
         const value = t(key);
         if (typeof value === "string") el.textContent = value;
       });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        const value = t(key);
+        if (typeof value === "string") el.placeholder = value;
+      });
       document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
       document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
-      document.getElementById("planBtn").textContent = t("allMissions");
       document.getElementById("repeatBtn").textContent = t("repeat");
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
+      coinsBadge.title = t("mishcoins");
       renderWeekdays();
     }
 
     function renderTodayTables(dateKey) {
       const tables = tablesForDate(dateKey);
-      const box = document.getElementById("tablesToday");
-      box.innerHTML = tables.map((n) => `<span>${n}</span>`).join("");
+      document.getElementById("tablesToday").innerHTML = tables.map((n) => `<span>${n}</span>`).join("");
       const nextIn = daysUntilNextTable(dateKey);
       const list = tables.join(", ");
-      document.getElementById("tablesProgressNote").textContent = nextIn
-        ? t("tablesProgress", list, nextIn)
-        : t("tablesProgressMax", list);
+      document.getElementById("tablesProgressNote").textContent = nextIn ? t("tablesProgress", list, nextIn) : t("tablesProgressMax", list);
     }
-
     function renderWeekdays() {
-      const box = document.getElementById("calWeekdays");
-      box.innerHTML = t("weekdays").map((d) => `<span>${d}</span>`).join("");
+      document.getElementById("calWeekdays").innerHTML = t("weekdays").map((d) => `<span>${d}</span>`).join("");
     }
-
     function renderCalendar() {
       const grid = document.getElementById("calGrid");
       const store = loadStore();
@@ -1387,19 +1302,15 @@
       const year = calMonth.getFullYear();
       const month = calMonth.getMonth();
       document.getElementById("calMonthLabel").textContent = formatMonthLabel(calMonth);
-
       const first = new Date(year, month, 1);
-      // Monday-first index: Mon=0 ... Sun=6
       const startPad = (first.getDay() + 6) % 7;
       const daysInMonth = new Date(year, month + 1, 0).getDate();
-
       grid.innerHTML = "";
       for (let i = 0; i < startPad; i += 1) {
         const empty = document.createElement("div");
         empty.className = "cal-cell empty";
         grid.appendChild(empty);
       }
-
       for (let day = 1; day <= daysInMonth; day += 1) {
         const date = new Date(year, month, day);
         const key = todayKey(date);
@@ -1407,11 +1318,9 @@
         const cell = document.createElement("div");
         cell.className = `cal-cell ${mark}`;
         if (key === today) cell.classList.add("today");
-
         let icon = "";
         if (mark === "done") icon = "✅";
         if (mark === "bad") icon = "😡";
-
         cell.innerHTML = `<span>${day}</span>${icon ? `<span class="mark">${icon}</span>` : ""}`;
         if (key >= PROGRAM_START && key <= today) {
           cell.style.cursor = "pointer";
@@ -1421,75 +1330,145 @@
       }
     }
 
-    function show(view) {
-      homeView.classList.toggle("hidden", view !== "home");
-      trainView.classList.toggle("hidden", view !== "train");
-      doneView.classList.toggle("hidden", view !== "done");
-      planView.classList.toggle("hidden", view !== "plan");
-      adminView.classList.toggle("hidden", view !== "admin");
+    function renderTablesSettings() {
+      const date = todayKey();
+      const floor = progressiveMax(date);
+      const maxN = effectiveTablesMax(date);
+      document.getElementById("tablesFloorNote").textContent = t("tablesFloorNote", floor, maxN);
+      const box = document.getElementById("tablesSettingsChips");
+      box.innerHTML = "";
+      for (let n = 1; n <= 9; n += 1) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "table-chip";
+        btn.textContent = String(n);
+        const isOn = n <= maxN;
+        const isLocked = n <= floor;
+        if (isOn) btn.classList.add("on");
+        if (isLocked) btn.classList.add("locked");
+        btn.addEventListener("click", () => {
+          if (n <= floor) return;
+          if (n <= maxN) return;
+          settings.tablesMax = n;
+          saveSettings();
+          renderTablesSettings();
+          renderPythagoras();
+          updateHome();
+        });
+        box.appendChild(btn);
+      }
+      document.getElementById("tablesSettingsNote").textContent = t("tablesSettingsHint");
     }
+
+    function renderPythagoras() {
+      const maxN = effectiveTablesMax(todayKey());
+      const rows = [];
+      for (let n = 1; n <= maxN; n += 1) rows.push(n);
+      const cols = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const box = document.getElementById("pythagorasGrid");
+      if (!rows.length) { box.innerHTML = ""; return; }
+      let html = '<table class="pyth-table"><thead><tr><td class="corner"></td>';
+      cols.forEach((n) => { html += `<th>${n}</th>`; });
+      html += "</tr></thead><tbody>";
+      rows.forEach((row) => {
+        html += `<tr><th>${row}</th>`;
+        cols.forEach((col) => {
+          const val = row * col;
+          const hl = row === col ? " highlight" : "";
+          html += `<td class="${hl.trim()}">${val}</td>`;
+        });
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+      box.innerHTML = html;
+    }
+
+    function prizeTitle(prize) { return lang === "ru" ? prize.titleRu : prize.titleEn; }
+
+    function renderRedeem() {
+      const box = document.getElementById("redeemContent");
+      const list = settings.wishlist || [];
+      if (!list.length) {
+        box.innerHTML = `<div class="card empty-state"><div class="empty-icon">🎁</div><p>${t("redeemEmpty")}</p></div>`;
+        return;
+      }
+      box.innerHTML = `<div class="card"><div class="prize-list">${list.map((prize) => {
+        const title = prizeTitle(prize);
+        const purchased = !!prize.purchasedAt;
+        return `<div class="prize-item${purchased ? " purchased" : ""}">
+          <div class="prize-title">${title}</div>
+          <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
+          ${purchased
+            ? `<span class="plan-badge">${t("redeemPurchased")}</span>`
+            : `<button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button">${t("redeemBuy")}</button>`}
+        </div>`;
+      }).join("")}</div></div>`;
+      box.querySelectorAll(".redeem-buy").forEach((btn) => {
+        btn.addEventListener("click", () => buyPrize(btn.getAttribute("data-id")));
+      });
+    }
+
+    function buyPrize(id) {
+      const prize = (settings.wishlist || []).find((p) => p.id === id);
+      if (!prize || prize.purchasedAt) return;
+      if (coins.balance < prize.cost) { alert(t("redeemNotEnough")); return; }
+      const title = prizeTitle(prize);
+      const entry = {
+        id: uid(), at: new Date().toISOString(), dateKey: todayKey(),
+        amount: -prize.cost,
+        parts: [{ label: t("redeemSpend", title), amount: -prize.cost }],
+      };
+      spendCoins(prize.cost, entry);
+      prize.purchasedAt = new Date().toISOString();
+      saveSettings();
+      alert(t("redeemSuccess", title));
+      renderRedeem();
+    }
+
+    function openCoinHistory() {
+      const box = document.getElementById("historyContent");
+      if (!coins.history || !coins.history.length) {
+        box.innerHTML = `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
+      } else {
+        box.innerHTML = `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
+          <div class="history-list">${coins.history.map((item) => {
+            const neg = item.amount < 0;
+            const partsHtml = (item.parts || []).map((p) => `<li>${p.label}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
+            return `<div class="history-item${neg ? " spend" : ""}">
+              <div class="history-top">
+                <span class="history-date">${formatHistoryDate(item.at)}</span>
+                <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
+              </div>
+              ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
+            </div>`;
+          }).join("")}</div>`;
+      }
+      historyModal.classList.remove("hidden");
+    }
+    function closeCoinHistory() { historyModal.classList.add("hidden"); }
 
     function dayOffset(base, offset) {
       const date = new Date(base.getFullYear(), base.getMonth(), base.getDate());
       date.setDate(date.getDate() + offset);
       return date;
     }
-
     function planStatus(key, store, today) {
       const dayState = store[key];
       const count = dayState?.startCount || questionCount();
       const isToday = key === today;
-
-      if (key < PROGRAM_START) {
-        return { kind: "future", badge: "—", meta: "—", action: false };
-      }
-
-      if (key > today) {
-        return {
-          kind: "future",
-          badge: t("badgeFuture"),
-          meta: t("metaFuture", count),
-          action: false,
-        };
-      }
-
+      if (key < PROGRAM_START) return { kind: "future", badge: "—", meta: "—", action: false };
+      if (key > today) return { kind: "future", badge: t("badgeFuture"), meta: t("metaFuture", count), action: false };
       if (dayState?.completed) {
         const late = isLate(dayState);
-        const coinText = dayState.coinsAwarded ? ` · +${dayState.coinsAwarded} ★` : "";
-        return {
-          kind: late ? "late" : "done",
-          badge: late ? t("badgeLate") : t("badgeDone"),
-          meta: t("metaStats", dayState.correct, dayState.fails, coinText),
-          action: true,
-        };
+        const coinText = dayState.coinsAwarded ? ` · +${dayState.coinsAwarded} ${COIN_SYMBOL}` : "";
+        return { kind: late ? "late" : "done", badge: late ? t("badgeLate") : t("badgeDone"), meta: t("metaStats", dayState.correct, dayState.fails, coinText), action: true };
       }
-
       if (dayState && dayState.answered > 0) {
-        return {
-          kind: isToday ? "today" : "miss",
-          badge: isToday ? t("badgeProgress") : t("badgeUnfinished"),
-          meta: t("metaProgress", dayState.queue.length, dayState.correct, dayState.fails),
-          action: true,
-        };
+        return { kind: isToday ? "today" : "miss", badge: isToday ? t("badgeProgress") : t("badgeUnfinished"), meta: t("metaProgress", dayState.queue.length, dayState.correct, dayState.fails), action: true };
       }
-
-      if (isToday) {
-        return {
-          kind: "today",
-          badge: t("badgeToday"),
-          meta: t("metaReady", count),
-          action: true,
-        };
-      }
-
-      return {
-        kind: "miss",
-        badge: t("badgeMiss"),
-        meta: t("metaMiss", count),
-        action: true,
-      };
+      if (isToday) return { kind: "today", badge: t("badgeToday"), meta: t("metaReady", count), action: true };
+      return { kind: "miss", badge: t("badgeMiss"), meta: t("metaMiss", count), action: true };
     }
-
     function renderPlanList() {
       const box = document.getElementById("planList");
       box.innerHTML = "";
@@ -1498,7 +1477,6 @@
       const start = parseKey(PROGRAM_START);
       const from = dayOffset(new Date(), -Math.min(7, Math.floor((parseKey(today) - start) / 86400000)));
       const begin = from < start ? start : from;
-
       for (let i = 0; i < PLAN_DAYS; i += 1) {
         const day = dayOffset(begin, i);
         const key = todayKey(day);
@@ -1506,20 +1484,14 @@
         const item = document.createElement(status.action ? "button" : "div");
         if (status.action) item.type = "button";
         item.className = `plan-item ${status.kind}${status.action ? " action" : ""}`;
-        item.innerHTML = `
-          <div class="title">${formatDateLong(key)}</div>
-          <div class="plan-badge">${status.badge}</div>
-          <div class="meta">${status.meta}</div>
-        `;
+        item.innerHTML = `<div class="title">${formatDateLong(key)}</div><div class="plan-badge">${status.badge}</div><div class="meta">${status.meta}</div>`;
         if (status.action) item.addEventListener("click", () => openAssignmentDay(key));
         box.appendChild(item);
       }
     }
 
     function spawnBurst(ok) {
-      const colors = ok
-        ? ["#18c59a", "#2f6fed", "#ffb703", "#ff7a18"]
-        : ["#ff3d81", "#ff7a18", "#ffb0c0"];
+      const colors = ok ? ["#18c59a", "#2f6fed", "#ffb703", "#ff7a18"] : ["#ff3d81", "#ff7a18", "#ffb0c0"];
       const rect = problemCard.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height * 0.35;
@@ -1528,8 +1500,7 @@
         el.className = "burst";
         const angle = (Math.PI * 2 * i) / 12;
         const dist = 40 + Math.random() * 50;
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
+        el.style.left = `${x}px`; el.style.top = `${y}px`;
         el.style.background = colors[i % colors.length];
         el.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
         el.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
@@ -1538,50 +1509,22 @@
       }
     }
 
-    function spawnCoinFly() {
-      const rect = coinsBadge.getBoundingClientRect();
-      const el = document.createElement("span");
-      el.className = "floating-coin";
-      el.textContent = "★";
-      el.style.left = `${rect.left + rect.width / 2}px`;
-      el.style.top = `${rect.top + 8}px`;
-      fxLayer.appendChild(el);
-      window.setTimeout(() => el.remove(), 1000);
-    }
-
     function calcRewards(dayState) {
       const parts = [];
       let total = 0;
-      const completedDay = dayState.completedAt
-        ? todayKey(new Date(dayState.completedAt))
-        : todayKey();
+      const completedDay = dayState.completedAt ? todayKey(new Date(dayState.completedAt)) : todayKey();
       const onTime = completedDay === dayState.date;
-      if (onTime) {
-        parts.push({ label: t("rewardOnTime"), amount: 1 });
-        total += 1;
-      }
-
-      const failRate = dayState.answered
-        ? (dayState.fails / dayState.answered) * 100
-        : 100;
+      if (onTime) { parts.push({ label: t("rewardOnTime"), amount: 1 }); total += 1; }
+      const failRate = dayState.answered ? (dayState.fails / dayState.answered) * 100 : 100;
       const rateText = failRate.toFixed(1);
-
-      if (failRate < 5) {
-        parts.push({ label: t("rewardLow", rateText), amount: 3 });
-        total += 3;
-      } else if (failRate <= 10) {
-        parts.push({ label: t("rewardMid", rateText), amount: 1 });
-        total += 1;
-      } else {
-        parts.push({ label: t("rewardHigh", rateText), amount: 0 });
-      }
-
+      if (failRate < 5) { parts.push({ label: t("rewardLow", rateText), amount: 3 }); total += 3; }
+      else if (failRate <= 10) { parts.push({ label: t("rewardMid", rateText), amount: 1 }); total += 1; }
+      else { parts.push({ label: t("rewardHigh", rateText), amount: 0 }); }
       return { total, parts, failRate, onTime };
     }
-
     function renderReward(dayState) {
       const reward = dayState.coinParts || calcRewards(dayState);
-      document.getElementById("rewardTotal").textContent = `+${dayState.coinsAwarded || reward.total} ★`;
+      document.getElementById("rewardTotal").textContent = `+${dayState.coinsAwarded || reward.total} ${COIN_SYMBOL}`;
       const list = document.getElementById("rewardList");
       list.innerHTML = "";
       (reward.parts || []).forEach((part) => {
@@ -1590,45 +1533,35 @@
         list.appendChild(li);
       });
     }
-
     function showDoneScreen(subtitle, options = {}) {
       const { animateReward = false } = options;
       document.getElementById("doneOk").textContent = String(state.correct);
       document.getElementById("doneFail").textContent = String(state.fails);
       document.getElementById("doneTotal").textContent = String(state.answered);
       const runs = state.runsCompleted || 0;
-      const extra = runs ? ` ${t("runsToday", runs)}` : "";
-      document.getElementById("doneSubtitle").textContent = `${subtitle}${extra}`;
+      document.getElementById("doneSubtitle").textContent = `${subtitle}${runs ? ` ${t("runsToday", runs)}` : ""}`;
       renderReward(state);
       setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
-      document.getElementById("repeatBtn").classList.remove("hidden");
       show("done");
-      if (animateReward && state.coinsAwarded > 0) {
-        playRewardToBalance(state.coinsAwarded);
+      if (animateReward && state.coinsAwarded > 0 && pendingHistoryEntry) {
+        playRewardToBalance(state.coinsAwarded, pendingHistoryEntry);
+        pendingHistoryEntry = null;
       }
     }
-
     function openAssignmentDay(date) {
       const today = todayKey();
       if (date > today || date < PROGRAM_START) return;
-
       state = getDayState(date);
       if (!state) return;
-
       if (state.sessionDone) {
         showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
-
-      if (!state.startedAt) {
-        state.startedAt = new Date().toISOString();
-        persist();
-      }
+      if (!state.startedAt) { state.startedAt = new Date().toISOString(); persist(); }
       setHero(t("heroTrain"));
       show("train");
       showCurrentProblem();
     }
-
     function startRepeatLesson() {
       if (!state) state = getDayState(todayKey());
       if (!state) return;
@@ -1638,13 +1571,6 @@
       show("train");
       showCurrentProblem();
     }
-
-    function openPlan() {
-      setHero(t("heroPlan"));
-      renderPlanList();
-      show("plan");
-    }
-
     function updateHome() {
       const date = todayKey();
       state = date >= PROGRAM_START ? getDayState(date) : null;
@@ -1652,14 +1578,12 @@
       const remain = state ? state.queue.length : 0;
       const count = state?.startCount || questionCount();
       const repeatHomeBtn = document.getElementById("repeatHomeBtn");
-
       document.getElementById("dateLabel").textContent = formatDateLong(date);
       document.getElementById("homeRemain").textContent = String(state?.sessionDone ? 0 : remain);
       document.getElementById("homeOk").textContent = String(state?.correct || 0);
       document.getElementById("homeFail").textContent = String(state?.fails || 0);
       document.getElementById("streakText").textContent = t("streak", calcStreak(store, date));
       renderTodayTables(date);
-
       const startBtn = document.getElementById("startBtn");
       repeatHomeBtn.classList.add("hidden");
       if (!state) {
@@ -1667,38 +1591,20 @@
         startBtn.disabled = true;
       } else if (state.sessionDone) {
         document.getElementById("todayStatus").textContent = t("statusDone");
-        startBtn.textContent = t("seeResult");
-        startBtn.disabled = false;
+        startBtn.textContent = t("seeResult"); startBtn.disabled = false;
         repeatHomeBtn.classList.remove("hidden");
-        repeatHomeBtn.textContent = t("repeat");
         setHero(t("heroDone"));
       } else if (state.answered > 0) {
         document.getElementById("todayStatus").textContent = t("statusStarted");
-        startBtn.textContent = t("continue");
-        startBtn.disabled = false;
+        startBtn.textContent = t("continue"); startBtn.disabled = false;
         setHero(t("heroContinue", remain));
       } else {
         document.getElementById("todayStatus").textContent = t("statusReady", count);
-        startBtn.textContent = t("start");
-        startBtn.disabled = false;
+        startBtn.textContent = t("start"); startBtn.disabled = false;
         setHero(t("heroHello"));
       }
-
-      applyI18n();
-      if (!state) {
-        // keep disabled
-      } else if (state.sessionDone) {
-        startBtn.textContent = t("seeResult");
-        repeatHomeBtn.textContent = t("repeat");
-      } else if (state.answered > 0) {
-        startBtn.textContent = t("continue");
-      } else {
-        startBtn.textContent = t("start");
-      }
-      renderCalendar();
       renderCoins();
     }
-
     function updateTrainChrome() {
       const remain = state.queue.length;
       const planned = Math.max(state.answered + remain, state.startCount || questionCount());
@@ -1708,93 +1614,62 @@
       document.getElementById("scoreText").textContent = t("scoreLine", state.correct, state.fails);
       document.getElementById("trainDateLabel").textContent = formatDateLong(state.date);
     }
-
     function showCurrentProblem() {
       updateTrainChrome();
-      if (!state.queue.length) {
-        finishTraining();
-        return;
-      }
+      if (!state.queue.length) { finishTraining(); return; }
       const problem = state.queue[0];
       const problemEl = document.getElementById("problemText");
       problemEl.textContent = `${problem.a} × ${problem.b} =`;
-      problemEl.style.animation = "none";
-      void problemEl.offsetWidth;
-      problemEl.style.animation = "";
-      answerInput.value = "";
-      feedbackEl.textContent = "";
-      feedbackEl.className = "feedback";
+      problemEl.style.animation = "none"; void problemEl.offsetWidth; problemEl.style.animation = "";
+      answerInput.value = ""; feedbackEl.textContent = ""; feedbackEl.className = "feedback";
       problemCard.classList.remove("flash-ok", "flash-bad");
       busy = false;
       answerInput.focus({ preventScroll: true });
     }
-
     function finishTraining() {
-      state.sessionDone = true;
-      state.completed = true;
+      state.sessionDone = true; state.completed = true;
       state.completedAt = state.completedAt || new Date().toISOString();
       state.queue = [];
       state.runsCompleted = (state.runsCompleted || 0) + 1;
-
       const reward = calcRewards(state);
       state.coinParts = reward;
       state.coinsAwarded = reward.total;
       state.totalCoins = (state.totalCoins || 0) + reward.total;
-
+      pendingHistoryEntry = {
+        id: uid(), at: new Date().toISOString(), dateKey: state.date,
+        amount: reward.total,
+        parts: reward.parts.filter((p) => p.amount > 0),
+      };
       persist();
       spawnBurst(true);
-      const subtitle = state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails);
-      showDoneScreen(subtitle, { animateReward: true });
+      showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
-
-    function startTraining() {
-      openAssignmentDay(todayKey());
-    }
-
+    function startTraining() { openAssignmentDay(todayKey()); }
     function submitAnswer() {
       if (busy || !state || state.sessionDone) return;
       const problem = state.queue[0];
-      if (!problem) {
-        finishTraining();
-        return;
-      }
-
+      if (!problem) { finishTraining(); return; }
       const raw = answerInput.value.trim();
       if (raw === "" || Number.isNaN(Number(raw))) {
-        feedbackEl.textContent = t("enterNumber");
-        feedbackEl.className = "feedback bad";
-        answerInput.focus();
-        return;
+        feedbackEl.textContent = t("enterNumber"); feedbackEl.className = "feedback bad";
+        answerInput.focus(); return;
       }
-
       busy = true;
       const value = Number(raw);
-      state.queue.shift();
-      state.answered += 1;
+      state.queue.shift(); state.answered += 1;
       const tables = activeTables(state);
-
       if (value === problem.answer) {
         state.correct += 1;
-        feedbackEl.textContent = t("correctShort");
-        feedbackEl.className = "feedback ok";
-        problemCard.classList.add("flash-ok");
-        setHero(pick(t("praise")));
-        spawnBurst(true);
+        feedbackEl.textContent = t("correctShort"); feedbackEl.className = "feedback ok";
+        problemCard.classList.add("flash-ok"); setHero(pick(t("praise"))); spawnBurst(true);
       } else {
         state.fails += 1;
         feedbackEl.textContent = t("failLine", problem.answer, FAIL_EXTRA);
         feedbackEl.className = "feedback bad";
-        problemCard.classList.add("flash-bad");
-        setHero(pick(t("cheer")));
-        spawnBurst(false);
-        for (let i = 0; i < FAIL_EXTRA; i += 1) {
-          state.queue.push(makeProblem(tables));
-        }
+        problemCard.classList.add("flash-bad"); setHero(pick(t("cheer"))); spawnBurst(false);
+        for (let i = 0; i < FAIL_EXTRA; i += 1) state.queue.push(makeProblem(tables));
       }
-
-      persist();
-      updateTrainChrome();
-
+      persist(); updateTrainChrome();
       window.setTimeout(() => {
         if (!state.queue.length) finishTraining();
         else showCurrentProblem();
@@ -1806,73 +1681,71 @@
       localStorage.setItem(LANG_KEY, lang);
       applyI18n();
       updateHome();
-      if (!planView.classList.contains("hidden")) renderPlanList();
-      if (!doneView.classList.contains("hidden") && state) renderReward(state);
-      if (!adminView.classList.contains("hidden")) {
-        document.getElementById("adminCountInput").value = String(questionCount());
-      }
+      if (currentView === "plan") renderPlanList();
+      if (currentView === "calendar") renderCalendar();
+      if (currentView === "tables") renderTablesSettings();
+      if (currentView === "pythagoras") renderPythagoras();
+      if (currentView === "redeem") renderRedeem();
+      if (currentView === "done" && state) renderReward(state);
+      if (currentView === "admin") renderAdminWishlist();
     }
 
     function openPinModal() {
       pinModal.classList.remove("hidden");
       document.getElementById("pinError").textContent = "";
       const input = document.getElementById("pinInput");
-      input.value = "";
-      input.focus();
+      input.value = ""; input.focus();
     }
-
-    function closePinModal() {
-      pinModal.classList.add("hidden");
-    }
-
+    function closePinModal() { pinModal.classList.add("hidden"); }
     function openAdmin() {
       sessionStorage.setItem(ADMIN_KEY, "1");
       document.getElementById("adminCountInput").value = String(questionCount());
       document.getElementById("adminStatus").textContent = "";
+      renderAdminWishlist();
       setHero(t("adminTitle"));
       show("admin");
     }
-
+    function renderAdminWishlist() {
+      const box = document.getElementById("adminWishlistList");
+      const list = settings.wishlist || [];
+      if (!list.length) { box.innerHTML = `<p class="note">${t("redeemEmpty")}</p>`; return; }
+      box.innerHTML = list.map((prize) => {
+        const title = prizeTitle(prize);
+        const canRemove = !prize.purchasedAt;
+        return `<div class="admin-prize-row">
+          <div><strong>${title}</strong><br><span class="note">${prize.cost} ${COIN_SYMBOL}${prize.purchasedAt ? " · " + t("redeemPurchased") : ""}</span></div>
+          ${canRemove ? `<button class="btn btn-ghost btn-sm admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>` : ""}
+        </div>`;
+      }).join("");
+      box.querySelectorAll(".admin-remove").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          settings.wishlist = settings.wishlist.filter((p) => p.id !== btn.getAttribute("data-id"));
+          saveSettings(); renderAdminWishlist();
+        });
+      });
+    }
     function applyQuestionCountToUnfinished(newCount) {
       settings.questionCount = newCount;
       saveSettings();
       const store = loadStore();
       let changed = 0;
-
       Object.keys(store).forEach((key) => {
         const day = store[key];
         if (!day || day.sessionDone || day.completed) return;
         const tables = tablesForDate(key);
-
-        if (!day.answered) {
-          store[key] = createDayState(key);
-          changed += 1;
-          return;
-        }
-
+        if (!day.answered) { store[key] = createDayState(key); changed += 1; return; }
         const desiredRemaining = Math.max(0, newCount - day.answered);
         while (day.queue.length > desiredRemaining) day.queue.pop();
-        while (day.queue.length < desiredRemaining) {
-          day.queue.push(makeProblem(tables));
-        }
-        day.tables = tables;
-        day.startCount = newCount;
+        while (day.queue.length < desiredRemaining) day.queue.push(makeProblem(tables));
+        day.tables = tables; day.startCount = newCount;
         changed += 1;
       });
-
       const today = todayKey();
-      if (today >= PROGRAM_START && !store[today]) {
-        store[today] = createDayState(today);
-        changed += 1;
-      }
-
+      if (today >= PROGRAM_START && !store[today]) { store[today] = createDayState(today); changed += 1; }
       saveStore(store);
-      if (state && !state.sessionDone && store[state.date]) {
-        state = store[state.date];
-      }
+      if (state && !state.sessionDone && store[state.date]) state = store[state.date];
       return changed;
     }
-
     function onTitleTap() {
       const now = Date.now();
       titleTaps = titleTaps.filter((ts) => now - ts < 2500);
@@ -1887,76 +1760,67 @@
     document.getElementById("langRuBtn").addEventListener("click", () => setLang("ru"));
     document.getElementById("langEnBtn").addEventListener("click", () => setLang("en"));
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
-    document.getElementById("calPrev").addEventListener("click", () => {
-      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
-      renderCalendar();
+    document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
+    document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
+    document.getElementById("mishaAvatar").addEventListener("click", openCoinHistory);
+    document.getElementById("historyCloseBtn").addEventListener("click", closeCoinHistory);
+    historyModal.addEventListener("click", (e) => { if (e.target === historyModal) closeCoinHistory(); });
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
-    document.getElementById("calNext").addEventListener("click", () => {
-      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
-      renderCalendar();
-    });
+    document.getElementById("calPrev").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
+    document.getElementById("calNext").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
     document.getElementById("startBtn").addEventListener("click", startTraining);
     document.getElementById("repeatBtn").addEventListener("click", startRepeatLesson);
-    document.getElementById("repeatHomeBtn").addEventListener("click", () => {
-      state = getDayState(todayKey());
-      startRepeatLesson();
-    });
-    document.getElementById("planBtn").addEventListener("click", openPlan);
-    document.getElementById("planBackBtn").addEventListener("click", () => {
-      updateHome();
-      show("home");
-    });
+    document.getElementById("repeatHomeBtn").addEventListener("click", () => { state = getDayState(todayKey()); startRepeatLesson(); });
     document.getElementById("submitBtn").addEventListener("click", submitAnswer);
-    document.getElementById("exitBtn").addEventListener("click", () => {
-      updateHome();
-      show("home");
-    });
-    document.getElementById("backHomeBtn").addEventListener("click", () => {
-      updateHome();
-      show("home");
-    });
+    document.getElementById("exitBtn").addEventListener("click", () => { updateHome(); show("home"); });
+    document.getElementById("backHomeBtn").addEventListener("click", () => { updateHome(); show("home"); });
     document.getElementById("pinOkBtn").addEventListener("click", () => {
       const value = document.getElementById("pinInput").value.trim();
-      if (value === ADMIN_PIN) {
-        closePinModal();
-        openAdmin();
-      } else {
-        document.getElementById("pinError").textContent = t("pinWrong");
-      }
+      if (value === ADMIN_PIN) { closePinModal(); openAdmin(); }
+      else document.getElementById("pinError").textContent = t("pinWrong");
     });
     document.getElementById("pinCancelBtn").addEventListener("click", closePinModal);
-    document.getElementById("pinInput").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") document.getElementById("pinOkBtn").click();
-    });
+    document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("pinOkBtn").click(); });
     document.getElementById("adminSaveBtn").addEventListener("click", () => {
       const value = Number(document.getElementById("adminCountInput").value);
       if (!Number.isFinite(value) || value < 5 || value > 200) {
-        document.getElementById("adminStatus").textContent = "5–200";
-        return;
+        document.getElementById("adminStatus").textContent = "5–200"; return;
       }
       const changed = applyQuestionCountToUnfinished(Math.round(value));
       document.getElementById("adminStatus").textContent = t("adminSaved", Math.round(value), changed);
       updateHome();
     });
-    document.getElementById("adminBackBtn").addEventListener("click", () => {
-      updateHome();
-      show("home");
+    document.getElementById("adminAddPrizeBtn").addEventListener("click", () => {
+      const titleRu = document.getElementById("prizeTitleRu").value.trim();
+      const titleEn = document.getElementById("prizeTitleEn").value.trim();
+      const cost = Number(document.getElementById("prizeCost").value);
+      if (!titleRu || !titleEn || !Number.isFinite(cost) || cost < 1) return;
+      if (!settings.wishlist) settings.wishlist = [];
+      settings.wishlist.push({ id: uid(), titleRu, titleEn, cost: Math.round(cost), purchasedAt: null });
+      saveSettings();
+      document.getElementById("prizeTitleRu").value = "";
+      document.getElementById("prizeTitleEn").value = "";
+      document.getElementById("prizeCost").value = "";
+      renderAdminWishlist();
     });
-    answerInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        submitAnswer();
-      }
-    });
+    document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
+    answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
 
-    // Jump calendar to program start month on first load if needed
     const startMonth = monthStart(parseKey(PROGRAM_START));
     if (calMonth < startMonth) calMonth = startMonth;
-
     applyI18n();
     renderCoins();
     updateHome();
     show("home");
+    pullCloudSync().then((changed) => {
+      if (!changed && (cloudMeta.updatedAt || 0) > 0) scheduleCloudPush();
+    });
+    window.setInterval(() => { pullCloudSync(); }, 12000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") pullCloudSync();
+    });
   </script>
 </body>
 </html>
