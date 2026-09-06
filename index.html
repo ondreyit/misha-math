@@ -527,7 +527,7 @@
   <div class="modal" id="profileModal">
     <div class="modal-card wide">
       <div class="label" data-i18n="profileTitle">Who is playing?</div>
-      <p class="note" data-i18n="profileHint">Choose your profile. Progress and Mishcoins are separate.</p>
+      <p class="note" data-i18n="profileHint">Choose your profile. Balance, history, calendar, and prizes live in the cloud — the same on every device.</p>
       <div class="profile-grid" id="profileGrid"></div>
     </div>
   </div>
@@ -732,7 +732,7 @@
         appTitle: "Миша × Умножение",
         heroName: "Герой",
         profileTitle: "Кто играет?",
-        profileHint: "Выбери свой профиль. Прогресс и Мишкоины у каждого свои.",
+        profileHint: "Выбери свой профиль. Баланс, история, календарь и призы хранятся в облаке — на любом устройстве одни и те же данные.",
         profileSwitch: "Сменить профиль",
         pythHintIdle: "Наведи на число — увидишь пример",
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
@@ -846,7 +846,7 @@
         appTitle: "Misha × Math",
         heroName: "Hero",
         profileTitle: "Who is playing?",
-        profileHint: "Choose your profile. Progress and Mishcoins are separate for each person.",
+        profileHint: "Choose your profile. Balance, history, calendar, and prizes live in the cloud — the same on every device.",
         profileSwitch: "Switch profile",
         pythHintIdle: "Hover a number to see the example",
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
@@ -959,7 +959,9 @@
     let state = null;
     let busy = false;
     let coins = { balance: 0, history: [], purchases: [] };
+    let dayStore = {};
     let cloudMeta = { updatedAt: 0 };
+    let profileDirty = false;
     let calMonth = monthStart(new Date());
     let titleTaps = [];
     let currentView = "home";
@@ -1067,67 +1069,98 @@
     }
     function uid() { return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`; }
 
-    function loadSettings() {
-      try {
-        const raw = localStorage.getItem(settingsKey());
-        if (!raw) return { questionCount: 20, tablesMax: 0, wishlist: [] };
-        const parsed = JSON.parse(raw);
-        const count = Number(parsed.questionCount);
-        const tablesMax = Number(parsed.tablesMax) || 0;
-        const wishlist = Array.isArray(parsed.wishlist) ? parsed.wishlist : [];
-        return {
-          questionCount: count >= 5 && count <= 200 ? count : 20,
-          tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : 0,
-          wishlist,
-        };
-      } catch { return { questionCount: 20, tablesMax: 0, wishlist: [] }; }
+    function emptySettings() { return { questionCount: 20, tablesMax: 0, wishlist: [] }; }
+    function emptyCoins() { return { balance: 0, history: [], purchases: [] }; }
+    function parseSettings(raw) {
+      if (!raw || typeof raw !== "object") return emptySettings();
+      const count = Number(raw.questionCount);
+      const tablesMax = Number(raw.tablesMax) || 0;
+      return {
+        questionCount: count >= 5 && count <= 200 ? count : 20,
+        tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : 0,
+        wishlist: [],
+      };
     }
-    function saveSettings() {
-      localStorage.setItem(settingsKey(), JSON.stringify(settings));
-      touchCloudAndPush();
+    function parseCoins(raw) {
+      if (!raw || typeof raw !== "object") return emptyCoins();
+      return {
+        balance: Number(raw.balance) || 0,
+        history: Array.isArray(raw.history) ? raw.history : [],
+        purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
+      };
     }
-    function loadStore() {
-      try { return JSON.parse(localStorage.getItem(storageKey()) || "{}"); }
-      catch { return {}; }
+    function parseStore(raw) {
+      return raw && typeof raw === "object" ? raw : {};
     }
+    function loadStore() { return dayStore; }
     function saveStore(store, options = {}) {
-      localStorage.setItem(storageKey(), JSON.stringify(store));
-      if (!options.quiet) touchCloudAndPush();
+      dayStore = store || {};
+      if (!options.quiet) markProfileDirty();
     }
-    function loadCoins() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(coinsKey()) || "{}");
-        return {
-          balance: Number(raw.balance) || 0,
-          history: Array.isArray(raw.history) ? raw.history : [],
-          purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
-        };
-      } catch { return { balance: 0, history: [], purchases: [] }; }
-    }
-    function saveCoins() {
-      localStorage.setItem(coinsKey(), JSON.stringify(coins));
-      touchCloudAndPush();
-    }
-    function loadCatalog() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(CATALOG_KEY) || "{}");
-        return {
-          updatedAt: Number(raw.updatedAt) || 0,
-          prizes: Array.isArray(raw.prizes) ? raw.prizes : [],
-        };
-      } catch { return { updatedAt: 0, prizes: [] }; }
-    }
+    function saveSettings() { markProfileDirty(); }
+    function saveCoins() { markProfileDirty(); }
     function saveCatalog() {
-      localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
+      catalog.updatedAt = catalog.updatedAt || Date.now();
       scheduleCatalogPush();
     }
-    function migrateWishlistToCatalog() {
-      const list = Array.isArray(settings.wishlist) ? settings.wishlist : [];
-      if (!list.length) return;
-      if (!catalog.prizes) catalog.prizes = [];
-      if (!coins.purchases) coins.purchases = [];
-      let changed = false;
+    function resetProfileMemory() {
+      settings = emptySettings();
+      coins = emptyCoins();
+      dayStore = {};
+      cloudMeta = { updatedAt: 0 };
+      state = null;
+      profileDirty = false;
+    }
+    function readLegacyJson(key) {
+      try { return JSON.parse(localStorage.getItem(key) || "null"); }
+      catch { return null; }
+    }
+    function readLegacyDeviceProfile(id) {
+      const suffix = `:${id}`;
+      let coinsRaw = readLegacyJson(COINS_KEY_BASE + suffix);
+      let settingsRaw = readLegacyJson(SETTINGS_KEY_BASE + suffix);
+      let storeRaw = readLegacyJson(STORAGE_KEY_BASE + suffix);
+      if (id === "misha") {
+        if (!coinsRaw) coinsRaw = readLegacyJson(COINS_KEY_BASE);
+        if (!settingsRaw) settingsRaw = readLegacyJson(SETTINGS_KEY_BASE);
+        if (!storeRaw) storeRaw = readLegacyJson(STORAGE_KEY_BASE);
+      }
+      if (!coinsRaw && !settingsRaw && !storeRaw) return null;
+      return {
+        coins: parseCoins(coinsRaw),
+        settings: parseSettings(settingsRaw),
+        store: parseStore(storeRaw),
+      };
+    }
+    function legacyRicherThanCloud(legacy, remote) {
+      if (!legacy) return false;
+      const remoteBalance = remote?.coins?.balance || 0;
+      const remoteHist = (remote?.coins?.history || []).length;
+      const remoteDays = completedDayCount(remote?.days || []);
+      const localDays = completedDayCount(Object.keys(legacy.store || {}).map((key) => ({
+        ...legacy.store[key],
+        date: key,
+        completed: !!legacy.store[key]?.completed,
+      })));
+      if (legacy.coins.balance > remoteBalance) return true;
+      if ((legacy.coins.history || []).length > remoteHist) return true;
+      if (localDays > remoteDays) return true;
+      return false;
+    }
+    function applyLegacyDeviceProfile(legacy) {
+      if (!legacy) return;
+      coins = {
+        balance: Math.max(coins.balance, legacy.coins.balance),
+        history: mergeHistory(coins.history, legacy.coins.history),
+        purchases: mergePurchases(coins.purchases, legacy.coins.purchases),
+      };
+      settings = parseSettings(legacy.settings);
+      Object.keys(legacy.store || {}).forEach((key) => {
+        dayStore[key] = mergeDayState(dayStore[key], expandDayRow({ ...legacy.store[key], date: key }));
+      });
+      const list = Array.isArray(legacy.settings?.wishlist) ? legacy.settings.wishlist : [];
       list.forEach((prize) => {
+        if (!prize) return;
         const exists = catalog.prizes.some((p) => p.id === prize.id
           || (p.titleRu === prize.titleRu && p.titleEn === prize.titleEn && p.cost === prize.cost));
         if (!exists) {
@@ -1137,27 +1170,16 @@
             titleEn: prize.titleEn,
             cost: Number(prize.cost) || 1,
           });
-          changed = true;
-        }
-        if (prize.purchasedAt && !coins.purchases.some((x) => x.prizeId === prize.id && x.at === prize.purchasedAt)) {
-          coins.purchases.unshift({
-            id: uid(),
-            prizeId: prize.id,
-            titleRu: prize.titleRu,
-            titleEn: prize.titleEn,
-            cost: Number(prize.cost) || 1,
-            at: prize.purchasedAt,
-          });
-          changed = true;
+          catalog.updatedAt = Date.now();
         }
       });
-      settings.wishlist = [];
-      localStorage.setItem(settingsKey(), JSON.stringify(settings));
-      localStorage.setItem(coinsKey(), JSON.stringify(coins));
-      if (changed) {
-        catalog.updatedAt = Date.now();
-        saveCatalog();
-      }
+    }
+    function clearDeviceProfileData() {
+      const keys = [CATALOG_KEY, PROFILE_KEY, STORAGE_KEY_BASE, SETTINGS_KEY_BASE, COINS_KEY_BASE, CLOUD_META_KEY_BASE];
+      PROFILES.forEach((p) => {
+        keys.push(`${STORAGE_KEY_BASE}:${p.id}`, `${SETTINGS_KEY_BASE}:${p.id}`, `${COINS_KEY_BASE}:${p.id}`, `${CLOUD_META_KEY_BASE}:${p.id}`);
+      });
+      keys.forEach((key) => localStorage.removeItem(key));
     }
     function normalizeCatalogPrizes(list) {
       return (Array.isArray(list) ? list : []).map((p) => ({
@@ -1184,19 +1206,10 @@
     function expandPurchases(list) {
       return (Array.isArray(list) ? list : []).map(expandPurchase).filter(Boolean);
     }
-    function loadCloudMeta() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(cloudMetaKey()) || "{}");
-        return { updatedAt: Number(raw.updatedAt) || 0 };
-      } catch { return { updatedAt: 0 }; }
-    }
-    function saveCloudMeta() {
-      localStorage.setItem(cloudMetaKey(), JSON.stringify(cloudMeta));
-    }
-    function touchCloudAndPush() {
+    function markProfileDirty() {
       if (suppressCloudPush) return;
+      profileDirty = true;
       cloudMeta.updatedAt = Date.now();
-      saveCloudMeta();
       scheduleCloudPush();
     }
     function toUnix(iso) {
@@ -1458,44 +1471,23 @@
       if (completedDayCount(expandDays(compactDays(loadStore()))) > completedDayCount(remote.days)) return true;
       return false;
     }
-    function applyCloudPayload(payload) {
-      const remote = payload && payload.coins ? payload : normalizeCloudPayload(payload);
+    function replaceFromCloud(remote) {
       if (!remote) return false;
-      const prevBalance = coins.balance;
-      const prevHist = (coins.history || []).length;
-      const mergedHistory = mergeHistory(coins.history, remote.coins.history);
-      const mergedPurchases = mergePurchases(coins.purchases, remote.coins.purchases);
-      const nextBalance = pickBalance(
-        coins.balance,
-        remote.coins.balance,
-        latestHistoryAt(coins.history),
-        latestHistoryAt(remote.coins.history),
-        (coins.purchases || []).length,
-        (remote.coins.purchases || []).length,
-      );
-      const daysChanged = mergeRemoteDays(remote.days);
       suppressCloudPush = true;
       try {
         coins = {
-          balance: nextBalance,
-          history: mergedHistory,
-          purchases: mergedPurchases,
+          balance: Number(remote.coins?.balance) || 0,
+          history: Array.isArray(remote.coins?.history) ? remote.coins.history : [],
+          purchases: Array.isArray(remote.coins?.purchases) ? remote.coins.purchases : [],
         };
-        localStorage.setItem(coinsKey(), JSON.stringify(coins));
-        if (remote.settings) {
-          const count = Number(remote.settings.questionCount);
-          const tablesMax = Number(remote.settings.tablesMax) || 0;
-          settings = {
-            questionCount: count >= 5 && count <= 200 ? count : settings.questionCount,
-            tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : settings.tablesMax,
-            wishlist: [],
-          };
-          localStorage.setItem(settingsKey(), JSON.stringify(settings));
-        }
-        cloudMeta.updatedAt = Math.max(cloudMeta.updatedAt || 0, remote.updatedAt || 0);
-        saveCloudMeta();
+        settings = parseSettings(remote.settings);
+        dayStore = {};
+        (remote.days || []).forEach((day) => {
+          if (day?.date) dayStore[day.date] = day;
+        });
+        cloudMeta.updatedAt = Number(remote.updatedAt) || 0;
         renderCoins();
-        return daysChanged || nextBalance !== prevBalance || mergedHistory.length !== prevHist;
+        return true;
       } finally {
         suppressCloudPush = false;
       }
@@ -1590,14 +1582,9 @@
       }
       const remoteAt = Number(remote.u || remote.updatedAt) || 0;
       const prizes = normalizeCatalogPrizes(remote.p || remote.prizes);
-      if (remoteAt > (catalog.updatedAt || 0) || (!catalog.updatedAt && prizes.length)) {
-        catalog = { updatedAt: remoteAt || Date.now(), prizes };
-        localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
-        if (currentView === "redeem") renderRedeem();
-        if (currentView === "admin") renderAdminWishlist();
-      } else if ((catalog.updatedAt || 0) > remoteAt) {
-        scheduleCatalogPush();
-      }
+      catalog = { updatedAt: remoteAt || Date.now(), prizes };
+      if (currentView === "redeem") renderRedeem();
+      if (currentView === "admin") renderAdminWishlist();
     }
     async function pushCatalogSync() {
       const compact = {
@@ -1621,21 +1608,24 @@
     }
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
+      if (profileDirty) {
+        scheduleCloudPush();
+        return false;
+      }
+      if (state && !state.sessionDone && currentView === "train") return false;
       cloudSyncing = true;
       setSyncState("busy");
       try {
         await pullCatalogSync();
         const remote = await fetchProfileCloud();
         if (!remote) {
-          if (localRicherThan(null)) scheduleCloudPush();
           setSyncState("ok");
           return false;
         }
-        const changed = applyCloudPayload(remote);
-        if (changed) refreshAfterCloudApply();
-        if (localRicherThan(remote)) scheduleCloudPush();
+        replaceFromCloud(remote);
+        refreshAfterCloudApply();
         setSyncState("ok");
-        return changed;
+        return true;
       } catch {
         setSyncState("err");
         return false;
@@ -1648,7 +1638,7 @@
       const payload = buildCloudPayload();
       const core = toCompactCloud(payload);
       const hist = { u: core.u, h: compactHistory(payload.coins.history) };
-      const days = { u: core.u, d: compactDays(loadStore()) };
+      const days = { u: core.u, d: compactDays(dayStore) };
       const coreHex = encodeJsonHex(core, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; });
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
       const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
@@ -1663,6 +1653,7 @@
           if (okCore && okHist && okDays) {
             const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
             if (check && check.coins.balance === coins.balance) {
+              profileDirty = false;
               setSyncState("ok");
               return true;
             }
@@ -1908,19 +1899,26 @@
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
     }
 
-    function migrateLegacyProfileData(id) {
-      if (id !== "misha") return;
-      const pairs = [
-        [STORAGE_KEY_BASE, `${STORAGE_KEY_BASE}:${id}`],
-        [SETTINGS_KEY_BASE, `${SETTINGS_KEY_BASE}:${id}`],
-        [COINS_KEY_BASE, `${COINS_KEY_BASE}:${id}`],
-        [CLOUD_META_KEY_BASE, `${CLOUD_META_KEY_BASE}:${id}`],
-      ];
-      pairs.forEach(([from, to]) => {
-        if (!localStorage.getItem(to) && localStorage.getItem(from)) {
-          localStorage.setItem(to, localStorage.getItem(from));
+    async function hydrateProfileFromCloud() {
+      setSyncState("busy");
+      try {
+        await pullCatalogSync();
+        const remote = await fetchProfileCloud();
+        if (remote) replaceFromCloud(remote);
+        const legacy = readLegacyDeviceProfile(profileId);
+        if (legacyRicherThanCloud(legacy, remote)) {
+          applyLegacyDeviceProfile(legacy);
+          renderCoins();
+          profileDirty = true;
+          cloudMeta.updatedAt = Date.now();
+          await pushCloudSync();
+          if (catalog.updatedAt) await pushCatalogSync();
         }
-      });
+        clearDeviceProfileData();
+        setSyncState("ok");
+      } catch {
+        setSyncState("err");
+      }
     }
     function updateProfileChrome() {
       if (!profileId) return;
@@ -1947,32 +1945,25 @@
       renderProfilePicker();
       profileModal.classList.remove("hidden");
     }
-    function selectProfile(id) {
+    async function selectProfile(id) {
       if (!PROFILES.some((p) => p.id === id)) return;
+      if (profileId && profileDirty) await pushCloudSync();
       profileId = id;
-      localStorage.setItem(PROFILE_KEY, id);
-      migrateLegacyProfileData(id);
-      settings = loadSettings();
-      coins = loadCoins();
-      catalog = loadCatalog();
-      migrateWishlistToCatalog();
-      cloudMeta = loadCloudMeta();
-      state = null;
+      resetProfileMemory();
       profileModal.classList.add("hidden");
       updateProfileChrome();
       applyI18n();
       renderCoins();
-      updateHome();
       show("home");
+      await hydrateProfileFromCloud();
+      updateHome();
+      renderCoins();
       if (!appStarted) {
         appStarted = true;
-        pullCloudSync();
-        window.setInterval(() => { if (profileId) pullCloudSync(); }, 12000);
+        window.setInterval(() => { if (profileId) pullCloudSync(); }, 8000);
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible" && profileId) pullCloudSync();
         });
-      } else {
-        pullCloudSync();
       }
     }
 
