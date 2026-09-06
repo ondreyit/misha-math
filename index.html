@@ -736,6 +736,7 @@
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
+    const PENDING_KEY_BASE = "misha-pending-v1";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
     const POOL_VERSION = 2;
@@ -743,6 +744,7 @@
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
+    const CLOUD_KV_HEX_MAX = 240;
     const PROFILES = [
       { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸", photo: "assets/misha.jpg?v=4", pos: "center 20%" },
       { id: "papa", ru: "Папа", en: "Dad", emoji: "👨", photo: "assets/papa.svg", pos: "center" },
@@ -1024,7 +1026,9 @@
     function cloudKvKey() { return `p_${profileId}`; }
     function cloudHistKey() { return `h_${profileId}`; }
     function cloudDaysKey() { return `d_${profileId}`; }
+    function cloudBuyKey() { return `y_${profileId}`; }
     function cloudPhotoKey(id = profileId) { return `a_${id}`; }
+    function pendingKey(id = profileId) { return `${PENDING_KEY_BASE}:${id}`; }
     function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
     function profileLabel(profile = currentProfile()) {
       return lang === "ru" ? profile.ru : profile.en;
@@ -1240,6 +1244,16 @@
       return { i: p.id, z: p.prizeId, r: p.titleRu, e: p.titleEn, c: p.cost, a: p.at };
     }
     function expandPurchase(p) {
+      if (Array.isArray(p) && p[0]) {
+        return {
+          id: p[0],
+          prizeId: p[0],
+          titleRu: "",
+          titleEn: "",
+          cost: Number(p[1]) || 1,
+          at: fromUnix(p[2]),
+        };
+      }
       if (!p || typeof p !== "object") return null;
       return {
         id: p.id || p.i,
@@ -1253,10 +1267,49 @@
     function expandPurchases(list) {
       return (Array.isArray(list) ? list : []).map(expandPurchase).filter(Boolean);
     }
+    function writePendingSnapshot() {
+      if (!profileId) return;
+      const snap = {
+        u: Date.now(),
+        b: coins.balance,
+        h: coins.history || [],
+        y: coins.purchases || [],
+        d: compactDays(dayStore),
+        q: settings.questionCount,
+        m: settings.tablesMax,
+      };
+      try { localStorage.setItem(pendingKey(), JSON.stringify(snap)); } catch { /* ignore quota */ }
+    }
+    function readPendingSnapshot() {
+      if (!profileId) return null;
+      try { return JSON.parse(localStorage.getItem(pendingKey()) || "null"); }
+      catch { return null; }
+    }
+    function clearPendingSnapshot() {
+      if (!profileId) return;
+      try { localStorage.removeItem(pendingKey()); } catch { /* ignore */ }
+    }
+    function applyPendingSnapshot(pending) {
+      if (!pending) return;
+      suppressCloudPush = true;
+      try {
+        coins.balance = Math.max(Number(coins.balance) || 0, Number(pending.b) || 0);
+        coins.history = mergeHistory(coins.history, pending.h || []);
+        coins.purchases = mergePurchases(coins.purchases, pending.y || []);
+        if (pending.q) settings.questionCount = Number(pending.q) || settings.questionCount;
+        if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
+        if (pending.d) mergeRemoteDays(expandDays(pending.d));
+        cloudMeta.updatedAt = Number(pending.u) || Date.now();
+        renderCoins();
+      } finally {
+        suppressCloudPush = false;
+      }
+    }
     function markProfileDirty() {
       if (suppressCloudPush) return;
       profileDirty = true;
       cloudMeta.updatedAt = Date.now();
+      writePendingSnapshot();
       setSyncState("busy");
       flushCloudNow();
     }
@@ -1503,8 +1556,6 @@
       return {
         u: Number(payload.updatedAt) || Date.now(),
         b: Number(payload.coins?.balance) || 0,
-        h: compactMiniHistory(payload.coins?.history),
-        y: expandPurchases(payload.coins?.purchases).slice(0, 8).map(compactPurchase),
         q: Number(payload.settings?.questionCount) || 20,
         m: Number(payload.settings?.tablesMax) || 0,
       };
@@ -1599,9 +1650,17 @@
       let current = obj;
       let json = JSON.stringify(current);
       let hex = bytesToHex(json);
-      while (hex.length > 1000 && trim(current)) {
+      while (hex.length > CLOUD_KV_HEX_MAX && trim && trim(current)) {
         json = JSON.stringify(current);
         hex = bytesToHex(json);
+      }
+      if (hex.length > CLOUD_KV_HEX_MAX) {
+        hex = bytesToHex(JSON.stringify({
+          u: current.u || Date.now(),
+          b: Number(current.b) || 0,
+          q: Number(current.q) || 20,
+          m: Number(current.m) || 0,
+        }));
       }
       return hex;
     }
@@ -1700,18 +1759,21 @@
       });
     }
     async function putKvRaw(key, hex) {
-      const res = await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`, {
-        method: "POST",
-        body: "",
-        cache: "no-store",
-      });
-      return res.ok;
+      if (!hex || hex.length > CLOUD_KV_HEX_MAX) return false;
+      const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`;
+      try {
+        const res = await fetch(url, { method: "POST", body: "", cache: "no-store", keepalive: true });
+        if (res.ok) return true;
+      } catch { /* try beacon */ }
+      try { return !!(navigator.sendBeacon && navigator.sendBeacon(url)); }
+      catch { return false; }
     }
     async function fetchProfileCloud() {
-      const [coreRaw, histRaw, daysRaw] = await Promise.all([
+      const [coreRaw, histRaw, daysRaw, buyRaw] = await Promise.all([
         fetchKvRaw(cloudKvKey()),
         fetchKvRaw(cloudHistKey()),
         fetchKvRaw(cloudDaysKey()),
+        fetchKvRaw(cloudBuyKey()),
       ]);
       let payload = normalizeCloudPayload(coreRaw);
       if (!payload && profileId === "misha") {
@@ -1725,6 +1787,10 @@
       if (daysRaw && (Array.isArray(daysRaw.d) || Array.isArray(daysRaw.days))) {
         payload.days = mergeDayLists(payload.days, expandDays(daysRaw.d || daysRaw.days));
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(daysRaw.u || daysRaw.updatedAt) || 0);
+      }
+      if (buyRaw && (Array.isArray(buyRaw.y) || Array.isArray(buyRaw.purchases))) {
+        payload.coins.purchases = mergePurchases(payload.coins.purchases, expandPurchases(buyRaw.y || buyRaw.purchases));
+        payload.updatedAt = Math.max(payload.updatedAt || 0, Number(buyRaw.u || buyRaw.updatedAt) || 0);
       }
       return payload;
     }
@@ -1768,7 +1834,7 @@
       };
       let json = JSON.stringify(compact);
       let hex = bytesToHex(json);
-      while (hex.length > 1000 && compact.p.length) {
+      while (hex.length > CLOUD_KV_HEX_MAX && compact.p.length) {
         compact.p.pop();
         json = JSON.stringify(compact);
         hex = bytesToHex(json);
@@ -1781,6 +1847,11 @@
     }
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
+      const pending = readPendingSnapshot();
+      if (pending && (Number(pending.b) || 0) > coins.balance) {
+        applyPendingSnapshot(pending);
+        profileDirty = true;
+      }
       if (profileDirty) {
         scheduleCloudPush();
         return false;
@@ -1813,6 +1884,20 @@
         cloudSyncing = false;
       }
     }
+    async function pushHistoryAndDays(payload, updatedAt) {
+      const hist = { u: updatedAt, h: compactMiniHistory(payload.coins.history) };
+      const days = { u: updatedAt, d: compactDays(dayStore) };
+      const buys = {
+        u: updatedAt,
+        y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
+      };
+      const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
+      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
+      const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; });
+      await putKvRaw(cloudHistKey(), histHex);
+      await putKvRaw(cloudDaysKey(), daysHex);
+      await putKvRaw(cloudBuyKey(), buyHex);
+    }
     async function pushCloudSync() {
       if (!profileId) return false;
       if (cloudPushing) {
@@ -1821,30 +1906,34 @@
       }
       cloudPushing = true;
       setSyncState("busy");
+      writePendingSnapshot();
       try {
-        for (let i = 0; i < 5; i += 1) {
+        for (let i = 0; i < 8; i += 1) {
           cloudPushQueued = false;
-          const payload = buildCloudPayload();
-          const core = toCompactCloud(payload);
-          const hist = { u: core.u, h: compactHistory(payload.coins.history) };
-          const days = { u: core.u, d: compactDays(dayStore) };
-          const coreHex = encodeJsonHex(core, (obj) => {
-            if (obj.h && obj.h.length) { obj.h.pop(); return true; }
-            if (obj.y && obj.y.length) { obj.y.pop(); return true; }
-            return false;
-          });
-          const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
-          const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
-          const [okCore, okHist, okDays] = await Promise.all([
-            putKvRaw(cloudKvKey(), coreHex),
-            putKvRaw(cloudHistKey(), histHex),
-            putKvRaw(cloudDaysKey(), daysHex),
-          ]);
-          if (okCore && okHist && okDays) {
+          const existing = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
+          const remoteB = Number(existing?.coins?.balance) || 0;
+          if (existing && remoteB > coins.balance) {
+            replaceFromCloud(existing);
+            refreshAfterCloudApply();
             profileDirty = false;
+            clearPendingSnapshot();
             setSyncState("ok");
             return true;
           }
+          const payload = buildCloudPayload();
+          const core = toCompactCloud(payload);
+          const coreHex = encodeJsonHex(core);
+          await putKvRaw(cloudKvKey(), coreHex);
+          const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
+          const savedB = Number(check?.coins?.balance) || 0;
+          if (check && savedB >= coins.balance) {
+            profileDirty = false;
+            clearPendingSnapshot();
+            setSyncState("ok");
+            pushHistoryAndDays(payload, core.u);
+            return true;
+          }
+          await sleep(150 * (i + 1));
         }
         setSyncState("err");
         return false;
@@ -1950,8 +2039,8 @@
         await sleep(70);
       }
       renderCoins();
-      await pushCloudSync();
-      await sleep(250);
+      if (profileDirty) await pushCloudSync();
+      await sleep(120);
       overlay.classList.add("hidden");
     }
 
@@ -2095,7 +2184,17 @@
       try {
         await pullCatalogSync();
         const remote = await fetchProfileCloud();
+        const pending = readPendingSnapshot();
+        const remoteB = Number(remote?.coins?.balance) || 0;
+        const pendingB = Number(pending?.b) || 0;
         if (remote) replaceFromCloud(remote);
+        if (pending && pendingB > remoteB) {
+          applyPendingSnapshot(pending);
+          profileDirty = true;
+          cloudMeta.updatedAt = Date.now();
+        } else if (pending && pendingB <= remoteB) {
+          clearPendingSnapshot();
+        }
         coins.history = dedupeHistory(coins.history);
         await loadProfilePhoto(profileId);
         const legacy = readLegacyDeviceProfile(profileId);
@@ -2105,10 +2204,11 @@
           renderCoins();
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
-          await pushCloudSync();
-          if (catalog.updatedAt) await pushCatalogSync();
+          writePendingSnapshot();
         }
         clearDeviceProfileData();
+        renderCoins();
+        if (profileDirty) await pushCloudSync();
         setSyncState(profileDirty ? "busy" : "ok");
       } catch {
         setSyncState("err");
@@ -2158,9 +2258,21 @@
       if (currentView === "history") renderCoinHistory();
       if (!appStarted) {
         appStarted = true;
-        window.setInterval(() => { if (profileId) pullCloudSync(); }, 2000);
+        window.setInterval(() => { if (profileId) pullCloudSync(); }, 3000);
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible" && profileId) pullCloudSync();
+        });
+        window.addEventListener("pagehide", () => {
+          if (!profileId || !profileDirty) return;
+          writePendingSnapshot();
+          const core = toCompactCloud(buildCloudPayload());
+          const hex = encodeJsonHex(core, (obj) => {
+            if (obj.h && obj.h.length) { obj.h.pop(); return true; }
+            if (obj.y && obj.y.length) { obj.y.pop(); return true; }
+            return false;
+          });
+          const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudKvKey()}/${hex}`;
+          try { navigator.sendBeacon(url); } catch { /* ignore */ }
         });
       }
     }
