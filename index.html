@@ -99,10 +99,7 @@
       cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     .hero-bubble:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(36,72,140,0.18); }
-    .hero-name {
-      font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--sky); margin-bottom: 3px;
-    }
+    .hero-name { display: none; }
     .hero-text {
       margin: 0; font-size: 14px; font-weight: 700; line-height: 1.35;
       display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
@@ -343,14 +340,12 @@
     .profile-btn.on .profile-photo { box-shadow: 0 0 0 2px rgba(255,255,255,0.7); }
     .profile-name { font-size: 16px; }
     .profile-chip {
-      display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
-      padding: 4px 10px; border-radius: 999px; border: 2px solid #dceaff;
-      background: #fff; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink);
+      display: block; width: 100%; margin: 0 0 2px; padding: 0;
+      border: 0; background: transparent; cursor: pointer; color: var(--ink);
+      font: inherit; font-size: 22px; font-weight: 900; letter-spacing: -0.03em;
+      text-align: center; line-height: 1.15;
     }
-    .profile-chip-photo {
-      width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: #eef4ff;
-    }
-    .profile-chip:hover { border-color: #a8c8ff; }
+    .profile-chip:hover { color: #2f6fed; }
     @media (max-width: 420px) {
       .profile-grid { grid-template-columns: 1fr; }
     }
@@ -560,11 +555,10 @@
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Misha × Math</h1>
-      <button class="profile-chip" id="profileChip" type="button" title="Profile">
-        <img class="profile-chip-photo" id="profileChipPhoto" src="assets/misha.jpg?v=4" alt="" />
-        <span id="profileChipName">...</span>
-      </button>
       <div class="sidebar-top">
+        <button class="profile-chip" id="profileChip" type="button" title="Profile">
+          <span id="profileChipName">...</span>
+        </button>
         <div class="sidebar-avatar-wrap">
           <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=4" alt="Misha" width="96" height="96" />
         </div>
@@ -1261,6 +1255,7 @@
       if (suppressCloudPush) return;
       profileDirty = true;
       cloudMeta.updatedAt = Date.now();
+      setSyncState("busy");
       scheduleCloudPush();
     }
     function toUnix(iso) {
@@ -1795,14 +1790,17 @@
         await pullCatalogSync();
         const remote = await fetchProfileCloud();
         if (!remote) {
-          setSyncState("ok");
+          setSyncState(profileDirty ? "busy" : "ok");
+          return false;
+        }
+        if (coins.balance > (remote.coins?.balance || 0)) {
+          profileDirty = true;
+          scheduleCloudPush();
+          setSyncState("busy");
           return false;
         }
         replaceFromCloud(remote);
-        if (fillHistoryFromDays()) {
-          profileDirty = true;
-          scheduleCloudPush();
-        }
+        fillHistoryFromDays();
         refreshAfterCloudApply();
         setSyncState("ok");
         return true;
@@ -1815,6 +1813,15 @@
     }
     async function pushCloudSync() {
       if (!profileId) return false;
+      setSyncState("busy");
+      const latest = await fetchProfileCloud();
+      if (latest && (latest.coins?.balance || 0) > coins.balance) {
+        replaceFromCloud(latest);
+        refreshAfterCloudApply();
+        profileDirty = false;
+        setSyncState("ok");
+        return true;
+      }
       const payload = buildCloudPayload();
       const core = toCompactCloud(payload);
       const hist = { u: core.u, h: compactHistory(payload.coins.history) };
@@ -1826,7 +1833,6 @@
       });
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
       const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
-      setSyncState("busy");
       for (let i = 0; i < 4; i += 1) {
         try {
           const [okCore, okHist, okDays] = await Promise.all([
@@ -1835,9 +1841,7 @@
             putKvRaw(cloudDaysKey(), daysHex),
           ]);
           const check = okCore ? normalizeCloudPayload(await fetchKvRaw(cloudKvKey())) : null;
-          const histCheck = okHist ? await fetchKvRaw(cloudHistKey()) : null;
-          const histOk = !hist.h.length || (histCheck && Array.isArray(histCheck.h));
-          if (okCore && okDays && histOk && check && check.coins.balance === coins.balance) {
+          if (okCore && okDays && okHist && check && check.coins.balance === coins.balance) {
             profileDirty = false;
             setSyncState("ok");
             return true;
@@ -1906,20 +1910,21 @@
     }
     function sleep(ms) { return new Promise((resolve) => window.setTimeout(resolve, ms)); }
 
-    async function playRewardToBalance(amount, historyEntry) {
+    async function playRewardToBalance(amount) {
       const overlay = document.getElementById("rewardOverlay");
       const big = document.getElementById("rewardBig");
       const flyText = document.getElementById("rewardFlyText");
       if (!amount || amount < 1) {
         overlay.classList.add("hidden");
-        if (historyEntry) pushCoinHistory(historyEntry);
         return;
       }
+      const endBalance = coins.balance;
+      const startBalance = Math.max(0, endBalance - amount);
       big.textContent = `+${amount}`;
       flyText.textContent = t("rewardFly");
       overlay.classList.remove("hidden");
+      document.getElementById("coinsValue").textContent = String(startBalance);
       await sleep(550);
-      const startBalance = coins.balance;
       const badgeRect = coinsBadge.getBoundingClientRect();
       const targetX = badgeRect.left + badgeRect.width / 2;
       const targetY = badgeRect.top + badgeRect.height / 2;
@@ -1939,13 +1944,11 @@
         ], { duration: 700, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
         await anim.finished.catch(() => {});
         coinEl.remove();
-        coins.balance = startBalance + i + 1;
-        renderCoins();
+        document.getElementById("coinsValue").textContent = String(startBalance + i + 1);
         bumpCoinsDisplay();
         await sleep(70);
       }
-      if (historyEntry) pushCoinHistory(historyEntry);
-      saveCoins();
+      renderCoins();
       await pushCloudSync();
       await sleep(250);
       overlay.classList.add("hidden");
@@ -2092,14 +2095,8 @@
         await pullCatalogSync();
         const remote = await fetchProfileCloud();
         if (remote) replaceFromCloud(remote);
-        const beforeHist = (coins.history || []).length;
         coins.history = dedupeHistory(coins.history);
         await loadProfilePhoto(profileId);
-        if ((coins.history || []).length !== beforeHist) {
-          profileDirty = true;
-          cloudMeta.updatedAt = Date.now();
-          await pushCloudSync();
-        }
         const legacy = readLegacyDeviceProfile(profileId);
         if (legacyRicherThanCloud(legacy, remote)) {
           applyLegacyDeviceProfile(legacy);
@@ -2109,16 +2106,9 @@
           cloudMeta.updatedAt = Date.now();
           await pushCloudSync();
           if (catalog.updatedAt) await pushCatalogSync();
-        } else if ((coins.history || []).length) {
-          const histRemote = await fetchKvRaw(cloudHistKey());
-          if (!histRemote || !Array.isArray(histRemote.h) || !histRemote.h.length) {
-            profileDirty = true;
-            cloudMeta.updatedAt = Date.now();
-            await pushCloudSync();
-          }
         }
         clearDeviceProfileData();
-        setSyncState("ok");
+        setSyncState(profileDirty ? "busy" : "ok");
       } catch {
         setSyncState("err");
       }
@@ -2127,15 +2117,11 @@
       if (!profileId) return;
       const p = currentProfile();
       const avatar = document.getElementById("mishaAvatar");
-      const chipPhoto = document.getElementById("profileChipPhoto");
       avatar.src = currentPhoto(p);
       avatar.alt = profileLabel(p);
       avatar.style.objectPosition = customPhotos[p.id] ? "center" : (p.pos || "center");
       avatar.title = t("photoTitle");
-      chipPhoto.src = currentPhoto(p);
-      chipPhoto.alt = profileLabel(p);
       document.getElementById("profileChipName").textContent = profileLabel(p);
-      document.getElementById("heroName").textContent = `${t("heroName")} ${profileLabel(p)}`;
       document.getElementById("profileChip").title = t("profileSwitch");
     }
     function renderProfilePicker() {
@@ -2616,9 +2602,8 @@
       renderReward(state);
       setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
       show("done");
-      if (animateReward && state.coinsAwarded > 0 && pendingHistoryEntry) {
-        playRewardToBalance(state.coinsAwarded, pendingHistoryEntry);
-        pendingHistoryEntry = null;
+      if (animateReward && state.coinsAwarded > 0) {
+        playRewardToBalance(state.coinsAwarded);
       }
     }
     function openAssignmentDay(date) {
@@ -2708,12 +2693,12 @@
       state.coinParts = reward;
       state.coinsAwarded = reward.total;
       state.totalCoins = (state.totalCoins || 0) + reward.total;
-      pendingHistoryEntry = {
+      const historyEntry = {
         id: uid(), at: new Date().toISOString(), dateKey: state.date,
         amount: reward.total,
         parts: reward.parts.filter((p) => p.amount > 0),
       };
-      if (reward.total) pushCoinHistory(pendingHistoryEntry);
+      if (reward.total) addCoins(reward.total, historyEntry);
       persist();
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
