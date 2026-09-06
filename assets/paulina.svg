@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Paulina">
+  <defs>
+    <clipPath id="c"><circle cx="128" cy="128" r="128"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="256" height="256" fill="#b57bff"/>
+    <circle cx="128" cy="128" r="128" fill="#c792ff"/>
+    <ellipse cx="128" cy="252" rx="92" ry="46" fill="#8d5ad6"/>
+    <path d="M48 150c8-84 40-122 80-122s72 38 80 122c-14 8-28 2-36-10-8 30-28 48-44 48s-36-18-44-48c-8 12-22 18-36 10z" fill="#6b3f2a"/>
+    <circle cx="128" cy="154" r="54" fill="#f6c8b6"/>
+    <path d="M88 136c8-32 22-46 40-46s32 14 40 46c-10-20-24-28-40-28s-30 8-40 28z" fill="#6b3f2a"/>
+    <path d="M128 58c-18 8-28 22-22 28 8 2 14-2 22-10 8 8 14 12 22 10 6-6-4-20-22-28z" fill="#ff4f8b"/>
+    <circle cx="128" cy="78" r="8" fill="#ffd1e0"/>
+    <ellipse cx="110" cy="152" rx="6" ry="7" fill="#2b241c"/>
+    <ellipse cx="146" cy="152" rx="6" ry="7" fill="#2b241c"/>
+    <path d="M116 176c8 8 16 8 24 0" fill="none" stroke="#c47b62" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

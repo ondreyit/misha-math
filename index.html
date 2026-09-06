@@ -330,11 +330,20 @@
       background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
     }
     .profile-emoji { font-size: 24px; width: 28px; text-align: center; }
+    .profile-photo {
+      width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+      border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(47,111,237,0.2); background: #eef4ff;
+      flex-shrink: 0;
+    }
+    .profile-btn.on .profile-photo { box-shadow: 0 0 0 2px rgba(255,255,255,0.7); }
     .profile-name { font-size: 16px; }
     .profile-chip {
       display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
       padding: 4px 10px; border-radius: 999px; border: 2px solid #dceaff;
       background: #fff; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink);
+    }
+    .profile-chip-photo {
+      width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: #eef4ff;
     }
     .profile-chip:hover { border-color: #a8c8ff; }
     @media (max-width: 420px) {
@@ -535,12 +544,12 @@
     <aside class="sidebar" id="sidebar">
       <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Misha × Math</h1>
       <button class="profile-chip" id="profileChip" type="button" title="Profile">
-        <span id="profileChipEmoji">🦸</span>
+        <img class="profile-chip-photo" id="profileChipPhoto" src="assets/misha.jpg?v=4" alt="" />
         <span id="profileChipName">...</span>
       </button>
       <div class="sidebar-top">
         <div class="sidebar-avatar-wrap">
-          <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=3" alt="Misha" width="96" height="96" />
+          <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=4" alt="Misha" width="96" height="96" />
         </div>
         <div class="sidebar-controls">
           <div class="lang-switch" role="group" aria-label="Language">
@@ -718,13 +727,13 @@
     const CLOUD_KV_APP = "lz51usfi";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
     const PROFILES = [
-      { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸" },
-      { id: "papa", ru: "Папа", en: "Dad", emoji: "👨" },
-      { id: "mama", ru: "Мама", en: "Mom", emoji: "👩" },
-      { id: "lika", ru: "Лика", en: "Lika", emoji: "🌟" },
-      { id: "lucy", ru: "Люся", en: "Lucy", emoji: "🌸" },
-      { id: "rostik", ru: "Ростик", en: "Rostik", emoji: "🚀" },
-      { id: "paulina", ru: "Паулина", en: "Paulina", emoji: "🎀" },
+      { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸", photo: "assets/misha.jpg?v=4", pos: "center 20%" },
+      { id: "papa", ru: "Папа", en: "Dad", emoji: "👨", photo: "assets/papa.svg", pos: "center" },
+      { id: "mama", ru: "Мама", en: "Mom", emoji: "👩", photo: "assets/mama.svg", pos: "center" },
+      { id: "lika", ru: "Лика", en: "Lika", emoji: "🌟", photo: "assets/lika.svg", pos: "center" },
+      { id: "lucy", ru: "Люся", en: "Lucy", emoji: "🌸", photo: "assets/lucy.svg", pos: "center" },
+      { id: "rostik", ru: "Ростик", en: "Rostik", emoji: "🚀", photo: "assets/rostik.svg", pos: "center" },
+      { id: "paulina", ru: "Паулина", en: "Paulina", emoji: "🎀", photo: "assets/paulina.svg", pos: "center" },
     ];
 
     const I18N = {
@@ -1973,17 +1982,22 @@
     function updateProfileChrome() {
       if (!profileId) return;
       const p = currentProfile();
-      document.getElementById("profileChipEmoji").textContent = p.emoji;
+      const avatar = document.getElementById("mishaAvatar");
+      const chipPhoto = document.getElementById("profileChipPhoto");
+      avatar.src = p.photo;
+      avatar.alt = profileLabel(p);
+      avatar.style.objectPosition = p.pos || "center";
+      chipPhoto.src = p.photo;
+      chipPhoto.alt = profileLabel(p);
       document.getElementById("profileChipName").textContent = profileLabel(p);
       document.getElementById("heroName").textContent = `${t("heroName")} ${profileLabel(p)}`;
-      document.getElementById("mishaAvatar").alt = profileLabel(p);
       document.getElementById("profileChip").title = t("profileSwitch");
     }
     function renderProfilePicker() {
       const box = document.getElementById("profileGrid");
       box.innerHTML = PROFILES.map((p) => `
         <button class="profile-btn${p.id === profileId ? " on" : ""}" type="button" data-profile="${p.id}">
-          <span class="profile-emoji">${p.emoji}</span>
+          <img class="profile-photo" src="${p.photo}" alt="${profileLabel(p)}" />
           <span class="profile-name">${profileLabel(p)}</span>
         </button>
       `).join("");

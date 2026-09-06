@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Lucy">
+  <defs>
+    <clipPath id="c"><circle cx="128" cy="128" r="128"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="256" height="256" fill="#e36aa8"/>
+    <circle cx="128" cy="128" r="128" fill="#ff7eb6"/>
+    <ellipse cx="128" cy="252" rx="92" ry="46" fill="#c44d86"/>
+    <path d="M46 148c8-80 40-116 82-116s74 36 82 116c-12 6-26 2-34-8-8 28-30 46-48 46s-40-18-48-46c-8 10-22 14-34 8z" fill="#c97ad0"/>
+    <circle cx="128" cy="154" r="54" fill="#f8d0bc"/>
+    <path d="M90 136c8-32 20-46 38-46s30 14 38 46c-10-20-22-28-38-28s-28 8-38 28z" fill="#c97ad0"/>
+    <circle cx="78" cy="92" r="14" fill="#ffd1e8"/>
+    <circle cx="70" cy="84" r="8" fill="#fff"/>
+    <circle cx="184" cy="96" r="14" fill="#ffe082"/>
+    <circle cx="176" cy="88" r="8" fill="#fff8dc"/>
+    <ellipse cx="110" cy="152" rx="6" ry="7" fill="#2b241c"/>
+    <ellipse cx="146" cy="152" rx="6" ry="7" fill="#2b241c"/>
+    <path d="M116 176c8 8 16 8 24 0" fill="none" stroke="#c47b62" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

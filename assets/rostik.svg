@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Rostik">
+  <defs>
+    <clipPath id="c"><circle cx="128" cy="128" r="128"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="256" height="256" fill="#1f8ad4"/>
+    <circle cx="128" cy="128" r="128" fill="#2ea3f2"/>
+    <ellipse cx="128" cy="250" rx="90" ry="44" fill="#146aa8"/>
+    <path d="M72 70l10 36 18-34 8 38 22-40 8 40 20-32 6 36 16-28" fill="none" stroke="#1d3557" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="128" cy="150" r="56" fill="#f0c29a"/>
+    <path d="M80 118c12-8 22-6 28 4 10-16 24-22 40-16 8-14 22-18 36-8 2 18-6 28-20 30H96c-12 0-18-8-16-10z" fill="#1d3557"/>
+    <ellipse cx="108" cy="148" rx="6" ry="7" fill="#2b241c"/>
+    <ellipse cx="148" cy="148" rx="6" ry="7" fill="#2b241c"/>
+    <path d="M114 174c8 8 20 8 28 0" fill="none" stroke="#c47b62" stroke-width="4" stroke-linecap="round"/>
+    <path d="M188 78l18-28 6 22 22 4-18 14 6 20z" fill="#ffb703"/>
+  </g>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Lika">
+  <defs>
+    <clipPath id="c"><circle cx="128" cy="128" r="128"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="256" height="256" fill="#f0b400"/>
+    <circle cx="128" cy="128" r="128" fill="#ffc107"/>
+    <ellipse cx="128" cy="250" rx="90" ry="44" fill="#e09400"/>
+    <path d="M52 140c10-70 38-104 76-104s66 34 76 104c-8 8-22 6-30-2-8 24-28 40-46 40s-38-16-46-40c-8 8-22 10-30 2z" fill="#8a5a18"/>
+    <circle cx="128" cy="152" r="54" fill="#f7d2b4"/>
+    <path d="M88 132c8-30 22-44 40-44s32 14 40 44c-10-18-24-26-40-26s-30 8-40 26z" fill="#8a5a18"/>
+    <path d="M128 46l8 22 24 2-18 16 6 22-20-12-20 12 6-22-18-16 24-2z" fill="#fff3b0" stroke="#fff" stroke-width="3"/>
+    <ellipse cx="110" cy="150" rx="6" ry="7" fill="#2b241c"/>
+    <ellipse cx="146" cy="150" rx="6" ry="7" fill="#2b241c"/>
+    <path d="M116 174c8 8 16 8 24 0" fill="none" stroke="#c47b62" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

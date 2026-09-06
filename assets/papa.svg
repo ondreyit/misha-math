@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Papa">
+  <defs>
+    <clipPath id="c"><circle cx="128" cy="128" r="128"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="256" height="256" fill="#3d6fd4"/>
+    <circle cx="128" cy="128" r="128" fill="#4f86ea"/>
+    <ellipse cx="128" cy="250" rx="92" ry="46" fill="#2b4f9a"/>
+    <path d="M58 118c8-52 40-78 70-78s62 26 70 78c2 18-8 28-22 28H80c-14 0-24-10-22-28z" fill="#3a2a22"/>
+    <circle cx="128" cy="148" r="58" fill="#f3c7a4"/>
+    <path d="M78 122c10-18 30-28 50-28s40 10 50 28v8c-12-16-30-24-50-24s-38 8-50 24z" fill="#3a2a22"/>
+    <ellipse cx="108" cy="146" rx="7" ry="8" fill="#2b241c"/>
+    <ellipse cx="148" cy="146" rx="7" ry="8" fill="#2b241c"/>
+    <path d="M112 172c8 8 24 8 32 0" fill="none" stroke="#c47b62" stroke-width="4" stroke-linecap="round"/>
+    <path d="M96 168c-8 10-6 22 8 28 10 4 20 4 32 4s22 0 32-4c14-6 16-18 8-28" fill="#d7a07c"/>
+  </g>
+</svg>
