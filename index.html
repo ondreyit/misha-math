@@ -976,6 +976,8 @@
     function coinsKey() { return `${COINS_KEY_BASE}:${profileId}`; }
     function cloudMetaKey() { return `${CLOUD_META_KEY_BASE}:${profileId}`; }
     function cloudKvKey() { return `p_${profileId}`; }
+    function cloudHistKey() { return `h_${profileId}`; }
+    function cloudDaysKey() { return `d_${profileId}`; }
     function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
     function profileLabel(profile = currentProfile()) {
       return lang === "ru" ? profile.ru : profile.en;
@@ -1197,25 +1199,208 @@
       saveCloudMeta();
       scheduleCloudPush();
     }
+    function toUnix(iso) {
+      const n = Date.parse(iso || "");
+      return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
+    }
+    function fromUnix(sec) {
+      const n = Number(sec) || 0;
+      return n ? new Date(n * 1000).toISOString() : "";
+    }
+    function historyKey(entry) {
+      return entry.id || `${entry.at || ""}|${entry.amount}|${entry.dateKey || ""}`;
+    }
+    function latestHistoryAt(list) {
+      return (list || []).reduce((max, item) => Math.max(max, Date.parse(item.at) || 0), 0);
+    }
+    function compactHistory(list) {
+      return (list || []).slice(0, 12).map((e) => ([
+        e.id || "",
+        toUnix(e.at),
+        e.dateKey || "",
+        Number(e.amount) || 0,
+        (e.parts || []).map((p) => [p.k || p.label || "", Number(p.amount) || 0, p.r || p.e || ""]),
+      ]));
+    }
+    function expandHistory(list) {
+      if (!Array.isArray(list)) return [];
+      return list.map((item) => {
+        if (item && !Array.isArray(item) && item.at) {
+          return {
+            id: item.id || uid(),
+            at: item.at,
+            dateKey: item.dateKey || "",
+            amount: Number(item.amount) || 0,
+            parts: Array.isArray(item.parts) ? item.parts : [],
+          };
+        }
+        if (!Array.isArray(item)) return null;
+        const [id, unix, dateKey, amount, parts] = item;
+        return {
+          id: id || uid(),
+          at: fromUnix(unix) || new Date().toISOString(),
+          dateKey: dateKey || "",
+          amount: Number(amount) || 0,
+          parts: (parts || []).map((p) => {
+            if (Array.isArray(p)) return { k: p[0], amount: Number(p[1]) || 0, r: p[2] || "" };
+            return p;
+          }),
+        };
+      }).filter(Boolean);
+    }
+    function mergeHistory(local, remote) {
+      const map = new Map();
+      [...(remote || []), ...(local || [])].forEach((entry) => {
+        if (!entry) return;
+        const key = historyKey(entry);
+        if (!map.has(key)) map.set(key, entry);
+      });
+      return [...map.values()]
+        .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+        .slice(0, 40);
+    }
+    function mergePurchases(local, remote) {
+      const map = new Map();
+      [...(remote || []), ...(local || [])].forEach((item) => {
+        if (!item) return;
+        const key = item.id || `${item.at}|${item.prizeId}|${item.cost}`;
+        if (!map.has(key)) map.set(key, item);
+      });
+      return [...map.values()]
+        .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+        .slice(0, 40);
+    }
+    function dayHasProgress(day) {
+      if (!day) return false;
+      return !!(day.completed || day.answered || day.runsCompleted || day.coinsAwarded);
+    }
+    function compactDays(store) {
+      return Object.keys(store || {})
+        .sort()
+        .map((key) => store[key])
+        .filter(dayHasProgress)
+        .slice(-12)
+        .map((day) => ([
+          day.date,
+          day.completed ? 1 : 0,
+          Number(day.correct) || 0,
+          Number(day.fails) || 0,
+          Number(day.answered) || 0,
+          Number(day.coinsAwarded) || 0,
+          Number(day.runsCompleted) || 0,
+          toUnix(day.completedAt),
+          Number(day.totalCoins) || 0,
+        ]));
+    }
+    function expandDayRow(row) {
+      if (!row) return null;
+      if (!Array.isArray(row) && row.date) {
+        return {
+          date: row.date,
+          completed: !!row.completed,
+          sessionDone: !!row.sessionDone || !!row.completed,
+          correct: Number(row.correct) || 0,
+          fails: Number(row.fails) || 0,
+          answered: Number(row.answered) || 0,
+          coinsAwarded: Number(row.coinsAwarded) || 0,
+          runsCompleted: Number(row.runsCompleted) || 0,
+          totalCoins: Number(row.totalCoins) || 0,
+          completedAt: row.completedAt || null,
+          startedAt: row.startedAt || null,
+          queue: [],
+          tables: tablesForDate(row.date),
+          startCount: Number(row.startCount || row.answered) || questionCount(),
+        };
+      }
+      if (!Array.isArray(row) || !row[0]) return null;
+      const [date, completed, correct, fails, answered, coinsAwarded, runs, completedAt, totalCoins] = row;
+      return {
+        date,
+        completed: !!completed,
+        sessionDone: !!completed,
+        correct: Number(correct) || 0,
+        fails: Number(fails) || 0,
+        answered: Number(answered) || 0,
+        coinsAwarded: Number(coinsAwarded) || 0,
+        runsCompleted: Number(runs) || 0,
+        totalCoins: Number(totalCoins) || Number(coinsAwarded) || 0,
+        completedAt: fromUnix(completedAt) || null,
+        startedAt: null,
+        queue: [],
+        tables: tablesForDate(date),
+        startCount: Number(answered) || questionCount(),
+        poolVersion: POOL_VERSION,
+      };
+    }
+    function expandDays(list) {
+      let rows = list;
+      if (rows && !Array.isArray(rows) && typeof rows === "object") {
+        rows = Object.keys(rows).map((key) => ({ date: key, ...rows[key] }));
+      }
+      return (Array.isArray(rows) ? rows : []).map(expandDayRow).filter(Boolean);
+    }
+    function completedDayCount(days) {
+      return (days || []).filter((d) => d && d.completed).length;
+    }
+    function pickBalance(localB, remoteB, localHistAt, remoteHistAt, localBuys, remoteBuys) {
+      if (remoteHistAt > localHistAt + 500) return remoteB;
+      if (localHistAt > remoteHistAt + 500) return localB;
+      if (localBuys > remoteBuys && localB < remoteB) return localB;
+      if (remoteBuys > localBuys && remoteB < localB) return remoteB;
+      return Math.max(Number(localB) || 0, Number(remoteB) || 0);
+    }
+    function mergeDayState(local, remote) {
+      if (!remote) return local;
+      if (!local) return remote;
+      if (remote.completed && !local.completed) return { ...local, ...remote, queue: local.queue && local.completed ? local.queue : remote.queue };
+      if (local.completed && !remote.completed) return local;
+      if (remote.completed && local.completed) {
+        if ((remote.runsCompleted || 0) > (local.runsCompleted || 0)) {
+          return { ...local, ...remote, queue: [] };
+        }
+        return local;
+      }
+      if ((remote.answered || 0) > (local.answered || 0)) return { ...local, ...remote };
+      return local;
+    }
+    function mergeRemoteDays(remoteDays) {
+      if (!remoteDays || !remoteDays.length) return false;
+      const store = loadStore();
+      let changed = false;
+      remoteDays.forEach((remote) => {
+        if (!remote?.date) return;
+        const next = mergeDayState(store[remote.date], remote);
+        const prev = store[remote.date];
+        const same = prev && prev.completed === next.completed && prev.answered === next.answered
+          && prev.runsCompleted === next.runsCompleted && prev.coinsAwarded === next.coinsAwarded;
+        if (!same) {
+          store[remote.date] = next;
+          changed = true;
+        }
+      });
+      if (changed) saveStore(store, { quiet: true });
+      if (state?.date && store[state.date]) state = store[state.date];
+      return changed;
+    }
     function buildCloudPayload() {
       return {
         updatedAt: cloudMeta.updatedAt || Date.now(),
         coins: {
           balance: coins.balance,
-          history: (coins.history || []).slice(0, 6),
-          purchases: (coins.purchases || []).slice(0, 8),
+          history: coins.history || [],
+          purchases: coins.purchases || [],
         },
         settings: {
           questionCount: settings.questionCount,
           tablesMax: settings.tablesMax,
         },
+        days: expandDays(compactDays(loadStore())),
       };
     }
     function toCompactCloud(payload) {
       return {
         u: Number(payload.updatedAt) || Date.now(),
         b: Number(payload.coins?.balance) || 0,
-        h: Array.isArray(payload.coins?.history) ? payload.coins.history.slice(0, 4) : [],
         y: expandPurchases(payload.coins?.purchases).slice(0, 8).map(compactPurchase),
         q: Number(payload.settings?.questionCount) || 20,
         m: Number(payload.settings?.tablesMax) || 0,
@@ -1227,13 +1412,14 @@
         updatedAt: compact.u || compact.updatedAt,
         coins: {
           balance: compact.b ?? compact.coins?.balance,
-          history: compact.h || compact.coins?.history || [],
+          history: expandHistory(compact.h || compact.coins?.history || []),
           purchases: expandPurchases(compact.y || compact.coins?.purchases || []),
         },
         settings: {
           questionCount: compact.q ?? compact.settings?.questionCount,
           tablesMax: compact.m ?? compact.settings?.tablesMax,
         },
+        days: compact.days || [],
       });
     }
     function normalizeCloudPayload(raw) {
@@ -1244,10 +1430,11 @@
           updatedAt: Number(raw.updatedAt) || 0,
           coins: {
             balance: Number(raw.coins.balance) || 0,
-            history: Array.isArray(raw.coins.history) ? raw.coins.history : [],
+            history: expandHistory(raw.coins.history),
             purchases: expandPurchases(raw.coins.purchases),
           },
           settings: raw.settings || null,
+          days: expandDays(raw.days),
         };
       }
       if ("balance" in raw) {
@@ -1255,37 +1442,44 @@
           updatedAt: Number(raw.updatedAt) || 0,
           coins: {
             balance: Number(raw.balance) || 0,
-            history: Array.isArray(raw.history) ? raw.history : [],
+            history: expandHistory(raw.history),
             purchases: expandPurchases(raw.purchases),
           },
           settings: raw.settings || null,
+          days: expandDays(raw.days || raw.store),
         };
       }
       return null;
     }
-    function shouldApplyCloud(remote) {
-      if (!remote) return false;
-      const localAt = cloudMeta.updatedAt || 0;
-      if (remote.updatedAt > localAt) return true;
-      if (remote.updatedAt === localAt) {
-        if (remote.coins.balance > coins.balance) return true;
-        const remoteBuys = (remote.coins.purchases || []).length;
-        const localBuys = (coins.purchases || []).length;
-        if (remoteBuys > localBuys) return true;
-      }
+    function localRicherThan(remote) {
+      if (!remote) return coins.balance > 0 || completedDayCount(expandDays(compactDays(loadStore()))) > 0;
+      if (coins.balance > remote.coins.balance) return true;
+      if ((coins.history || []).length > (remote.coins.history || []).length) return true;
+      if (completedDayCount(expandDays(compactDays(loadStore()))) > completedDayCount(remote.days)) return true;
       return false;
     }
     function applyCloudPayload(payload) {
-      const remote = normalizeCloudPayload(payload);
-      if (!remote || !shouldApplyCloud(remote)) return false;
+      const remote = payload && payload.coins ? payload : normalizeCloudPayload(payload);
+      if (!remote) return false;
+      const prevBalance = coins.balance;
+      const prevHist = (coins.history || []).length;
+      const mergedHistory = mergeHistory(coins.history, remote.coins.history);
+      const mergedPurchases = mergePurchases(coins.purchases, remote.coins.purchases);
+      const nextBalance = pickBalance(
+        coins.balance,
+        remote.coins.balance,
+        latestHistoryAt(coins.history),
+        latestHistoryAt(remote.coins.history),
+        (coins.purchases || []).length,
+        (remote.coins.purchases || []).length,
+      );
+      const daysChanged = mergeRemoteDays(remote.days);
       suppressCloudPush = true;
       try {
         coins = {
-          balance: remote.coins.balance,
-          history: remote.coins.history.length ? remote.coins.history : coins.history,
-          purchases: remote.coins.purchases && remote.coins.purchases.length
-            ? remote.coins.purchases
-            : (coins.purchases || []),
+          balance: nextBalance,
+          history: mergedHistory,
+          purchases: mergedPurchases,
         };
         localStorage.setItem(coinsKey(), JSON.stringify(coins));
         if (remote.settings) {
@@ -1298,10 +1492,10 @@
           };
           localStorage.setItem(settingsKey(), JSON.stringify(settings));
         }
-        cloudMeta.updatedAt = remote.updatedAt || cloudMeta.updatedAt || 0;
+        cloudMeta.updatedAt = Math.max(cloudMeta.updatedAt || 0, remote.updatedAt || 0);
         saveCloudMeta();
         renderCoins();
-        return true;
+        return daysChanged || nextBalance !== prevBalance || mergedHistory.length !== prevHist;
       } finally {
         suppressCloudPush = false;
       }
@@ -1318,18 +1512,12 @@
       for (let i = 0; i < clean.length; i += 2) bytes[i / 2] = parseInt(clean.slice(i, i + 2), 16);
       return new TextDecoder().decode(bytes);
     }
-    function encodeCloudValue(payload) {
-      let compact = toCompactCloud(payload);
-      let json = JSON.stringify(compact);
+    function encodeJsonHex(obj, trim) {
+      let current = obj;
+      let json = JSON.stringify(current);
       let hex = bytesToHex(json);
-      while (hex.length > 1000 && compact.h.length) {
-        compact.h.pop();
-        json = JSON.stringify(compact);
-        hex = bytesToHex(json);
-      }
-      while (hex.length > 1000 && compact.y.length) {
-        compact.y.pop();
-        json = JSON.stringify(compact);
+      while (hex.length > 1000 && trim(current)) {
+        json = JSON.stringify(current);
         hex = bytesToHex(json);
       }
       return hex;
@@ -1355,25 +1543,34 @@
       });
       return res.ok;
     }
-    async function fetchCloudFromKv() {
-      const primary = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
-      if (primary) return primary;
-      if (profileId === "misha") return normalizeCloudPayload(await fetchKvRaw("family"));
-      return null;
+    async function fetchProfileCloud() {
+      const [coreRaw, histRaw, daysRaw] = await Promise.all([
+        fetchKvRaw(cloudKvKey()),
+        fetchKvRaw(cloudHistKey()),
+        fetchKvRaw(cloudDaysKey()),
+      ]);
+      let payload = normalizeCloudPayload(coreRaw);
+      if (!payload && profileId === "misha") {
+        payload = normalizeCloudPayload(await fetchKvRaw("family"));
+      }
+      if (!payload) return null;
+      if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
+        payload.coins.history = mergeHistory(payload.coins.history, expandHistory(histRaw.h || histRaw.history));
+        payload.updatedAt = Math.max(payload.updatedAt || 0, Number(histRaw.u || histRaw.updatedAt) || 0);
+      }
+      if (daysRaw && (Array.isArray(daysRaw.d) || Array.isArray(daysRaw.days))) {
+        payload.days = mergeDayLists(payload.days, expandDays(daysRaw.d || daysRaw.days));
+        payload.updatedAt = Math.max(payload.updatedAt || 0, Number(daysRaw.u || daysRaw.updatedAt) || 0);
+      }
+      return payload;
     }
-    async function fetchCloudFromGist() {
-      if (profileId !== "misha") return null;
-      const res = await fetch(`${CLOUD_GIST_RAW}?t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("gist");
-      return normalizeCloudPayload(await res.json());
-    }
-    async function fetchCloudFromLocalFile() {
-      if (profileId !== "misha") return null;
-      try {
-        const res = await fetch(`family_sync.json?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) return null;
-        return normalizeCloudPayload(await res.json());
-      } catch { return null; }
+    function mergeDayLists(local, remote) {
+      const map = new Map();
+      [...(local || []), ...(remote || [])].forEach((day) => {
+        if (!day?.date) return;
+        map.set(day.date, mergeDayState(map.get(day.date), day));
+      });
+      return [...map.values()];
     }
     function refreshAfterCloudApply() {
       applyI18n();
@@ -1428,38 +1625,17 @@
       setSyncState("busy");
       try {
         await pullCatalogSync();
-        const results = await Promise.allSettled([
-          fetchCloudFromKv(),
-          fetchCloudFromGist(),
-          fetchCloudFromLocalFile(),
-        ]);
-        let best = null;
-        results.forEach((r) => {
-          if (r.status !== "fulfilled" || !r.value) return;
-          if (!best
-            || r.value.updatedAt > best.updatedAt
-            || (r.value.updatedAt === best.updatedAt && r.value.coins.balance > best.coins.balance)) {
-            best = r.value;
-          }
-        });
-        if (!best) {
-          if ((cloudMeta.updatedAt || 0) > 0 || coins.balance > 0) scheduleCloudPush();
+        const remote = await fetchProfileCloud();
+        if (!remote) {
+          if (localRicherThan(null)) scheduleCloudPush();
           setSyncState("ok");
           return false;
         }
-        if (shouldApplyCloud(best)) {
-          const changed = applyCloudPayload(best);
-          if (changed) refreshAfterCloudApply();
-          setSyncState("ok");
-          return changed;
-        }
-        if ((cloudMeta.updatedAt || 0) > (best.updatedAt || 0)) {
-          await pushCloudSync();
-        } else if ((cloudMeta.updatedAt || 0) === (best.updatedAt || 0) && coins.balance > best.coins.balance) {
-          await pushCloudSync();
-        }
+        const changed = applyCloudPayload(remote);
+        if (changed) refreshAfterCloudApply();
+        if (localRicherThan(remote)) scheduleCloudPush();
         setSyncState("ok");
-        return false;
+        return changed;
       } catch {
         setSyncState("err");
         return false;
@@ -1470,12 +1646,21 @@
     async function pushCloudSync() {
       if (!profileId) return false;
       const payload = buildCloudPayload();
-      const hex = encodeCloudValue(payload);
+      const core = toCompactCloud(payload);
+      const hist = { u: core.u, h: compactHistory(payload.coins.history) };
+      const days = { u: core.u, d: compactDays(loadStore()) };
+      const coreHex = encodeJsonHex(core, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; });
+      const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
+      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
       setSyncState("busy");
-      for (let i = 0; i < 3; i += 1) {
+      for (let i = 0; i < 4; i += 1) {
         try {
-          const ok = await putKvRaw(cloudKvKey(), hex);
-          if (ok) {
+          const [okCore, okHist, okDays] = await Promise.all([
+            putKvRaw(cloudKvKey(), coreHex),
+            putKvRaw(cloudHistKey(), histHex),
+            putKvRaw(cloudDaysKey(), daysHex),
+          ]);
+          if (okCore && okHist && okDays) {
             const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
             if (check && check.coins.balance === coins.balance) {
               setSyncState("ok");
@@ -1483,7 +1668,7 @@
             }
           }
         } catch { /* retry */ }
-        await sleep(200 * (i + 1));
+        await sleep(250 * (i + 1));
       }
       setSyncState("err");
       return false;
@@ -1491,7 +1676,13 @@
     function scheduleCloudPush() {
       if (suppressCloudPush) return;
       window.clearTimeout(cloudPushTimer);
-      cloudPushTimer = window.setTimeout(() => { pushCloudSync(); }, 250);
+      cloudPushTimer = window.setTimeout(() => {
+        if (cloudSyncing) {
+          scheduleCloudPush();
+          return;
+        }
+        pushCloudSync();
+      }, 120);
     }
     function setSyncState(kind) {
       const dot = document.getElementById("syncDot");
@@ -1578,6 +1769,7 @@
       }
       if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
+      await pushCloudSync();
       await sleep(250);
       overlay.classList.add("hidden");
     }
@@ -1660,7 +1852,7 @@
       if (!state) return;
       const store = loadStore();
       store[state.date] = state;
-      saveStore(store);
+      saveStore(store, { quiet: !state.sessionDone });
     }
     function isLate(dayState) {
       if (!dayState?.completed || !dayState.completedAt) return false;
@@ -1774,9 +1966,7 @@
       show("home");
       if (!appStarted) {
         appStarted = true;
-        pullCloudSync().then((changed) => {
-          if (!changed && (cloudMeta.updatedAt || 0) > 0) scheduleCloudPush();
-        });
+        pullCloudSync();
         window.setInterval(() => { if (profileId) pullCloudSync(); }, 12000);
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible" && profileId) pullCloudSync();
@@ -2018,7 +2208,7 @@
       const entry = {
         id: uid(), at, dateKey: todayKey(),
         amount: -prize.cost,
-        parts: [{ label: t("redeemSpend", title), amount: -prize.cost }],
+        parts: [{ k: "prize", r: prize.titleRu, e: prize.titleEn, label: t("redeemSpend", title), amount: -prize.cost }],
       };
       spendCoins(prize.cost, entry);
       showToast("ok", t("redeemSuccess", title), t("redeemSuccessHint"), "🎁");
@@ -2033,7 +2223,7 @@
         box.innerHTML = `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
           <div class="history-list">${coins.history.map((item) => {
             const neg = item.amount < 0;
-            const partsHtml = (item.parts || []).map((p) => `<li>${p.label}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
+            const partsHtml = (item.parts || []).map((p) => `<li>${partLabel(p)}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
             return `<div class="history-item${neg ? " spend" : ""}">
               <div class="history-top">
                 <span class="history-date">${formatHistoryDate(item.at)}</span>
@@ -2166,17 +2356,26 @@
       }
     }
 
+    function partLabel(part) {
+      if (!part) return "";
+      if (part.k === "onTime") return t("rewardOnTime");
+      if (part.k === "low") return t("rewardLow", part.r || "0.0");
+      if (part.k === "mid") return t("rewardMid", part.r || "0.0");
+      if (part.k === "high") return t("rewardHigh", part.r || "0.0");
+      if (part.k === "prize") return t("redeemSpend", lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || ""));
+      return part.label || "";
+    }
     function calcRewards(dayState) {
       const parts = [];
       let total = 0;
       const completedDay = dayState.completedAt ? todayKey(new Date(dayState.completedAt)) : todayKey();
       const onTime = completedDay === dayState.date;
-      if (onTime) { parts.push({ label: t("rewardOnTime"), amount: 1 }); total += 1; }
+      if (onTime) { parts.push({ k: "onTime", label: t("rewardOnTime"), amount: 1 }); total += 1; }
       const failRate = dayState.answered ? (dayState.fails / dayState.answered) * 100 : 100;
       const rateText = failRate.toFixed(1);
-      if (failRate < 5) { parts.push({ label: t("rewardLow", rateText), amount: 3 }); total += 3; }
-      else if (failRate <= 10) { parts.push({ label: t("rewardMid", rateText), amount: 1 }); total += 1; }
-      else { parts.push({ label: t("rewardHigh", rateText), amount: 0 }); }
+      if (failRate < 5) { parts.push({ k: "low", r: rateText, label: t("rewardLow", rateText), amount: 3 }); total += 3; }
+      else if (failRate <= 10) { parts.push({ k: "mid", r: rateText, label: t("rewardMid", rateText), amount: 1 }); total += 1; }
+      else { parts.push({ k: "high", r: rateText, label: t("rewardHigh", rateText), amount: 0 }); }
       return { total, parts, failRate, onTime };
     }
     function renderReward(dayState) {
@@ -2186,7 +2385,7 @@
       list.innerHTML = "";
       (reward.parts || []).forEach((part) => {
         const li = document.createElement("li");
-        li.textContent = part.amount ? `${part.label}: +${part.amount}` : `${part.label}: 0`;
+        li.textContent = part.amount ? `${partLabel(part)}: +${part.amount}` : `${partLabel(part)}: 0`;
         list.appendChild(li);
       });
     }
