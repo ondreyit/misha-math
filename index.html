@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2f6fed" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Misha Math</title>
   <style>
     :root {
@@ -743,6 +744,7 @@
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
     const PENDING_KEY_BASE = "misha-pending-v1";
+    const BAL_KEY_BASE = "misha-bal-v2";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
     const POOL_VERSION = 2;
@@ -1037,6 +1039,23 @@
     function cloudHistKey() { return `h_${profileId}`; }
     function cloudDaysKey() { return `d_${profileId}`; }
     function cloudBuyKey() { return `y_${profileId}`; }
+    function cloudBalKey() { return `b_${profileId}`; }
+    function rememberedBalKey(id = profileId) { return `${BAL_KEY_BASE}:${id}`; }
+    function readRememberedBalance(id = profileId) {
+      if (!id) return 0;
+      try { return Number(localStorage.getItem(rememberedBalKey(id))) || 0; }
+      catch { return 0; }
+    }
+    function writeRememberedBalance(n, id = profileId) {
+      if (!id) return 0;
+      const next = Math.max(Number(n) || 0, readRememberedBalance(id));
+      try { localStorage.setItem(rememberedBalKey(id), String(next)); } catch { /* ignore */ }
+      return next;
+    }
+    function forceRememberedBalance(n, id = profileId) {
+      if (!id) return;
+      try { localStorage.setItem(rememberedBalKey(id), String(Math.max(0, Number(n) || 0))); } catch { /* ignore */ }
+    }
     function cloudPhotoKey(id = profileId) { return `a_${id}`; }
     function pendingKey(id = profileId) { return `${PENDING_KEY_BASE}:${id}`; }
     function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
@@ -1808,10 +1827,25 @@
       const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`;
       try {
         const res = await fetch(url, { method: "POST", body: "", cache: "no-store", keepalive: true });
-        if (res.ok) return true;
-      } catch { /* try beacon */ }
-      try { return !!(navigator.sendBeacon && navigator.sendBeacon(url)); }
-      catch { return false; }
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
+    async function fetchBalanceCloud() {
+      if (!profileId) return 0;
+      const raw = await fetchKvRaw(cloudBalKey());
+      if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+      if (raw && typeof raw === "object" && raw.b != null) return Number(raw.b) || 0;
+      return 0;
+    }
+    async function pushBalanceCloud(target) {
+      const n = Math.max(0, Number(target) || 0);
+      const remote = await fetchBalanceCloud();
+      if (remote > n) return remote;
+      const ok = await putKvRaw(cloudBalKey(), bytesToHex(String(n)));
+      if (!ok) return remote;
+      return await fetchBalanceCloud();
     }
     async function fetchProfileCloud() {
       const [coreRaw, histRaw, daysRaw, buyRaw] = await Promise.all([
@@ -1824,7 +1858,10 @@
       if (!payload && profileId === "misha") {
         payload = normalizeCloudPayload(await fetchKvRaw("family"));
       }
+      const balOnly = await fetchBalanceCloud();
+      if (!payload && balOnly) payload = fromCompactCloud({ u: Date.now(), b: balOnly, q: 20, m: 0 });
       if (!payload) return null;
+      if (balOnly > (payload.coins.balance || 0)) payload.coins.balance = balOnly;
       if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
         payload.coins.history = mergeHistory(payload.coins.history, expandHistory(histRaw.h || histRaw.history));
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(histRaw.u || histRaw.updatedAt) || 0);
@@ -1911,13 +1948,18 @@
           setSyncState(profileDirty ? "busy" : "ok");
           return false;
         }
-        if (coins.balance > (remote.coins?.balance || 0)) {
+        const keep = Math.max(coins.balance, readRememberedBalance());
+        if (keep > (remote.coins?.balance || 0)) {
+          coins.balance = keep;
+          writeRememberedBalance(keep);
           profileDirty = true;
           flushCloudNow();
           setSyncState("busy");
           return false;
         }
         replaceFromCloud(remote);
+        coins.balance = Math.max(coins.balance, keep);
+        writeRememberedBalance(coins.balance);
         fillHistoryFromDays();
         refreshAfterCloudApply();
         setSyncState("ok");
@@ -1955,30 +1997,26 @@
       try {
         for (let i = 0; i < 8; i += 1) {
           cloudPushQueued = false;
-          const existing = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
-          const remoteB = Number(existing?.coins?.balance) || 0;
-          if (existing && remoteB > coins.balance) {
-            replaceFromCloud(existing);
-            refreshAfterCloudApply();
-            profileDirty = false;
-            clearPendingSnapshot();
-            setSyncState("ok");
-            return true;
+          writeRememberedBalance(coins.balance);
+          const remoteBal = await pushBalanceCloud(coins.balance);
+          if (remoteBal > coins.balance) {
+            coins.balance = remoteBal;
+            writeRememberedBalance(remoteBal);
+            renderCoins();
+          }
+          if (remoteBal < coins.balance) {
+            await sleep(150 * (i + 1));
+            continue;
           }
           const payload = buildCloudPayload();
           const core = toCompactCloud(payload);
-          const coreHex = encodeJsonHex(core, null, cloudKvKey());
-          await putKvRaw(cloudKvKey(), coreHex);
-          const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
-          const savedB = Number(check?.coins?.balance) || 0;
-          if (check && savedB >= coins.balance) {
-            profileDirty = false;
-            clearPendingSnapshot();
-            setSyncState("ok");
-            pushHistoryAndDays(payload, core.u);
-            return true;
-          }
-          await sleep(150 * (i + 1));
+          core.b = coins.balance;
+          await putKvRaw(cloudKvKey(), encodeJsonHex(core, null, cloudKvKey()));
+          profileDirty = false;
+          clearPendingSnapshot();
+          setSyncState("ok");
+          pushHistoryAndDays(payload, core.u);
+          return true;
         }
         setSyncState("err");
         return false;
@@ -2030,6 +2068,7 @@
     function addCoins(amount, historyEntry) {
       if (!amount) return;
       coins.balance += amount;
+      writeRememberedBalance(coins.balance);
       if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
       renderCoins();
@@ -2038,6 +2077,7 @@
     function spendCoins(amount, historyEntry) {
       if (amount <= 0 || coins.balance < amount) return false;
       coins.balance -= amount;
+      forceRememberedBalance(coins.balance);
       if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
       renderCoins();
@@ -2232,13 +2272,19 @@
         const pending = readPendingSnapshot();
         const remoteB = Number(remote?.coins?.balance) || 0;
         const pendingB = Number(pending?.b) || 0;
+        const rememberedB = readRememberedBalance();
+        const bestB = Math.max(remoteB, pendingB, rememberedB);
         if (remote) replaceFromCloud(remote);
-        if (pending && pendingB > remoteB) {
-          applyPendingSnapshot(pending);
+        if (pending && pendingB > remoteB) applyPendingSnapshot(pending);
+        else if (pending && pendingB <= remoteB) clearPendingSnapshot();
+        if (bestB > coins.balance) {
+          coins.balance = bestB;
+          writeRememberedBalance(bestB);
+        }
+        if (bestB > remoteB) {
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
-        } else if (pending && pendingB <= remoteB) {
-          clearPendingSnapshot();
+          writePendingSnapshot();
         }
         coins.history = dedupeHistory(coins.history);
         await loadProfilePhoto(profileId);
@@ -2308,11 +2354,12 @@
           if (document.visibilityState === "visible" && profileId) pullCloudSync();
         });
         window.addEventListener("pagehide", () => {
-          if (!profileId || !profileDirty) return;
+          if (!profileId) return;
+          writeRememberedBalance(coins.balance);
+          if (!profileDirty) return;
           writePendingSnapshot();
-          const core = toCompactCloud(buildCloudPayload());
-          const hex = encodeJsonHex(core, null, cloudKvKey());
-          const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudKvKey()}/${hex}`;
+          const hex = bytesToHex(String(coins.balance));
+          const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudBalKey()}/${hex}`;
           try { navigator.sendBeacon(url); } catch { /* ignore */ }
         });
       }
