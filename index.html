@@ -56,6 +56,11 @@
       box-shadow: var(--shadow), 0 0 0 3px rgba(47,111,237,0.25); background: #fff;
       cursor: pointer;
     }
+    .photo-preview {
+      width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
+      border: 4px solid #fff; box-shadow: var(--shadow); display: block; margin: 8px auto 14px;
+      background: #eef4ff;
+    }
     .sidebar-avatar-wrap::after {
       content: ""; position: absolute; inset: -6px; border-radius: 50%; z-index: -1;
       background: conic-gradient(from 0deg, #2f6fed, #18c59a, #ffb703, #ff3d81, #2f6fed);
@@ -505,6 +510,18 @@
       <button class="btn btn-ghost" id="pinCancelBtn" type="button" data-i18n="cancel">Cancel</button>
     </div>
   </div>
+  <div class="modal hidden" id="photoModal">
+    <div class="modal-card">
+      <div class="label" data-i18n="photoTitle">Change photo</div>
+      <p class="note" data-i18n="photoHint">Pick a new photo. It is saved in the cloud and shown on every device.</p>
+      <img class="photo-preview" id="photoPreview" alt="" />
+      <input id="photoFile" type="file" accept="image/*" hidden />
+      <button class="btn btn-accent" id="photoPickBtn" type="button" data-i18n="photoPick">Choose photo</button>
+      <button class="btn btn-ink" id="photoSaveBtn" type="button" data-i18n="save">Save</button>
+      <button class="btn btn-ghost" id="photoResetBtn" type="button" data-i18n="photoReset">Use default</button>
+      <button class="btn btn-ghost" id="photoCancelBtn" type="button" data-i18n="cancel">Cancel</button>
+    </div>
+  </div>
   <div class="modal hidden" id="historyModal">
     <div class="modal-card wide">
       <div class="modal-head">
@@ -574,6 +591,7 @@
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
         <button class="nav-btn" data-view="pythagoras" type="button"><span class="nav-icon">✖️</span><span data-i18n="navPythagoras">Pythagoras table</span></button>
         <button class="nav-btn" data-view="redeem" type="button"><span class="nav-icon">🎁</span><span data-i18n="navRedeem">Redeem</span></button>
+        <button class="nav-btn" data-view="history" type="button"><span class="nav-icon">★</span><span data-i18n="navHistory">History</span></button>
       </nav>
     </aside>
     <main class="main" id="mainContent">
@@ -643,6 +661,11 @@
           <h2 class="view-title" data-i18n="redeemTitle">Redeem prizes</h2>
           <p class="subtitle" data-i18n="redeemSubtitle">Spend Mishcoins on wishes!</p>
           <div id="redeemContent"></div>
+        </section>
+        <section id="historyView" class="hidden">
+          <h2 class="view-title" data-i18n="coinHistoryTitle">Mishcoin history</h2>
+          <p class="subtitle" data-i18n="heroHistory">See where your Mishcoins came from!</p>
+          <div class="card" id="historyPage"></div>
         </section>
         <section id="trainView" class="hidden">
           <p class="subtitle" id="trainDateLabel">Mission</p>
@@ -751,6 +774,7 @@
         navTables: "Таблицы",
         navPythagoras: "Таблица Пифагора",
         navRedeem: "Обмен",
+        navHistory: "История",
         todayMission: "Задание дня",
         rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
         left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
@@ -803,6 +827,12 @@
         heroCoins: (n) => `Ура! +${n} Мишкоинов!`,
         heroClosed: "Тренировка закрыта. Ты молодец!",
         heroRedeem: "Потрать Мишкоины на мечты!",
+        heroHistory: "Смотри, откуда взялись Мишкоины!",
+        photoTitle: "Сменить фото",
+        photoHint: "Выбери новое фото. Оно сохранится в облаке и будет на всех устройствах.",
+        photoPick: "Выбрать фото",
+        photoReset: "Вернуть обычное",
+        photoTooBig: "Фото слишком большое. Попробуй другое.",
         heroTables: "Можно открыть больше таблиц!",
         heroPythagoras: "Вот таблица умножения!",
         heroCalendar: "Смотри календарь тренировок!",
@@ -861,6 +891,7 @@
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table", navRedeem: "Redeem",
+        navHistory: "History",
         todayMission: "Today's mission",
         rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
         left: "left", correct: "correct", fails: "fails", answers: "answers",
@@ -912,6 +943,12 @@
         heroCoins: (n) => `Yay! +${n} Mishcoins!`,
         heroClosed: "Training closed. Great job!",
         heroRedeem: "Spend Mishcoins on wishes!",
+        heroHistory: "See where your Mishcoins came from!",
+        photoTitle: "Change photo",
+        photoHint: "Pick a new photo. It is saved in the cloud and shown on every device.",
+        photoPick: "Choose photo",
+        photoReset: "Use default",
+        photoTooBig: "This photo is too large. Try another one.",
         heroTables: "You can unlock more tables!",
         heroPythagoras: "Here's the multiplication grid!",
         heroCalendar: "Check your training calendar!",
@@ -981,6 +1018,8 @@
     let suppressCloudPush = false;
     let dayMissionKey = null;
     let appStarted = false;
+    let customPhotos = {};
+    let pendingPhoto = null;
 
     function storageKey() { return `${STORAGE_KEY_BASE}:${profileId}`; }
     function settingsKey() { return `${SETTINGS_KEY_BASE}:${profileId}`; }
@@ -989,6 +1028,7 @@
     function cloudKvKey() { return `p_${profileId}`; }
     function cloudHistKey() { return `h_${profileId}`; }
     function cloudDaysKey() { return `d_${profileId}`; }
+    function cloudPhotoKey(id = profileId) { return `a_${id}`; }
     function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
     function profileLabel(profile = currentProfile()) {
       return lang === "ru" ? profile.ru : profile.en;
@@ -1001,6 +1041,7 @@
       tables: document.getElementById("tablesView"),
       pythagoras: document.getElementById("pythagorasView"),
       redeem: document.getElementById("redeemView"),
+      history: document.getElementById("historyView"),
       train: document.getElementById("trainView"),
       done: document.getElementById("doneView"),
       admin: document.getElementById("adminView"),
@@ -1013,6 +1054,7 @@
     const fxLayer = document.getElementById("fxLayer");
     const pinModal = document.getElementById("pinModal");
     const historyModal = document.getElementById("historyModal");
+    const photoModal = document.getElementById("photoModal");
     const dayMissionModal = document.getElementById("dayMissionModal");
     const toastModal = document.getElementById("toastModal");
     const profileModal = document.getElementById("profileModal");
@@ -1282,6 +1324,10 @@
         };
       }).filter(Boolean);
     }
+    function isSyntheticHistory(entry) {
+      const id = String(entry?.id || "");
+      return id.startsWith("day-") || id.startsWith("h-");
+    }
     function historyFromDays(days) {
       return (days || [])
         .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
@@ -1293,12 +1339,19 @@
           parts: [{ k: "onTime", amount: Number(d.coinsAwarded) || 0 }],
         }));
     }
+    function dedupeHistory(list) {
+      const items = Array.isArray(list) ? list : [];
+      const realDays = new Set(items.filter((e) => e.amount > 0 && !isSyntheticHistory(e)).map((e) => e.dateKey));
+      return items.filter((e) => !(e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)));
+    }
     function fillHistoryFromDays() {
-      const generated = historyFromDays(Object.values(dayStore));
+      const existing = coins.history || [];
+      const generated = historyFromDays(Object.values(dayStore)).filter((item) => (
+        !existing.some((entry) => entry.dateKey === item.dateKey && entry.amount > 0)
+      ));
       if (!generated.length) return false;
-      const before = (coins.history || []).length;
-      coins.history = mergeHistory(coins.history, generated);
-      return coins.history.length > before;
+      coins.history = dedupeHistory(mergeHistory(existing, generated));
+      return true;
     }
     function mergeHistory(local, remote) {
       const map = new Map();
@@ -1307,9 +1360,9 @@
         const key = historyKey(entry);
         if (!map.has(key)) map.set(key, entry);
       });
-      return [...map.values()]
+      return dedupeHistory([...map.values()]
         .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
-        .slice(0, 40);
+        .slice(0, 40));
     }
     function mergePurchases(local, remote) {
       const map = new Map();
@@ -1568,6 +1621,87 @@
       if (!res.ok) return null;
       return parseKvText(await res.text());
     }
+    async function fetchKvHex(key) {
+      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return "";
+      return String(await res.text()).replace(/^"|"$/g, "").trim();
+    }
+    function defaultPhoto(profile = currentProfile()) { return profile.photo; }
+    function currentPhoto(profile = currentProfile()) {
+      return customPhotos[profile.id] || profile.photo;
+    }
+    async function loadProfilePhoto(id = profileId) {
+      if (!id) return;
+      const meta = await fetchKvRaw(cloudPhotoKey(id));
+      const count = Number(meta?.n) || 0;
+      if (!count) {
+        delete customPhotos[id];
+        return;
+      }
+      const parts = [];
+      for (let i = 0; i < count; i += 1) {
+        const chunk = await fetchKvHex(`${cloudPhotoKey(id)}_${i}`);
+        if (!chunk) { delete customPhotos[id]; return; }
+        parts.push(chunk);
+      }
+      try {
+        const dataUrl = hexToBytes(parts.join(""));
+        if (dataUrl.startsWith("data:image")) customPhotos[id] = dataUrl;
+      } catch { delete customPhotos[id]; }
+    }
+    async function saveProfilePhoto(dataUrl) {
+      if (!profileId) return false;
+      if (!dataUrl) {
+        await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: 0 })));
+        delete customPhotos[profileId];
+        return true;
+      }
+      let hex = bytesToHex(dataUrl);
+      const chunks = [];
+      while (hex.length) {
+        chunks.push(hex.slice(0, 900));
+        hex = hex.slice(900);
+      }
+      if (chunks.length > 8) return false;
+      const okMeta = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: chunks.length })));
+      if (!okMeta) return false;
+      for (let i = 0; i < chunks.length; i += 1) {
+        const ok = await putKvRaw(`${cloudPhotoKey()}_${i}`, chunks[i]);
+        if (!ok) return false;
+      }
+      customPhotos[profileId] = dataUrl;
+      return true;
+    }
+    function compressPhoto(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("read"));
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const size = 96;
+            const canvas = document.createElement("canvas");
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
+            const min = Math.min(img.width, img.height);
+            const sx = (img.width - min) / 2;
+            const sy = (img.height - min) / 2;
+            ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+            let quality = 0.55;
+            let dataUrl = canvas.toDataURL("image/jpeg", quality);
+            while (bytesToHex(dataUrl).length > 7200 && quality > 0.18) {
+              quality -= 0.08;
+              dataUrl = canvas.toDataURL("image/jpeg", quality);
+            }
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error("image"));
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
     async function putKvRaw(key, hex) {
       const res = await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`, {
         method: "POST",
@@ -1613,6 +1747,7 @@
       if (currentView === "tables") renderTablesSettings();
       if (currentView === "pythagoras") renderPythagoras();
       if (currentView === "redeem") renderRedeem();
+      if (currentView === "history") renderCoinHistory();
       if (currentView === "admin") renderAdminWishlist();
     }
     async function pullCatalogSync() {
@@ -1938,7 +2073,7 @@
       });
       document.querySelectorAll(".nav-btn").forEach((btn) => {
         const v = btn.getAttribute("data-view");
-        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem"].includes(view));
+        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem","history"].includes(view));
       });
     }
     function navigate(view) {
@@ -1948,6 +2083,7 @@
       if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables"); return; }
       if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras"); return; }
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
+      if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history"); return; }
     }
 
     async function hydrateProfileFromCloud() {
@@ -1956,6 +2092,14 @@
         await pullCatalogSync();
         const remote = await fetchProfileCloud();
         if (remote) replaceFromCloud(remote);
+        const beforeHist = (coins.history || []).length;
+        coins.history = dedupeHistory(coins.history);
+        await loadProfilePhoto(profileId);
+        if ((coins.history || []).length !== beforeHist) {
+          profileDirty = true;
+          cloudMeta.updatedAt = Date.now();
+          await pushCloudSync();
+        }
         const legacy = readLegacyDeviceProfile(profileId);
         if (legacyRicherThanCloud(legacy, remote)) {
           applyLegacyDeviceProfile(legacy);
@@ -1984,10 +2128,11 @@
       const p = currentProfile();
       const avatar = document.getElementById("mishaAvatar");
       const chipPhoto = document.getElementById("profileChipPhoto");
-      avatar.src = p.photo;
+      avatar.src = currentPhoto(p);
       avatar.alt = profileLabel(p);
-      avatar.style.objectPosition = p.pos || "center";
-      chipPhoto.src = p.photo;
+      avatar.style.objectPosition = customPhotos[p.id] ? "center" : (p.pos || "center");
+      avatar.title = t("photoTitle");
+      chipPhoto.src = currentPhoto(p);
       chipPhoto.alt = profileLabel(p);
       document.getElementById("profileChipName").textContent = profileLabel(p);
       document.getElementById("heroName").textContent = `${t("heroName")} ${profileLabel(p)}`;
@@ -1997,7 +2142,7 @@
       const box = document.getElementById("profileGrid");
       box.innerHTML = PROFILES.map((p) => `
         <button class="profile-btn${p.id === profileId ? " on" : ""}" type="button" data-profile="${p.id}">
-          <img class="profile-photo" src="${p.photo}" alt="${profileLabel(p)}" />
+          <img class="profile-photo" src="${currentPhoto(p)}" alt="${profileLabel(p)}" />
           <span class="profile-name">${profileLabel(p)}</span>
         </button>
       `).join("");
@@ -2020,8 +2165,10 @@
       renderCoins();
       show("home");
       await hydrateProfileFromCloud();
+      updateProfileChrome();
       updateHome();
       renderCoins();
+      if (currentView === "history") renderCoinHistory();
       if (!appStarted) {
         appStarted = true;
         window.setInterval(() => { if (profileId) pullCloudSync(); }, 8000);
@@ -2270,27 +2417,42 @@
       renderRedeem();
     }
 
-    function openCoinHistory() {
-      const box = document.getElementById("historyContent");
+    function historyHtml() {
       if (!coins.history || !coins.history.length) {
-        box.innerHTML = `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
-      } else {
-        box.innerHTML = `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
-          <div class="history-list">${coins.history.map((item) => {
-            const neg = item.amount < 0;
-            const partsHtml = (item.parts || []).map((p) => `<li>${partLabel(p)}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
-            return `<div class="history-item${neg ? " spend" : ""}">
-              <div class="history-top">
-                <span class="history-date">${formatHistoryDate(item.at)}</span>
-                <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
-              </div>
-              ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
-            </div>`;
-          }).join("")}</div>`;
+        return `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
       }
-      historyModal.classList.remove("hidden");
+      return `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
+        <div class="history-list">${coins.history.map((item) => {
+          const neg = item.amount < 0;
+          const partsHtml = (item.parts || []).map((p) => `<li>${partLabel(p)}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
+          return `<div class="history-item${neg ? " spend" : ""}">
+            <div class="history-top">
+              <span class="history-date">${formatHistoryDate(item.at)}</span>
+              <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
+            </div>
+            ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
+          </div>`;
+        }).join("")}</div>`;
+    }
+    function renderCoinHistory() {
+      const page = document.getElementById("historyPage");
+      if (page) page.innerHTML = historyHtml();
+    }
+    function openCoinHistory() {
+      navigate("history");
     }
     function closeCoinHistory() { historyModal.classList.add("hidden"); }
+    function openPhotoModal() {
+      if (!profileId) return;
+      pendingPhoto = customPhotos[profileId] || null;
+      document.getElementById("photoPreview").src = currentPhoto();
+      photoModal.classList.remove("hidden");
+    }
+    function closePhotoModal() {
+      pendingPhoto = null;
+      document.getElementById("photoFile").value = "";
+      photoModal.classList.add("hidden");
+    }
 
     function dayOffset(base, offset) {
       const date = new Date(base.getFullYear(), base.getMonth(), base.getDate());
@@ -2598,6 +2760,7 @@
       if (currentView === "tables") renderTablesSettings();
       if (currentView === "pythagoras") renderPythagoras();
       if (currentView === "redeem") renderRedeem();
+      if (currentView === "history") renderCoinHistory();
       if (currentView === "done" && state) renderReward(state);
       if (currentView === "admin") renderAdminWishlist();
     }
@@ -2675,9 +2838,44 @@
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
     document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
     document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
-    document.getElementById("mishaAvatar").addEventListener("click", openCoinHistory);
+    document.getElementById("mishaAvatar").addEventListener("click", openPhotoModal);
     document.getElementById("historyCloseBtn").addEventListener("click", closeCoinHistory);
     historyModal.addEventListener("click", (e) => { if (e.target === historyModal) closeCoinHistory(); });
+    document.getElementById("photoPickBtn").addEventListener("click", () => document.getElementById("photoFile").click());
+    document.getElementById("photoFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        pendingPhoto = await compressPhoto(file);
+        document.getElementById("photoPreview").src = pendingPhoto;
+      } catch {
+        showToast("bad", t("photoTooBig"), t("photoHint"), "📷");
+      }
+    });
+    document.getElementById("photoSaveBtn").addEventListener("click", async () => {
+      if (!pendingPhoto) { closePhotoModal(); return; }
+      setSyncState("busy");
+      const ok = await saveProfilePhoto(pendingPhoto);
+      if (!ok) {
+        setSyncState("err");
+        showToast("bad", t("photoTooBig"), t("photoHint"), "📷");
+        return;
+      }
+      setSyncState("ok");
+      updateProfileChrome();
+      closePhotoModal();
+      showToast("ok", t("dataSaved"), t("dataSavedHint"), "📷");
+    });
+    document.getElementById("photoResetBtn").addEventListener("click", async () => {
+      setSyncState("busy");
+      await saveProfilePhoto("");
+      setSyncState("ok");
+      updateProfileChrome();
+      closePhotoModal();
+      showToast("ok", t("dataSaved"), t("dataSavedHint"), "📷");
+    });
+    document.getElementById("photoCancelBtn").addEventListener("click", closePhotoModal);
+    photoModal.addEventListener("click", (e) => { if (e.target === photoModal) closePhotoModal(); });
     document.getElementById("dayMissionCloseBtn").addEventListener("click", closeDayMissionModal);
     dayMissionModal.addEventListener("click", (e) => { if (e.target === dayMissionModal) closeDayMissionModal(); });
     document.getElementById("toastOkBtn").addEventListener("click", closeToast);
