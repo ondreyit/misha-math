@@ -61,6 +61,11 @@
       border: 4px solid #fff; box-shadow: var(--shadow); display: block; margin: 8px auto 14px;
       background: #eef4ff;
     }
+    .photo-file {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+    }
+    .modal-card .btn.photo-pick { margin-top: 0; }
     .sidebar-avatar-wrap::after {
       content: ""; position: absolute; inset: -6px; border-radius: 50%; z-index: -1;
       background: conic-gradient(from 0deg, #2f6fed, #18c59a, #ffb703, #ff3d81, #2f6fed);
@@ -378,6 +383,7 @@
       position: fixed; inset: 0; background: rgba(20,30,70,0.45);
       display: grid; place-items: center; padding: 18px; z-index: 80;
     }
+    .modal.toast-modal { z-index: 110; }
     .modal-card {
       width: min(420px, 100%); max-height: min(85vh, 640px); overflow-y: auto;
       background: #fff; border-radius: 20px; padding: 18px;
@@ -510,8 +516,8 @@
       <div class="label" data-i18n="photoTitle">Change photo</div>
       <p class="note" data-i18n="photoHint">Pick a new photo. It is saved in the cloud and shown on every device.</p>
       <img class="photo-preview" id="photoPreview" alt="" />
-      <input id="photoFile" type="file" accept="image/*" hidden />
-      <button class="btn btn-accent" id="photoPickBtn" type="button" data-i18n="photoPick">Choose photo</button>
+      <input id="photoFile" class="photo-file" type="file" accept="image/*" />
+      <label class="btn btn-accent photo-pick" id="photoPickBtn" for="photoFile" data-i18n="photoPick">Choose photo</label>
       <button class="btn btn-ink" id="photoSaveBtn" type="button" data-i18n="save">Save</button>
       <button class="btn btn-ghost" id="photoResetBtn" type="button" data-i18n="photoReset">Use default</button>
       <button class="btn btn-ghost" id="photoCancelBtn" type="button" data-i18n="cancel">Cancel</button>
@@ -744,7 +750,7 @@
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
-    const CLOUD_KV_HEX_MAX = 240;
+    const PHOTO_CHUNKS_MAX = 24;
     const PROFILES = [
       { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸", photo: "assets/misha.jpg?v=4", pos: "center 20%" },
       { id: "papa", ru: "Папа", en: "Dad", emoji: "👨", photo: "assets/papa.svg", pos: "center" },
@@ -829,6 +835,8 @@
         photoPick: "Выбрать фото",
         photoReset: "Вернуть обычное",
         photoTooBig: "Фото слишком большое. Попробуй другое.",
+        photoPickFirst: "Сначала выбери фото",
+        photoSaving: "Сохраняю…",
         heroTables: "Можно открыть больше таблиц!",
         heroPythagoras: "Вот таблица умножения!",
         heroCalendar: "Смотри календарь тренировок!",
@@ -945,6 +953,8 @@
         photoPick: "Choose photo",
         photoReset: "Use default",
         photoTooBig: "This photo is too large. Try another one.",
+        photoPickFirst: "Pick a photo first",
+        photoSaving: "Saving…",
         heroTables: "You can unlock more tables!",
         heroPythagoras: "Here's the multiplication grid!",
         heroCalendar: "Check your training calendar!",
@@ -1634,27 +1644,52 @@
         suppressCloudPush = false;
       }
     }
+    function cloudHexBudget(key) {
+      return Math.max(32, 260 - `/api/KeyVal/UpdateValue/${CLOUD_KV_APP}/${key}/`.length);
+    }
     function bytesToHex(str) {
       return Array.from(new TextEncoder().encode(str))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
     }
-    function hexToBytes(hex) {
+    function hexToByteArray(hex) {
       const clean = String(hex || "").replace(/[^0-9a-f]/gi, "");
-      if (!clean || clean.length % 2) return "";
+      if (!clean || clean.length % 2) return new Uint8Array();
       const bytes = new Uint8Array(clean.length / 2);
       for (let i = 0; i < clean.length; i += 2) bytes[i / 2] = parseInt(clean.slice(i, i + 2), 16);
-      return new TextDecoder().decode(bytes);
+      return bytes;
     }
-    function encodeJsonHex(obj, trim) {
+    function hexToBytes(hex) {
+      return new TextDecoder().decode(hexToByteArray(hex));
+    }
+    function dataUrlToJpegHex(dataUrl) {
+      const match = String(dataUrl || "").match(/^data:image\/\w+;base64,(.+)$/);
+      if (!match) return bytesToHex(dataUrl);
+      const binary = atob(match[1]);
+      let hex = "";
+      for (let i = 0; i < binary.length; i += 1) hex += binary.charCodeAt(i).toString(16).padStart(2, "0");
+      return hex;
+    }
+    function jpegHexToDataUrl(hex) {
+      const bytes = hexToByteArray(hex);
+      if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+        return `data:image/jpeg;base64,${btoa(binary)}`;
+      }
+      const text = hexToBytes(hex);
+      return text.startsWith("data:image") ? text : "";
+    }
+    function encodeJsonHex(obj, trim, key) {
+      const limit = cloudHexBudget(key || cloudKvKey() || "p_x");
       let current = obj;
       let json = JSON.stringify(current);
       let hex = bytesToHex(json);
-      while (hex.length > CLOUD_KV_HEX_MAX && trim && trim(current)) {
+      while (hex.length > limit && trim && trim(current)) {
         json = JSON.stringify(current);
         hex = bytesToHex(json);
       }
-      if (hex.length > CLOUD_KV_HEX_MAX) {
+      if (hex.length > limit) {
         hex = bytesToHex(JSON.stringify({
           u: current.u || Date.now(),
           b: Number(current.b) || 0,
@@ -1701,30 +1736,35 @@
         parts.push(chunk);
       }
       try {
-        const dataUrl = hexToBytes(parts.join(""));
+        const dataUrl = jpegHexToDataUrl(parts.join(""));
         if (dataUrl.startsWith("data:image")) customPhotos[id] = dataUrl;
       } catch { delete customPhotos[id]; }
     }
     async function saveProfilePhoto(dataUrl) {
       if (!profileId) return false;
       if (!dataUrl) {
-        await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: 0 })));
+        const ok = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: 0 })));
+        if (!ok) return false;
         delete customPhotos[profileId];
         return true;
       }
-      let hex = bytesToHex(dataUrl);
+      let hex = dataUrlToJpegHex(dataUrl);
+      const chunkSize = cloudHexBudget(`${cloudPhotoKey()}_99`);
       const chunks = [];
       while (hex.length) {
-        chunks.push(hex.slice(0, 900));
-        hex = hex.slice(900);
+        chunks.push(hex.slice(0, chunkSize));
+        hex = hex.slice(chunkSize);
       }
-      if (chunks.length > 8) return false;
+      if (!chunks.length || chunks.length > PHOTO_CHUNKS_MAX) return false;
+      for (let i = 0; i < chunks.length; i += 4) {
+        const batch = chunks.slice(i, i + 4).map((chunk, offset) => (
+          putKvRaw(`${cloudPhotoKey()}_${i + offset}`, chunk)
+        ));
+        const okBatch = await Promise.all(batch);
+        if (okBatch.some((ok) => !ok)) return false;
+      }
       const okMeta = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: chunks.length })));
       if (!okMeta) return false;
-      for (let i = 0; i < chunks.length; i += 1) {
-        const ok = await putKvRaw(`${cloudPhotoKey()}_${i}`, chunks[i]);
-        if (!ok) return false;
-      }
       customPhotos[profileId] = dataUrl;
       return true;
     }
@@ -1735,7 +1775,7 @@
         reader.onload = () => {
           const img = new Image();
           img.onload = () => {
-            const size = 96;
+            const size = 72;
             const canvas = document.createElement("canvas");
             canvas.width = size;
             canvas.height = size;
@@ -1744,11 +1784,16 @@
             const sx = (img.width - min) / 2;
             const sy = (img.height - min) / 2;
             ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
-            let quality = 0.55;
+            const maxHex = PHOTO_CHUNKS_MAX * cloudHexBudget(`${cloudPhotoKey()}_99`);
+            let quality = 0.45;
             let dataUrl = canvas.toDataURL("image/jpeg", quality);
-            while (bytesToHex(dataUrl).length > 7200 && quality > 0.18) {
-              quality -= 0.08;
+            while (dataUrlToJpegHex(dataUrl).length > maxHex && quality > 0.12) {
+              quality -= 0.06;
               dataUrl = canvas.toDataURL("image/jpeg", quality);
+            }
+            if (dataUrlToJpegHex(dataUrl).length > maxHex) {
+              reject(new Error("image"));
+              return;
             }
             resolve(dataUrl);
           };
@@ -1759,7 +1804,7 @@
       });
     }
     async function putKvRaw(key, hex) {
-      if (!hex || hex.length > CLOUD_KV_HEX_MAX) return false;
+      if (!hex || hex.length > cloudHexBudget(key)) return false;
       const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`;
       try {
         const res = await fetch(url, { method: "POST", body: "", cache: "no-store", keepalive: true });
@@ -1834,7 +1879,7 @@
       };
       let json = JSON.stringify(compact);
       let hex = bytesToHex(json);
-      while (hex.length > CLOUD_KV_HEX_MAX && compact.p.length) {
+      while (hex.length > cloudHexBudget("catalog") && compact.p.length) {
         compact.p.pop();
         json = JSON.stringify(compact);
         hex = bytesToHex(json);
@@ -1891,9 +1936,9 @@
         u: updatedAt,
         y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
       };
-      const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
-      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
-      const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; });
+      const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; }, cloudHistKey());
+      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; }, cloudDaysKey());
+      const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; }, cloudBuyKey());
       await putKvRaw(cloudHistKey(), histHex);
       await putKvRaw(cloudDaysKey(), daysHex);
       await putKvRaw(cloudBuyKey(), buyHex);
@@ -1922,7 +1967,7 @@
           }
           const payload = buildCloudPayload();
           const core = toCompactCloud(payload);
-          const coreHex = encodeJsonHex(core);
+          const coreHex = encodeJsonHex(core, null, cloudKvKey());
           await putKvRaw(cloudKvKey(), coreHex);
           const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
           const savedB = Number(check?.coins?.balance) || 0;
@@ -2266,11 +2311,7 @@
           if (!profileId || !profileDirty) return;
           writePendingSnapshot();
           const core = toCompactCloud(buildCloudPayload());
-          const hex = encodeJsonHex(core, (obj) => {
-            if (obj.h && obj.h.length) { obj.h.pop(); return true; }
-            if (obj.y && obj.y.length) { obj.y.pop(); return true; }
-            return false;
-          });
+          const hex = encodeJsonHex(core, null, cloudKvKey());
           const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudKvKey()}/${hex}`;
           try { navigator.sendBeacon(url); } catch { /* ignore */ }
         });
@@ -2939,7 +2980,13 @@
     document.getElementById("mishaAvatar").addEventListener("click", openPhotoModal);
     document.getElementById("historyCloseBtn").addEventListener("click", closeCoinHistory);
     historyModal.addEventListener("click", (e) => { if (e.target === historyModal) closeCoinHistory(); });
-    document.getElementById("photoPickBtn").addEventListener("click", () => document.getElementById("photoFile").click());
+    function setPhotoBusy(busy) {
+      const saveBtn = document.getElementById("photoSaveBtn");
+      const resetBtn = document.getElementById("photoResetBtn");
+      saveBtn.disabled = busy;
+      resetBtn.disabled = busy;
+      saveBtn.textContent = busy ? t("photoSaving") : t("save");
+    }
     document.getElementById("photoFile").addEventListener("change", async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
@@ -2947,13 +2994,19 @@
         pendingPhoto = await compressPhoto(file);
         document.getElementById("photoPreview").src = pendingPhoto;
       } catch {
+        pendingPhoto = customPhotos[profileId] || null;
         showToast("bad", t("photoTooBig"), t("photoHint"), "📷");
       }
     });
     document.getElementById("photoSaveBtn").addEventListener("click", async () => {
-      if (!pendingPhoto) { closePhotoModal(); return; }
+      if (!pendingPhoto) {
+        showToast("bad", t("photoPickFirst"), t("photoHint"), "📷");
+        return;
+      }
+      setPhotoBusy(true);
       setSyncState("busy");
       const ok = await saveProfilePhoto(pendingPhoto);
+      setPhotoBusy(false);
       if (!ok) {
         setSyncState("err");
         showToast("bad", t("photoTooBig"), t("photoHint"), "📷");
@@ -2965,8 +3018,15 @@
       showToast("ok", t("dataSaved"), t("dataSavedHint"), "📷");
     });
     document.getElementById("photoResetBtn").addEventListener("click", async () => {
+      setPhotoBusy(true);
       setSyncState("busy");
-      await saveProfilePhoto("");
+      const ok = await saveProfilePhoto("");
+      setPhotoBusy(false);
+      if (!ok) {
+        setSyncState("err");
+        showToast("bad", t("photoTooBig"), t("photoHint"), "📷");
+        return;
+      }
       setSyncState("ok");
       updateProfileChrome();
       closePhotoModal();
