@@ -346,10 +346,19 @@
       display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center;
       padding: 14px; border: 2px solid #dceaff; border-radius: 16px; background: #fff;
     }
-    .prize-item.purchased { background: var(--ok-bg); border-color: #7de0b8; opacity: 0.85; }
+    .prize-item.purchased { background: var(--ok-bg); border-color: #7de0b8; }
     .prize-title { font-size: 16px; font-weight: 800; }
     .prize-cost { font-size: 14px; color: #8a5a00; font-weight: 800; }
     .prize-item .btn-sm { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+    .prize-meta { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .redeem-block { margin-bottom: 14px; }
+    .redeem-block > .label { display: block; margin-bottom: 10px; }
+    .sync-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #18c59a; margin-left: 4px; vertical-align: middle;
+    }
+    .sync-dot.busy { background: #ffb703; animation: statusThink 1s ease-in-out infinite; }
+    .sync-dot.err { background: #e11d48; }
     .empty-state {
       text-align: center; padding: 32px 16px; color: var(--muted);
     }
@@ -541,6 +550,7 @@
           <div class="coins" id="coinsBadge" title="Mishcoin">
             <span class="coin">★</span>
             <span id="coinsValue">0</span>
+            <span class="sync-dot" id="syncDot" title="sync"></span>
           </div>
         </div>
       </div>
@@ -671,7 +681,8 @@
             <p class="note" id="adminStatus"></p>
           </div>
           <div class="card">
-            <span class="label" data-i18n="adminWishlistTitle">Wishlist prizes</span>
+            <span class="label" data-i18n="adminWishlistTitle">Shared prize catalog</span>
+            <p class="note" data-i18n="adminWishlistHint">Dad adds prizes once — any profile can buy them.</p>
             <div id="adminWishlistList"></div>
             <div class="admin-row" style="margin-top:12px;">
               <span class="label" data-i18n="adminAddPrize">Add prize</span>
@@ -695,6 +706,7 @@
     const SETTINGS_KEY_BASE = "misha-math-settings-v1";
     const COINS_KEY_BASE = "misha-coins-v1";
     const CLOUD_META_KEY_BASE = "misha-cloud-meta-v1";
+    const CATALOG_KEY = "misha-prize-catalog-v1";
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
@@ -757,7 +769,8 @@
         adminTitle: "Админка папы",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
-        adminWishlistTitle: "Призы в вишлисте",
+        adminWishlistTitle: "Общий каталог наград",
+        adminWishlistHint: "Папа добавляет призы один раз — купить их может любой профиль.",
         adminAddPrize: "Добавить приз",
         adminAddPrizeBtn: "Добавить",
         prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
@@ -816,12 +829,15 @@
         redeemTitle: "Обмен призов",
         redeemSubtitle: "Потрать Мишкоины на желания!",
         redeemEmpty: "Папа ещё не добавил призы. Скоро будут сюрпризы!",
+        redeemShopTitle: "Витрина",
+        redeemBoughtTitle: "Купленные награды",
+        redeemBoughtEmpty: "Пока ничего не куплено. Выбери приз на витрине!",
         redeemBuy: "Купить",
         redeemPurchased: "Куплено",
         redeemNotEnough: "Не хватает Мишкоинов",
         redeemNotEnoughHint: "Ещё чуть-чуть потренируйся — и копилка наполнится!",
         redeemSuccess: (title) => `Ура! Ты получил: ${title}`,
-        redeemSuccessHint: "Приз уже в твоём списке желаний.",
+        redeemSuccessHint: "Награда уже в списке купленных, Мишкоины списаны.",
         redeemSpend: (title) => `Приз: ${title}`,
         toastOk: "Понятно",
         weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
@@ -863,7 +879,8 @@
         adminTitle: "Dad admin",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
-        adminWishlistTitle: "Wishlist prizes",
+        adminWishlistTitle: "Shared prize catalog",
+        adminWishlistHint: "Dad adds prizes once — any profile can buy them.",
         adminAddPrize: "Add prize", adminAddPrizeBtn: "Add prize",
         prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
         adminRemove: "Remove",
@@ -921,11 +938,14 @@
         redeemTitle: "Redeem prizes",
         redeemSubtitle: "Spend Mishcoins on wishes!",
         redeemEmpty: "Dad hasn't added prizes yet. Surprises coming soon!",
+        redeemShopTitle: "Shop",
+        redeemBoughtTitle: "Purchased rewards",
+        redeemBoughtEmpty: "Nothing purchased yet. Pick a prize from the shop!",
         redeemBuy: "Buy", redeemPurchased: "Purchased",
         redeemNotEnough: "Not enough Mishcoins",
         redeemNotEnoughHint: "Train a little more and your piggy bank will grow!",
         redeemSuccess: (title) => `Yay! You got: ${title}`,
-        redeemSuccessHint: "The prize is already on your wishlist.",
+        redeemSuccessHint: "The reward is in your purchased list and Mishcoins were spent.",
         redeemSpend: (title) => `Prize: ${title}`,
         toastOk: "Got it",
         weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -935,15 +955,17 @@
     let lang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ru";
     let profileId = null;
     let settings = { questionCount: 20, tablesMax: 0, wishlist: [] };
+    let catalog = { updatedAt: 0, prizes: [] };
     let state = null;
     let busy = false;
-    let coins = { balance: 0, history: [] };
+    let coins = { balance: 0, history: [], purchases: [] };
     let cloudMeta = { updatedAt: 0 };
     let calMonth = monthStart(new Date());
     let titleTaps = [];
     let currentView = "home";
     let pendingHistoryEntry = null;
     let cloudPushTimer = null;
+    let catalogPushTimer = null;
     let cloudSyncing = false;
     let suppressCloudPush = false;
     let dayMissionKey = null;
@@ -1076,12 +1098,89 @@
         return {
           balance: Number(raw.balance) || 0,
           history: Array.isArray(raw.history) ? raw.history : [],
+          purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
         };
-      } catch { return { balance: 0, history: [] }; }
+      } catch { return { balance: 0, history: [], purchases: [] }; }
     }
     function saveCoins() {
       localStorage.setItem(coinsKey(), JSON.stringify(coins));
       touchCloudAndPush();
+    }
+    function loadCatalog() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(CATALOG_KEY) || "{}");
+        return {
+          updatedAt: Number(raw.updatedAt) || 0,
+          prizes: Array.isArray(raw.prizes) ? raw.prizes : [],
+        };
+      } catch { return { updatedAt: 0, prizes: [] }; }
+    }
+    function saveCatalog() {
+      localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
+      scheduleCatalogPush();
+    }
+    function migrateWishlistToCatalog() {
+      const list = Array.isArray(settings.wishlist) ? settings.wishlist : [];
+      if (!list.length) return;
+      if (!catalog.prizes) catalog.prizes = [];
+      if (!coins.purchases) coins.purchases = [];
+      let changed = false;
+      list.forEach((prize) => {
+        const exists = catalog.prizes.some((p) => p.id === prize.id
+          || (p.titleRu === prize.titleRu && p.titleEn === prize.titleEn && p.cost === prize.cost));
+        if (!exists) {
+          catalog.prizes.push({
+            id: prize.id || uid(),
+            titleRu: prize.titleRu,
+            titleEn: prize.titleEn,
+            cost: Number(prize.cost) || 1,
+          });
+          changed = true;
+        }
+        if (prize.purchasedAt && !coins.purchases.some((x) => x.prizeId === prize.id && x.at === prize.purchasedAt)) {
+          coins.purchases.unshift({
+            id: uid(),
+            prizeId: prize.id,
+            titleRu: prize.titleRu,
+            titleEn: prize.titleEn,
+            cost: Number(prize.cost) || 1,
+            at: prize.purchasedAt,
+          });
+          changed = true;
+        }
+      });
+      settings.wishlist = [];
+      localStorage.setItem(settingsKey(), JSON.stringify(settings));
+      localStorage.setItem(coinsKey(), JSON.stringify(coins));
+      if (changed) {
+        catalog.updatedAt = Date.now();
+        saveCatalog();
+      }
+    }
+    function normalizeCatalogPrizes(list) {
+      return (Array.isArray(list) ? list : []).map((p) => ({
+        id: p.id || p.i,
+        titleRu: p.titleRu || p.r || "",
+        titleEn: p.titleEn || p.e || "",
+        cost: Number(p.cost ?? p.c) || 1,
+      })).filter((p) => p.id && (p.titleRu || p.titleEn));
+    }
+    function compactPurchase(p) {
+      return { i: p.id, z: p.prizeId, r: p.titleRu, e: p.titleEn, c: p.cost, a: p.at };
+    }
+    function expandPurchase(p) {
+      if (!p || typeof p !== "object") return null;
+      return {
+        id: p.id || p.i,
+        prizeId: p.prizeId || p.z,
+        titleRu: p.titleRu || p.r || "",
+        titleEn: p.titleEn || p.e || "",
+        cost: Number(p.cost ?? p.c) || 1,
+        at: p.at || p.a,
+      };
+    }
+    function expandPurchases(list) {
+      return (Array.isArray(list) ? list : []).map(expandPurchase).filter(Boolean);
     }
     function loadCloudMeta() {
       try {
@@ -1101,11 +1200,14 @@
     function buildCloudPayload() {
       return {
         updatedAt: cloudMeta.updatedAt || Date.now(),
-        coins: { balance: coins.balance, history: (coins.history || []).slice(0, 12) },
+        coins: {
+          balance: coins.balance,
+          history: (coins.history || []).slice(0, 6),
+          purchases: (coins.purchases || []).slice(0, 8),
+        },
         settings: {
           questionCount: settings.questionCount,
           tablesMax: settings.tablesMax,
-          wishlist: settings.wishlist || [],
         },
       };
     }
@@ -1113,10 +1215,10 @@
       return {
         u: Number(payload.updatedAt) || Date.now(),
         b: Number(payload.coins?.balance) || 0,
-        h: Array.isArray(payload.coins?.history) ? payload.coins.history.slice(0, 8) : [],
+        h: Array.isArray(payload.coins?.history) ? payload.coins.history.slice(0, 4) : [],
+        y: expandPurchases(payload.coins?.purchases).slice(0, 8).map(compactPurchase),
         q: Number(payload.settings?.questionCount) || 20,
         m: Number(payload.settings?.tablesMax) || 0,
-        w: Array.isArray(payload.settings?.wishlist) ? payload.settings.wishlist.slice(0, 8) : [],
       };
     }
     function fromCompactCloud(compact) {
@@ -1126,11 +1228,11 @@
         coins: {
           balance: compact.b ?? compact.coins?.balance,
           history: compact.h || compact.coins?.history || [],
+          purchases: expandPurchases(compact.y || compact.coins?.purchases || []),
         },
         settings: {
           questionCount: compact.q ?? compact.settings?.questionCount,
           tablesMax: compact.m ?? compact.settings?.tablesMax,
-          wishlist: compact.w || compact.settings?.wishlist || [],
         },
       });
     }
@@ -1143,6 +1245,7 @@
           coins: {
             balance: Number(raw.coins.balance) || 0,
             history: Array.isArray(raw.coins.history) ? raw.coins.history : [],
+            purchases: expandPurchases(raw.coins.purchases),
           },
           settings: raw.settings || null,
         };
@@ -1153,6 +1256,7 @@
           coins: {
             balance: Number(raw.balance) || 0,
             history: Array.isArray(raw.history) ? raw.history : [],
+            purchases: expandPurchases(raw.purchases),
           },
           settings: raw.settings || null,
         };
@@ -1163,8 +1267,12 @@
       if (!remote) return false;
       const localAt = cloudMeta.updatedAt || 0;
       if (remote.updatedAt > localAt) return true;
-      if (remote.coins.balance > coins.balance) return true;
-      if (coins.balance === 0 && remote.coins.balance > 0) return true;
+      if (remote.updatedAt === localAt) {
+        if (remote.coins.balance > coins.balance) return true;
+        const remoteBuys = (remote.coins.purchases || []).length;
+        const localBuys = (coins.purchases || []).length;
+        if (remoteBuys > localBuys) return true;
+      }
       return false;
     }
     function applyCloudPayload(payload) {
@@ -1175,6 +1283,9 @@
         coins = {
           balance: remote.coins.balance,
           history: remote.coins.history.length ? remote.coins.history : coins.history,
+          purchases: remote.coins.purchases && remote.coins.purchases.length
+            ? remote.coins.purchases
+            : (coins.purchases || []),
         };
         localStorage.setItem(coinsKey(), JSON.stringify(coins));
         if (remote.settings) {
@@ -1183,11 +1294,11 @@
           settings = {
             questionCount: count >= 5 && count <= 200 ? count : settings.questionCount,
             tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : settings.tablesMax,
-            wishlist: Array.isArray(remote.settings.wishlist) ? remote.settings.wishlist : settings.wishlist,
+            wishlist: [],
           };
           localStorage.setItem(settingsKey(), JSON.stringify(settings));
         }
-        cloudMeta.updatedAt = Math.max(remote.updatedAt || 0, cloudMeta.updatedAt || 0, Date.now());
+        cloudMeta.updatedAt = remote.updatedAt || cloudMeta.updatedAt || 0;
         saveCloudMeta();
         renderCoins();
         return true;
@@ -1216,27 +1327,38 @@
         json = JSON.stringify(compact);
         hex = bytesToHex(json);
       }
-      while (hex.length > 1000 && compact.w.length) {
-        compact.w.pop();
+      while (hex.length > 1000 && compact.y.length) {
+        compact.y.pop();
         json = JSON.stringify(compact);
         hex = bytesToHex(json);
       }
       return hex;
     }
-    async function fetchCloudFromKvKey(key) {
-      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) return null;
-      const text = (await res.text()).replace(/^"|"$/g, "").trim();
-      if (!text) return null;
+    function parseKvText(text) {
+      const raw = String(text || "").replace(/^"|"$/g, "").trim();
+      if (!raw) return null;
       try {
-        if (/^[0-9a-f]+$/i.test(text)) return normalizeCloudPayload(JSON.parse(hexToBytes(text)));
-        return normalizeCloudPayload(JSON.parse(text));
+        if (/^[0-9a-f]+$/i.test(raw)) return JSON.parse(hexToBytes(raw));
+        return JSON.parse(raw);
       } catch { return null; }
     }
+    async function fetchKvRaw(key) {
+      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      return parseKvText(await res.text());
+    }
+    async function putKvRaw(key, hex) {
+      const res = await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`, {
+        method: "POST",
+        body: "",
+        cache: "no-store",
+      });
+      return res.ok;
+    }
     async function fetchCloudFromKv() {
-      const primary = await fetchCloudFromKvKey(cloudKvKey());
+      const primary = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
       if (primary) return primary;
-      if (profileId === "misha") return fetchCloudFromKvKey("family");
+      if (profileId === "misha") return normalizeCloudPayload(await fetchKvRaw("family"));
       return null;
     }
     async function fetchCloudFromGist() {
@@ -1261,11 +1383,51 @@
       if (currentView === "tables") renderTablesSettings();
       if (currentView === "pythagoras") renderPythagoras();
       if (currentView === "redeem") renderRedeem();
+      if (currentView === "admin") renderAdminWishlist();
+    }
+    async function pullCatalogSync() {
+      const remote = await fetchKvRaw("catalog");
+      if (!remote || typeof remote !== "object") {
+        if ((catalog.prizes || []).length) scheduleCatalogPush();
+        return;
+      }
+      const remoteAt = Number(remote.u || remote.updatedAt) || 0;
+      const prizes = normalizeCatalogPrizes(remote.p || remote.prizes);
+      if (remoteAt > (catalog.updatedAt || 0) || (!catalog.updatedAt && prizes.length)) {
+        catalog = { updatedAt: remoteAt || Date.now(), prizes };
+        localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
+        if (currentView === "redeem") renderRedeem();
+        if (currentView === "admin") renderAdminWishlist();
+      } else if ((catalog.updatedAt || 0) > remoteAt) {
+        scheduleCatalogPush();
+      }
+    }
+    async function pushCatalogSync() {
+      const compact = {
+        u: catalog.updatedAt || Date.now(),
+        p: (catalog.prizes || []).slice(0, 12).map((p) => ({
+          i: p.id, r: p.titleRu, e: p.titleEn, c: p.cost,
+        })),
+      };
+      let json = JSON.stringify(compact);
+      let hex = bytesToHex(json);
+      while (hex.length > 1000 && compact.p.length) {
+        compact.p.pop();
+        json = JSON.stringify(compact);
+        hex = bytesToHex(json);
+      }
+      await putKvRaw("catalog", hex);
+    }
+    function scheduleCatalogPush() {
+      window.clearTimeout(catalogPushTimer);
+      catalogPushTimer = window.setTimeout(() => { pushCatalogSync(); }, 250);
     }
     async function pullCloudSync() {
-      if (cloudSyncing) return false;
+      if (!profileId || cloudSyncing) return false;
       cloudSyncing = true;
+      setSyncState("busy");
       try {
+        await pullCatalogSync();
         const results = await Promise.allSettled([
           fetchCloudFromKv(),
           fetchCloudFromGist(),
@@ -1280,37 +1442,61 @@
             best = r.value;
           }
         });
-        if (!best) return false;
+        if (!best) {
+          if ((cloudMeta.updatedAt || 0) > 0 || coins.balance > 0) scheduleCloudPush();
+          setSyncState("ok");
+          return false;
+        }
         if (shouldApplyCloud(best)) {
           const changed = applyCloudPayload(best);
           if (changed) refreshAfterCloudApply();
+          setSyncState("ok");
           return changed;
         }
-        if ((cloudMeta.updatedAt || 0) > (best.updatedAt || 0) || coins.balance > best.coins.balance) {
-          scheduleCloudPush();
+        if ((cloudMeta.updatedAt || 0) > (best.updatedAt || 0)) {
+          await pushCloudSync();
+        } else if ((cloudMeta.updatedAt || 0) === (best.updatedAt || 0) && coins.balance > best.coins.balance) {
+          await pushCloudSync();
         }
+        setSyncState("ok");
         return false;
       } catch {
+        setSyncState("err");
         return false;
       } finally {
         cloudSyncing = false;
       }
     }
     async function pushCloudSync() {
+      if (!profileId) return false;
       const payload = buildCloudPayload();
       const hex = encodeCloudValue(payload);
-      try {
-        await fetch(`${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudKvKey()}/${hex}`, {
-          method: "POST",
-          body: "",
-          cache: "no-store",
-        });
-      } catch { /* offline ok */ }
+      setSyncState("busy");
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          const ok = await putKvRaw(cloudKvKey(), hex);
+          if (ok) {
+            const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
+            if (check && check.coins.balance === coins.balance) {
+              setSyncState("ok");
+              return true;
+            }
+          }
+        } catch { /* retry */ }
+        await sleep(200 * (i + 1));
+      }
+      setSyncState("err");
+      return false;
     }
     function scheduleCloudPush() {
       if (suppressCloudPush) return;
       window.clearTimeout(cloudPushTimer);
       cloudPushTimer = window.setTimeout(() => { pushCloudSync(); }, 250);
+    }
+    function setSyncState(kind) {
+      const dot = document.getElementById("syncDot");
+      if (!dot) return;
+      dot.className = `sync-dot${kind === "ok" ? "" : ` ${kind}`}`;
     }
     function showToast(kind, title, text, emoji) {
       toastModal.classList.toggle("ok", kind === "ok");
@@ -1576,6 +1762,8 @@
       migrateLegacyProfileData(id);
       settings = loadSettings();
       coins = loadCoins();
+      catalog = loadCatalog();
+      migrateWishlistToCatalog();
       cloudMeta = loadCloudMeta();
       state = null;
       profileModal.classList.add("hidden");
@@ -1776,43 +1964,63 @@
 
     function renderRedeem() {
       const box = document.getElementById("redeemContent");
-      const list = settings.wishlist || [];
-      if (!list.length) {
-        box.innerHTML = `<div class="card empty-state"><div class="empty-icon">🎁</div><p>${t("redeemEmpty")}</p></div>`;
-        return;
-      }
-      box.innerHTML = `<div class="card"><div class="prize-list">${list.map((prize) => {
-        const title = prizeTitle(prize);
-        const purchased = !!prize.purchasedAt;
-        return `<div class="prize-item${purchased ? " purchased" : ""}">
-          <div class="prize-title">${title}</div>
-          <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
-          ${purchased
-            ? `<span class="plan-badge">${t("redeemPurchased")}</span>`
-            : `<button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button">${t("redeemBuy")}</button>`}
+      const shop = catalog.prizes || [];
+      const bought = coins.purchases || [];
+      const shopHtml = shop.length
+        ? `<div class="prize-list">${shop.map((prize) => `
+            <div class="prize-item">
+              <div class="prize-title">${prizeTitle(prize)}</div>
+              <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
+              <button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button">${t("redeemBuy")}</button>
+            </div>`).join("")}</div>`
+        : `<div class="empty-state"><div class="empty-icon">🎁</div><p>${t("redeemEmpty")}</p></div>`;
+      const boughtHtml = bought.length
+        ? `<div class="prize-list">${bought.map((item) => `
+            <div class="prize-item purchased">
+              <div class="prize-title">${prizeTitle(item)}</div>
+              <div class="prize-meta">${item.cost} ${COIN_SYMBOL} · ${formatHistoryDate(item.at)}</div>
+              <span class="plan-badge">${t("redeemPurchased")}</span>
+            </div>`).join("")}</div>`
+        : `<p class="note">${t("redeemBoughtEmpty")}</p>`;
+      box.innerHTML = `
+        <div class="card redeem-block">
+          <span class="label">${t("redeemShopTitle")}</span>
+          ${shopHtml}
+        </div>
+        <div class="card redeem-block">
+          <span class="label">${t("redeemBoughtTitle")}</span>
+          ${boughtHtml}
         </div>`;
-      }).join("")}</div></div>`;
       box.querySelectorAll(".redeem-buy").forEach((btn) => {
         btn.addEventListener("click", () => buyPrize(btn.getAttribute("data-id")));
       });
     }
 
     function buyPrize(id) {
-      const prize = (settings.wishlist || []).find((p) => p.id === id);
-      if (!prize || prize.purchasedAt) return;
+      const prize = (catalog.prizes || []).find((p) => p.id === id);
+      if (!prize) return;
       if (coins.balance < prize.cost) {
         showToast("bad", t("redeemNotEnough"), t("redeemNotEnoughHint"), "😢");
         return;
       }
       const title = prizeTitle(prize);
+      const at = new Date().toISOString();
+      if (!coins.purchases) coins.purchases = [];
+      coins.purchases.unshift({
+        id: uid(),
+        prizeId: prize.id,
+        titleRu: prize.titleRu,
+        titleEn: prize.titleEn,
+        cost: prize.cost,
+        at,
+      });
+      if (coins.purchases.length > 50) coins.purchases.length = 50;
       const entry = {
-        id: uid(), at: new Date().toISOString(), dateKey: todayKey(),
+        id: uid(), at, dateKey: todayKey(),
         amount: -prize.cost,
         parts: [{ label: t("redeemSpend", title), amount: -prize.cost }],
       };
       spendCoins(prize.cost, entry);
-      prize.purchasedAt = new Date().toISOString();
-      saveSettings();
       showToast("ok", t("redeemSuccess", title), t("redeemSuccessHint"), "🎁");
       renderRedeem();
     }
@@ -2156,20 +2364,21 @@
     }
     function renderAdminWishlist() {
       const box = document.getElementById("adminWishlistList");
-      const list = settings.wishlist || [];
+      const list = catalog.prizes || [];
       if (!list.length) { box.innerHTML = `<p class="note">${t("redeemEmpty")}</p>`; return; }
       box.innerHTML = list.map((prize) => {
         const title = prizeTitle(prize);
-        const canRemove = !prize.purchasedAt;
         return `<div class="admin-prize-row">
-          <div><strong>${title}</strong><br><span class="note">${prize.cost} ${COIN_SYMBOL}${prize.purchasedAt ? " · " + t("redeemPurchased") : ""}</span></div>
-          ${canRemove ? `<button class="btn btn-ghost btn-sm admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>` : ""}
+          <div><strong>${title}</strong><br><span class="note">${prize.cost} ${COIN_SYMBOL}</span></div>
+          <button class="btn btn-ghost btn-sm admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>
         </div>`;
       }).join("");
       box.querySelectorAll(".admin-remove").forEach((btn) => {
         btn.addEventListener("click", () => {
-          settings.wishlist = settings.wishlist.filter((p) => p.id !== btn.getAttribute("data-id"));
-          saveSettings(); renderAdminWishlist();
+          catalog.prizes = catalog.prizes.filter((p) => p.id !== btn.getAttribute("data-id"));
+          catalog.updatedAt = Date.now();
+          saveCatalog();
+          renderAdminWishlist();
         });
       });
     }
@@ -2263,9 +2472,10 @@
       const titleEn = document.getElementById("prizeTitleEn").value.trim();
       const cost = Number(document.getElementById("prizeCost").value);
       if (!titleRu || !titleEn || !Number.isFinite(cost) || cost < 1) return;
-      if (!settings.wishlist) settings.wishlist = [];
-      settings.wishlist.push({ id: uid(), titleRu, titleEn, cost: Math.round(cost), purchasedAt: null });
-      saveSettings();
+      if (!catalog.prizes) catalog.prizes = [];
+      catalog.prizes.push({ id: uid(), titleRu, titleEn, cost: Math.round(cost) });
+      catalog.updatedAt = Date.now();
+      saveCatalog();
       document.getElementById("prizeTitleRu").value = "";
       document.getElementById("prizeTitleEn").value = "";
       document.getElementById("prizeCost").value = "";
