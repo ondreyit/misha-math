@@ -1009,6 +1009,8 @@
     let cloudPushTimer = null;
     let catalogPushTimer = null;
     let cloudSyncing = false;
+    let cloudPushing = false;
+    let cloudPushQueued = false;
     let suppressCloudPush = false;
     let dayMissionKey = null;
     let appStarted = false;
@@ -1256,7 +1258,7 @@
       profileDirty = true;
       cloudMeta.updatedAt = Date.now();
       setSyncState("busy");
-      scheduleCloudPush();
+      flushCloudNow();
     }
     function toUnix(iso) {
       const n = Date.parse(iso || "");
@@ -1775,7 +1777,7 @@
     }
     function scheduleCatalogPush() {
       window.clearTimeout(catalogPushTimer);
-      catalogPushTimer = window.setTimeout(() => { pushCatalogSync(); }, 250);
+      pushCatalogSync();
     }
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
@@ -1795,7 +1797,7 @@
         }
         if (coins.balance > (remote.coins?.balance || 0)) {
           profileDirty = true;
-          scheduleCloudPush();
+          flushCloudNow();
           setSyncState("busy");
           return false;
         }
@@ -1813,55 +1815,54 @@
     }
     async function pushCloudSync() {
       if (!profileId) return false;
-      setSyncState("busy");
-      const latest = await fetchProfileCloud();
-      if (latest && (latest.coins?.balance || 0) > coins.balance) {
-        replaceFromCloud(latest);
-        refreshAfterCloudApply();
-        profileDirty = false;
-        setSyncState("ok");
-        return true;
-      }
-      const payload = buildCloudPayload();
-      const core = toCompactCloud(payload);
-      const hist = { u: core.u, h: compactHistory(payload.coins.history) };
-      const days = { u: core.u, d: compactDays(dayStore) };
-      const coreHex = encodeJsonHex(core, (obj) => {
-        if (obj.h && obj.h.length) { obj.h.pop(); return true; }
-        if (obj.y && obj.y.length) { obj.y.pop(); return true; }
+      if (cloudPushing) {
+        cloudPushQueued = true;
         return false;
-      });
-      const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
-      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
-      for (let i = 0; i < 4; i += 1) {
-        try {
+      }
+      cloudPushing = true;
+      setSyncState("busy");
+      try {
+        for (let i = 0; i < 5; i += 1) {
+          cloudPushQueued = false;
+          const payload = buildCloudPayload();
+          const core = toCompactCloud(payload);
+          const hist = { u: core.u, h: compactHistory(payload.coins.history) };
+          const days = { u: core.u, d: compactDays(dayStore) };
+          const coreHex = encodeJsonHex(core, (obj) => {
+            if (obj.h && obj.h.length) { obj.h.pop(); return true; }
+            if (obj.y && obj.y.length) { obj.y.pop(); return true; }
+            return false;
+          });
+          const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
+          const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
           const [okCore, okHist, okDays] = await Promise.all([
             putKvRaw(cloudKvKey(), coreHex),
             putKvRaw(cloudHistKey(), histHex),
             putKvRaw(cloudDaysKey(), daysHex),
           ]);
-          const check = okCore ? normalizeCloudPayload(await fetchKvRaw(cloudKvKey())) : null;
-          if (okCore && okDays && okHist && check && check.coins.balance === coins.balance) {
+          if (okCore && okHist && okDays) {
             profileDirty = false;
             setSyncState("ok");
             return true;
           }
-        } catch { /* retry */ }
-        await sleep(250 * (i + 1));
+        }
+        setSyncState("err");
+        return false;
+      } catch {
+        setSyncState("err");
+        return false;
+      } finally {
+        cloudPushing = false;
+        if (cloudPushQueued) pushCloudSync();
       }
-      setSyncState("err");
-      return false;
     }
-    function scheduleCloudPush() {
+    function flushCloudNow() {
       if (suppressCloudPush) return;
       window.clearTimeout(cloudPushTimer);
-      cloudPushTimer = window.setTimeout(() => {
-        if (cloudSyncing) {
-          scheduleCloudPush();
-          return;
-        }
-        pushCloudSync();
-      }, 120);
+      pushCloudSync();
+    }
+    function scheduleCloudPush() {
+      flushCloudNow();
     }
     function setSyncState(kind) {
       const dot = document.getElementById("syncDot");
@@ -2157,7 +2158,7 @@
       if (currentView === "history") renderCoinHistory();
       if (!appStarted) {
         appStarted = true;
-        window.setInterval(() => { if (profileId) pullCloudSync(); }, 8000);
+        window.setInterval(() => { if (profileId) pullCloudSync(); }, 2000);
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible" && profileId) pullCloudSync();
         });
