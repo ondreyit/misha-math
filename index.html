@@ -1232,8 +1232,11 @@
         toUnix(e.at),
         e.dateKey || "",
         Number(e.amount) || 0,
-        (e.parts || []).map((p) => [p.k || p.label || "", Number(p.amount) || 0, p.r || p.e || ""]),
+        (e.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || ""]),
       ]));
+    }
+    function compactMiniHistory(list) {
+      return (list || []).slice(0, 8).map((e) => [toUnix(e.at), Number(e.amount) || 0, e.dateKey || ""]);
     }
     function expandHistory(list) {
       if (!Array.isArray(list)) return [];
@@ -1248,6 +1251,15 @@
           };
         }
         if (!Array.isArray(item)) return null;
+        if (typeof item[0] === "number") {
+          return {
+            id: `h-${item[0]}-${item[1]}`,
+            at: fromUnix(item[0]) || new Date().toISOString(),
+            dateKey: item[2] || "",
+            amount: Number(item[1]) || 0,
+            parts: [],
+          };
+        }
         const [id, unix, dateKey, amount, parts] = item;
         return {
           id: id || uid(),
@@ -1260,6 +1272,24 @@
           }),
         };
       }).filter(Boolean);
+    }
+    function historyFromDays(days) {
+      return (days || [])
+        .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
+        .map((d) => ({
+          id: `day-${d.date}-${d.runsCompleted || 1}`,
+          at: d.completedAt || `${d.date}T12:00:00.000Z`,
+          dateKey: d.date,
+          amount: Number(d.totalCoins || d.coinsAwarded) || 0,
+          parts: [{ k: "onTime", amount: Number(d.coinsAwarded) || 0 }],
+        }));
+    }
+    function fillHistoryFromDays() {
+      const generated = historyFromDays(Object.values(dayStore));
+      if (!generated.length) return false;
+      const before = (coins.history || []).length;
+      coins.history = mergeHistory(coins.history, generated);
+      return coins.history.length > before;
     }
     function mergeHistory(local, remote) {
       const map = new Map();
@@ -1414,6 +1444,7 @@
       return {
         u: Number(payload.updatedAt) || Date.now(),
         b: Number(payload.coins?.balance) || 0,
+        h: compactMiniHistory(payload.coins?.history),
         y: expandPurchases(payload.coins?.purchases).slice(0, 8).map(compactPurchase),
         q: Number(payload.settings?.questionCount) || 20,
         m: Number(payload.settings?.tablesMax) || 0,
@@ -1477,7 +1508,7 @@
       try {
         coins = {
           balance: Number(remote.coins?.balance) || 0,
-          history: Array.isArray(remote.coins?.history) ? remote.coins.history : [],
+          history: mergeHistory([], remote.coins?.history),
           purchases: Array.isArray(remote.coins?.purchases) ? remote.coins.purchases : [],
         };
         settings = parseSettings(remote.settings);
@@ -1485,6 +1516,7 @@
         (remote.days || []).forEach((day) => {
           if (day?.date) dayStore[day.date] = day;
         });
+        fillHistoryFromDays();
         cloudMeta.updatedAt = Number(remote.updatedAt) || 0;
         renderCoins();
         return true;
@@ -1623,6 +1655,10 @@
           return false;
         }
         replaceFromCloud(remote);
+        if (fillHistoryFromDays()) {
+          profileDirty = true;
+          scheduleCloudPush();
+        }
         refreshAfterCloudApply();
         setSyncState("ok");
         return true;
@@ -1639,7 +1675,11 @@
       const core = toCompactCloud(payload);
       const hist = { u: core.u, h: compactHistory(payload.coins.history) };
       const days = { u: core.u, d: compactDays(dayStore) };
-      const coreHex = encodeJsonHex(core, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; });
+      const coreHex = encodeJsonHex(core, (obj) => {
+        if (obj.h && obj.h.length) { obj.h.pop(); return true; }
+        if (obj.y && obj.y.length) { obj.y.pop(); return true; }
+        return false;
+      });
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; });
       const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; });
       setSyncState("busy");
@@ -1650,13 +1690,13 @@
             putKvRaw(cloudHistKey(), histHex),
             putKvRaw(cloudDaysKey(), daysHex),
           ]);
-          if (okCore && okHist && okDays) {
-            const check = normalizeCloudPayload(await fetchKvRaw(cloudKvKey()));
-            if (check && check.coins.balance === coins.balance) {
-              profileDirty = false;
-              setSyncState("ok");
-              return true;
-            }
+          const check = okCore ? normalizeCloudPayload(await fetchKvRaw(cloudKvKey())) : null;
+          const histCheck = okHist ? await fetchKvRaw(cloudHistKey()) : null;
+          const histOk = !hist.h.length || (histCheck && Array.isArray(histCheck.h));
+          if (okCore && okDays && histOk && check && check.coins.balance === coins.balance) {
+            profileDirty = false;
+            setSyncState("ok");
+            return true;
           }
         } catch { /* retry */ }
         await sleep(250 * (i + 1));
@@ -1697,7 +1737,9 @@
       coinsBadge.classList.add("pop");
     }
     function pushCoinHistory(entry) {
+      if (!entry) return;
       if (!coins.history) coins.history = [];
+      if (coins.history.some((item) => historyKey(item) === historyKey(entry))) return;
       coins.history.unshift(entry);
       if (coins.history.length > 100) coins.history.length = 100;
       saveCoins();
@@ -1908,11 +1950,19 @@
         const legacy = readLegacyDeviceProfile(profileId);
         if (legacyRicherThanCloud(legacy, remote)) {
           applyLegacyDeviceProfile(legacy);
+          fillHistoryFromDays();
           renderCoins();
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
           await pushCloudSync();
           if (catalog.updatedAt) await pushCatalogSync();
+        } else if ((coins.history || []).length) {
+          const histRemote = await fetchKvRaw(cloudHistKey());
+          if (!histRemote || !Array.isArray(histRemote.h) || !histRemote.h.length) {
+            profileDirty = true;
+            cloudMeta.updatedAt = Date.now();
+            await pushCloudSync();
+          }
         }
         clearDeviceProfileData();
         setSyncState("ok");
@@ -2487,6 +2537,7 @@
         amount: reward.total,
         parts: reward.parts.filter((p) => p.amount > 0),
       };
+      if (reward.total) pushCoinHistory(pendingHistoryEntry);
       persist();
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
