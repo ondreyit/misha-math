@@ -3181,9 +3181,7 @@
       document.getElementById("prizeTitleRu").value = "";
       document.getElementById("prizeTitleEn").value = "";
       document.getElementById("prizeCost").value = "";
-      updateHome();
-      show("home");
-      showToast("ok", t("dataSaved"), t("dataSavedHint"), "✅");
+      renderAdminWishlist();
     });
     document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
     document.getElementById("profileChip").addEventListener("click", openProfilePicker);
