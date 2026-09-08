@@ -711,6 +711,11 @@
               <input id="adminCountInput" type="number" min="5" max="200" step="1" />
               <p class="note" data-i18n="adminQuestionsHint">Applies to tests that are not completed yet.</p>
             </div>
+            <div class="admin-row">
+              <span class="label" data-i18n="adminFailExtra">Extra questions after a fail</span>
+              <input id="adminFailExtraInput" type="number" min="0" max="10" step="1" />
+              <p class="note" data-i18n="adminFailExtraHint">How many new examples to add when the answer is wrong.</p>
+            </div>
             <p class="note" id="adminStatus"></p>
           </div>
           <div class="card">
@@ -733,7 +738,8 @@
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
-    const FAIL_EXTRA = 2;
+    const FAIL_EXTRA_DEFAULT = 2;
+    const FAIL_EXTRA_KEY = "misha-fail-extra-v1";
     const ADMIN_PIN = "2018";
     const STORAGE_KEY_BASE = "misha-daily-math-v1";
     const SETTINGS_KEY_BASE = "misha-math-settings-v1";
@@ -806,6 +812,8 @@
         adminTitle: "Админка папы",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
+        adminFailExtra: "Вопросов за ошибку",
+        adminFailExtraHint: "Сколько новых примеров добавить, если ответ неверный.",
         adminWishlistTitle: "Общий каталог наград",
         adminWishlistHint: "Папа добавляет призы один раз — купить их может любой профиль.",
         adminAddPrize: "Добавить приз",
@@ -925,6 +933,8 @@
         adminTitle: "Dad admin",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
+        adminFailExtra: "Extra questions after a fail",
+        adminFailExtraHint: "How many new examples to add when the answer is wrong.",
         adminWishlistTitle: "Shared prize catalog",
         adminWishlistHint: "Dad adds prizes once — any profile can buy them.",
         adminAddPrize: "Add prize", adminAddPrizeBtn: "Add prize",
@@ -1030,6 +1040,7 @@
     let appStarted = false;
     let customPhotos = {};
     let pendingPhoto = null;
+    let failExtraSetting = FAIL_EXTRA_DEFAULT;
 
     function storageKey() { return `${STORAGE_KEY_BASE}:${profileId}`; }
     function settingsKey() { return `${SETTINGS_KEY_BASE}:${profileId}`; }
@@ -1112,6 +1123,30 @@
       return d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     }
     function questionCount() { return Number(settings.questionCount) || 20; }
+    function clampFailExtra(n) {
+      const value = Number(n);
+      if (!Number.isFinite(value)) return FAIL_EXTRA_DEFAULT;
+      return Math.max(0, Math.min(10, Math.round(value)));
+    }
+    function failExtra() { return clampFailExtra(failExtraSetting); }
+    function applyFailExtra(n) {
+      failExtraSetting = clampFailExtra(n);
+      try { localStorage.setItem(FAIL_EXTRA_KEY, String(failExtraSetting)); } catch { /* ignore */ }
+      return failExtraSetting;
+    }
+    async function pullFailExtra() {
+      try {
+        const stored = localStorage.getItem(FAIL_EXTRA_KEY);
+        if (stored != null && stored !== "") applyFailExtra(stored);
+      } catch { /* ignore */ }
+      const remote = await fetchKvRaw("cfg");
+      const n = Number(remote?.f ?? remote?.failExtra);
+      if (Number.isFinite(n)) applyFailExtra(n);
+    }
+    async function pushFailExtra() {
+      const n = applyFailExtra(failExtraSetting);
+      await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n })));
+    }
     function dayIndex(dateKey) {
       const ms = parseKey(dateKey).getTime() - parseKey(PROGRAM_START).getTime();
       return Math.max(0, Math.floor(ms / 86400000));
@@ -1896,6 +1931,7 @@
       if (currentView === "admin") renderAdminWishlist();
     }
     async function pullCatalogSync() {
+      await pullFailExtra();
       const remote = await fetchKvRaw("catalog");
       if (!remote || typeof remote !== "object") {
         if ((catalog.prizes || []).length) scheduleCatalogPush();
@@ -2924,10 +2960,11 @@
         problemCard.classList.add("flash-ok"); setHero(pick(t("praise"))); spawnBurst(true);
       } else {
         state.fails += 1;
-        feedbackEl.textContent = t("failLine", problem.answer, FAIL_EXTRA);
+        const extra = failExtra();
+        feedbackEl.textContent = t("failLine", problem.answer, extra);
         feedbackEl.className = "feedback bad";
         problemCard.classList.add("flash-bad"); setHero(pick(t("cheer"))); spawnBurst(false);
-        for (let i = 0; i < FAIL_EXTRA; i += 1) state.queue.push(makeProblem(tables));
+        for (let i = 0; i < extra; i += 1) state.queue.push(makeProblem(tables));
       }
       persist(); updateTrainChrome();
       window.setTimeout(() => {
@@ -2961,6 +2998,7 @@
     function openAdmin() {
       sessionStorage.setItem(ADMIN_KEY, "1");
       document.getElementById("adminCountInput").value = String(questionCount());
+      document.getElementById("adminFailExtraInput").value = String(failExtra());
       document.getElementById("adminStatus").textContent = "";
       renderAdminWishlist();
       setHero(t("adminTitle"));
@@ -3115,11 +3153,17 @@
     });
     document.getElementById("pinCancelBtn").addEventListener("click", closePinModal);
     document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("pinOkBtn").click(); });
-    document.getElementById("adminSaveBtn").addEventListener("click", () => {
+    document.getElementById("adminSaveBtn").addEventListener("click", async () => {
       const value = Number(document.getElementById("adminCountInput").value);
+      const extra = Number(document.getElementById("adminFailExtraInput").value);
       if (!Number.isFinite(value) || value < 5 || value > 200) {
         document.getElementById("adminStatus").textContent = "5–200"; return;
       }
+      if (!Number.isFinite(extra) || extra < 0 || extra > 10) {
+        document.getElementById("adminStatus").textContent = "0–10"; return;
+      }
+      applyFailExtra(extra);
+      await pushFailExtra();
       applyQuestionCountToUnfinished(Math.round(value));
       updateHome();
       show("home");
@@ -3148,6 +3192,7 @@
     const startMonth = monthStart(parseKey(PROGRAM_START));
     if (calMonth < startMonth) calMonth = startMonth;
     applyI18n();
+    try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     show("home");
     openProfilePicker();
   </script>
