@@ -759,6 +759,9 @@
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
+    const CLOUD_NOTIFY_URL = "https://ntfy.sh/misha-math-live-f7c3a91e";
+    const CLIENT_ID = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 8)}`;
+    const PHOTO_CACHE_KEY = "misha-photos-v1";
     const PHOTO_CHUNKS_MAX = 24;
     const PROFILES = [
       { id: "misha", ru: "Миша", en: "Misha", emoji: "🦸", photo: "assets/misha.jpg?v=4", pos: "center 20%" },
@@ -1045,6 +1048,7 @@
     let customPhotos = {};
     let pendingPhoto = null;
     let failExtraSetting = FAIL_EXTRA_DEFAULT;
+    let cloudNotify = null;
 
     function storageKey() { return `${STORAGE_KEY_BASE}:${profileId}`; }
     function settingsKey() { return `${SETTINGS_KEY_BASE}:${profileId}`; }
@@ -1150,6 +1154,7 @@
     async function pushFailExtra() {
       const n = applyFailExtra(failExtraSetting);
       await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n })));
+      notifyCloud("cfg");
     }
     function dayIndex(dateKey) {
       const ms = parseKey(dateKey).getTime() - parseKey(PROGRAM_START).getTime();
@@ -1822,7 +1827,8 @@
     async function loadProfilePhoto(id = profileId) {
       if (!id) return;
       const meta = await fetchKvRaw(cloudPhotoKey(id));
-      const count = Number(meta?.n) || 0;
+      if (!meta) return;
+      const count = Number(meta.n) || 0;
       if (!count) {
         delete customPhotos[id];
         return;
@@ -1830,13 +1836,30 @@
       const parts = [];
       for (let i = 0; i < count; i += 1) {
         const chunk = await fetchKvHex(`${cloudPhotoKey(id)}_${i}`);
-        if (!chunk) { delete customPhotos[id]; return; }
+        if (!chunk) return;
         parts.push(chunk);
       }
       try {
         const dataUrl = jpegHexToDataUrl(parts.join(""));
         if (dataUrl.startsWith("data:image")) customPhotos[id] = dataUrl;
-      } catch { delete customPhotos[id]; }
+      } catch { /* keep previous photo */ }
+    }
+    function restorePhotoCache() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(PHOTO_CACHE_KEY) || "{}");
+        Object.keys(raw || {}).forEach((id) => {
+          if (String(raw[id] || "").startsWith("data:image")) customPhotos[id] = raw[id];
+        });
+      } catch { /* ignore */ }
+    }
+    function cachePhotos() {
+      try { localStorage.setItem(PHOTO_CACHE_KEY, JSON.stringify(customPhotos)); } catch { /* ignore */ }
+    }
+    async function loadAllProfilePhotos() {
+      await Promise.all(PROFILES.map((p) => loadProfilePhoto(p.id)));
+      cachePhotos();
+      if (!profileModal.classList.contains("hidden")) renderProfilePicker();
+      if (profileId) updateProfileChrome();
     }
     async function saveProfilePhoto(dataUrl) {
       if (!profileId) return false;
@@ -1844,6 +1867,8 @@
         const ok = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: 0 })));
         if (!ok) return false;
         delete customPhotos[profileId];
+        cachePhotos();
+        notifyCloud("photo", { id: profileId });
         return true;
       }
       let hex = dataUrlToJpegHex(dataUrl);
@@ -1864,6 +1889,8 @@
       const okMeta = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: chunks.length })));
       if (!okMeta) return false;
       customPhotos[profileId] = dataUrl;
+      cachePhotos();
+      notifyCloud("photo", { id: profileId });
       return true;
     }
     function compressPhoto(file) {
@@ -1976,19 +2003,22 @@
     }
     async function fetchCatalogCloud() {
       const remote = await fetchKvRaw("catalog");
-      if (!remote || typeof remote !== "object") return null;
-      let prizes = normalizeCatalogPrizes(remote.p || remote.prizes);
-      const n = Number(remote.n) || 0;
-      if (n > 0) {
-        const rows = await Promise.all(Array.from({ length: n }, (_, i) => fetchKvRaw(`c${i}`)));
-        const chunked = rows.map((row) => {
-          if (row == null) return null;
-          const list = Array.isArray(row) ? [row] : (row.p || [row]);
-          return normalizeCatalogPrizes(list)[0] || null;
-        }).filter(Boolean);
-        if (chunked.length) prizes = chunked;
-      }
-      return { updatedAt: Number(remote.u || remote.updatedAt) || 0, prizes };
+      const fromP = normalizeCatalogPrizes(remote?.p || remote?.prizes);
+      const declared = Number(remote?.n) || 0;
+      const scan = Math.max(declared, 8);
+      const rows = await Promise.all(Array.from({ length: scan }, (_, i) => fetchKvRaw(`c${i}`)));
+      const chunked = rows.map((row) => {
+        if (row == null) return null;
+        const list = Array.isArray(row) ? [row] : (row.p || [row]);
+        return normalizeCatalogPrizes(list)[0] || null;
+      }).filter(Boolean);
+      const map = new Map();
+      [...chunked, ...fromP].forEach((prize) => {
+        if (prize?.id && !map.has(prize.id)) map.set(prize.id, prize);
+      });
+      const prizes = [...map.values()];
+      if (!prizes.length) return remote ? { updatedAt: Number(remote.u || remote.updatedAt) || 0, prizes: [] } : null;
+      return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), prizes };
     }
     function refreshCatalogViews() {
       if (currentView === "redeem") renderRedeem();
@@ -2060,6 +2090,7 @@
           if (prizes.some((p) => !remoteIds.has(p.id))) { await sleep(150 * (attempt + 1)); continue; }
           catalogDirty = false;
           clearPendingCatalog();
+          notifyCloud("catalog");
           return true;
         }
         return false;
@@ -2076,6 +2107,66 @@
     function scheduleCatalogPush() {
       window.clearTimeout(catalogPushTimer);
       pushCatalogSync();
+    }
+    async function notifyCloud(kind, extra = {}) {
+      try {
+        await fetch(CLOUD_NOTIFY_URL, {
+          method: "POST",
+          body: JSON.stringify({ k: kind, c: CLIENT_ID, t: Date.now(), ...extra }),
+        });
+      } catch { /* live notify is optional */ }
+    }
+    async function pullBalanceOnly() {
+      if (!profileId) return;
+      const remoteB = await fetchBalanceCloud();
+      const keep = Math.max(coins.balance, readRememberedBalance());
+      if (keep > remoteB) {
+        writeRememberedBalance(keep);
+        if (!profileDirty) {
+          profileDirty = true;
+          flushCloudNow();
+        }
+        return;
+      }
+      if (remoteB > coins.balance) {
+        coins.balance = remoteB;
+        writeRememberedBalance(remoteB);
+        renderCoins();
+      }
+    }
+    async function onCloudNotify(data) {
+      if (!data || data.c === CLIENT_ID) return;
+      if (data.k === "bal") {
+        if (data.id && profileId && data.id !== profileId) return;
+        await pullBalanceOnly();
+        return;
+      }
+      if (data.k === "catalog") {
+        await pullCatalogSync();
+        return;
+      }
+      if (data.k === "photo") {
+        await loadProfilePhoto(data.id);
+        cachePhotos();
+        if (!profileModal.classList.contains("hidden")) renderProfilePicker();
+        if (data.id === profileId) updateProfileChrome();
+        return;
+      }
+      if (data.k === "cfg") await pullFailExtra();
+    }
+    function listenCloudNotify() {
+      if (cloudNotify || typeof EventSource !== "function") return;
+      try {
+        cloudNotify = new EventSource(`${CLOUD_NOTIFY_URL}/sse`);
+        cloudNotify.onmessage = (event) => {
+          try {
+            const wrap = JSON.parse(event.data);
+            if (wrap.event && wrap.event !== "message") return;
+            const payload = wrap.message ? JSON.parse(wrap.message) : wrap;
+            onCloudNotify(payload);
+          } catch { /* ignore bad ping */ }
+        };
+      } catch { cloudNotify = null; }
     }
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
@@ -2165,6 +2256,7 @@
           profileDirty = false;
           clearPendingSnapshot();
           setSyncState("ok");
+          notifyCloud("bal", { id: profileId });
           pushHistoryAndDays(payload, core.u);
           return true;
         }
@@ -2499,9 +2591,9 @@
       if (currentView === "history") renderCoinHistory();
       if (!appStarted) {
         appStarted = true;
-        window.setInterval(() => { if (profileId) pullCloudSync(); }, 3000);
+        listenCloudNotify();
         document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible" && profileId) pullCloudSync();
+          if (document.visibilityState === "visible" && profileId) pullBalanceOnly();
         });
         window.addEventListener("pagehide", () => {
           if (!profileId) return;
@@ -3305,9 +3397,13 @@
     if (calMonth < startMonth) calMonth = startMonth;
     applyI18n();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
+    restorePhotoCache();
     applyPendingCatalog();
     show("home");
     openProfilePicker();
+    listenCloudNotify();
+    loadAllProfilePhotos();
+    pullCatalogSync();
   </script>
 </body>
 </html>
