@@ -746,6 +746,7 @@
     const COINS_KEY_BASE = "misha-coins-v1";
     const CLOUD_META_KEY_BASE = "misha-cloud-meta-v1";
     const CATALOG_KEY = "misha-prize-catalog-v1";
+    const CATALOG_PENDING_KEY = "misha-catalog-pending-v1";
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
@@ -1032,6 +1033,9 @@
     let pendingHistoryEntry = null;
     let cloudPushTimer = null;
     let catalogPushTimer = null;
+    let catalogDirty = false;
+    let catalogPushing = false;
+    let catalogPushQueued = false;
     let cloudSyncing = false;
     let cloudPushing = false;
     let cloudPushQueued = false;
@@ -1215,7 +1219,9 @@
     function saveSettings() { markProfileDirty(); }
     function saveCoins() { markProfileDirty(); }
     function saveCatalog() {
-      catalog.updatedAt = catalog.updatedAt || Date.now();
+      catalog.updatedAt = Date.now();
+      catalogDirty = true;
+      writePendingCatalog();
       scheduleCatalogPush();
     }
     function resetProfileMemory() {
@@ -1297,12 +1303,50 @@
       keys.forEach((key) => localStorage.removeItem(key));
     }
     function normalizeCatalogPrizes(list) {
-      return (Array.isArray(list) ? list : []).map((p) => ({
-        id: p.id || p.i,
-        titleRu: p.titleRu || p.r || "",
-        titleEn: p.titleEn || p.e || "",
-        cost: Number(p.cost ?? p.c) || 1,
-      })).filter((p) => p.id && (p.titleRu || p.titleEn));
+      return (Array.isArray(list) ? list : []).map((p) => {
+        if (Array.isArray(p)) {
+          return {
+            id: p[0],
+            titleRu: p[1] || "",
+            titleEn: p[2] || "",
+            cost: Number(p[3]) || 1,
+          };
+        }
+        return {
+          id: p.id || p.i,
+          titleRu: p.titleRu || p.r || "",
+          titleEn: p.titleEn || p.e || "",
+          cost: Number(p.cost ?? p.c) || 1,
+        };
+      }).filter((p) => p.id && (p.titleRu || p.titleEn));
+    }
+    function writePendingCatalog() {
+      try {
+        localStorage.setItem(CATALOG_PENDING_KEY, JSON.stringify({
+          u: catalog.updatedAt || Date.now(),
+          prizes: catalog.prizes || [],
+        }));
+      } catch { /* ignore */ }
+    }
+    function readPendingCatalog() {
+      try { return JSON.parse(localStorage.getItem(CATALOG_PENDING_KEY) || "null"); }
+      catch { return null; }
+    }
+    function clearPendingCatalog() {
+      try { localStorage.removeItem(CATALOG_PENDING_KEY); } catch { /* ignore */ }
+    }
+    function applyPendingCatalog() {
+      const pending = readPendingCatalog();
+      const pendingAt = Number(pending?.u || pending?.updatedAt) || 0;
+      if (!pending || pendingAt < (catalog.updatedAt || 0)) return false;
+      const prizes = normalizeCatalogPrizes(pending.prizes || pending.p);
+      if (!prizes.length && !(catalog.prizes || []).length) return false;
+      if (pendingAt > (catalog.updatedAt || 0) || prizes.length > (catalog.prizes || []).length) {
+        catalog = { updatedAt: pendingAt, prizes };
+        catalogDirty = true;
+        return true;
+      }
+      return false;
     }
     function compactPurchase(p) {
       return { i: p.id, z: p.prizeId, r: p.titleRu, e: p.titleEn, c: p.cost, a: p.at };
@@ -1930,34 +1974,104 @@
       if (currentView === "history") renderCoinHistory();
       if (currentView === "admin") renderAdminWishlist();
     }
-    async function pullCatalogSync() {
-      await pullFailExtra();
+    async function fetchCatalogCloud() {
       const remote = await fetchKvRaw("catalog");
-      if (!remote || typeof remote !== "object") {
-        if ((catalog.prizes || []).length) scheduleCatalogPush();
-        return;
+      if (!remote || typeof remote !== "object") return null;
+      let prizes = normalizeCatalogPrizes(remote.p || remote.prizes);
+      const n = Number(remote.n) || 0;
+      if (n > 0) {
+        const rows = await Promise.all(Array.from({ length: n }, (_, i) => fetchKvRaw(`c${i}`)));
+        const chunked = rows.map((row) => {
+          if (row == null) return null;
+          const list = Array.isArray(row) ? [row] : (row.p || [row]);
+          return normalizeCatalogPrizes(list)[0] || null;
+        }).filter(Boolean);
+        if (chunked.length) prizes = chunked;
       }
-      const remoteAt = Number(remote.u || remote.updatedAt) || 0;
-      const prizes = normalizeCatalogPrizes(remote.p || remote.prizes);
-      catalog = { updatedAt: remoteAt || Date.now(), prizes };
+      return { updatedAt: Number(remote.u || remote.updatedAt) || 0, prizes };
+    }
+    function refreshCatalogViews() {
       if (currentView === "redeem") renderRedeem();
       if (currentView === "admin") renderAdminWishlist();
     }
-    async function pushCatalogSync() {
-      const compact = {
-        u: catalog.updatedAt || Date.now(),
-        p: (catalog.prizes || []).slice(0, 12).map((p) => ({
-          i: p.id, r: p.titleRu, e: p.titleEn, c: p.cost,
-        })),
-      };
-      let json = JSON.stringify(compact);
-      let hex = bytesToHex(json);
-      while (hex.length > cloudHexBudget("catalog") && compact.p.length) {
-        compact.p.pop();
-        json = JSON.stringify(compact);
-        hex = bytesToHex(json);
+    async function pullCatalogSync() {
+      await pullFailExtra();
+      applyPendingCatalog();
+      if (catalogDirty) {
+        scheduleCatalogPush();
+        return;
       }
-      await putKvRaw("catalog", hex);
+      const remote = await fetchCatalogCloud();
+      if (!remote) {
+        if ((catalog.prizes || []).length) {
+          catalogDirty = true;
+          scheduleCatalogPush();
+        }
+        return;
+      }
+      if ((catalog.updatedAt || 0) > remote.updatedAt) {
+        catalogDirty = true;
+        scheduleCatalogPush();
+        return;
+      }
+      catalog = { updatedAt: remote.updatedAt || Date.now(), prizes: remote.prizes };
+      clearPendingCatalog();
+      refreshCatalogViews();
+    }
+    async function pushCatalogSync() {
+      if (catalogPushing) {
+        catalogPushQueued = true;
+        return false;
+      }
+      catalogPushing = true;
+      writePendingCatalog();
+      try {
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const prizes = (catalog.prizes || []).slice(0, 12);
+          let wroteAll = true;
+          for (let i = 0; i < prizes.length; i += 1) {
+            const p = prizes[i];
+            const row = [p.id, p.titleRu, p.titleEn, p.cost];
+            const key = `c${i}`;
+            let hex = bytesToHex(JSON.stringify(row));
+            while (hex.length > cloudHexBudget(key) && (String(row[1]).length > 1 || String(row[2]).length > 1)) {
+              if (String(row[1]).length >= String(row[2]).length) row[1] = String(row[1]).slice(0, -1);
+              else row[2] = String(row[2]).slice(0, -1);
+              hex = bytesToHex(JSON.stringify(row));
+            }
+            if (!await putKvRaw(key, hex)) { wroteAll = false; break; }
+          }
+          if (!wroteAll) { await sleep(150 * (attempt + 1)); continue; }
+          const compact = {
+            u: catalog.updatedAt || Date.now(),
+            n: prizes.length,
+            p: prizes.map((p) => [p.id, p.titleRu, p.titleEn, p.cost]),
+          };
+          let json = JSON.stringify(compact);
+          let hex = bytesToHex(json);
+          while (hex.length > cloudHexBudget("catalog") && compact.p.length) {
+            compact.p.pop();
+            json = JSON.stringify(compact);
+            hex = bytesToHex(json);
+          }
+          if (!await putKvRaw("catalog", hex)) { await sleep(150 * (attempt + 1)); continue; }
+          const check = await fetchCatalogCloud();
+          const remoteIds = new Set((check?.prizes || []).map((p) => p.id));
+          if (prizes.some((p) => !remoteIds.has(p.id))) { await sleep(150 * (attempt + 1)); continue; }
+          catalogDirty = false;
+          clearPendingCatalog();
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        catalogPushing = false;
+        if (catalogPushQueued) {
+          catalogPushQueued = false;
+          pushCatalogSync();
+        }
+      }
     }
     function scheduleCatalogPush() {
       window.clearTimeout(catalogPushTimer);
@@ -3191,6 +3305,7 @@
     if (calMonth < startMonth) calMonth = startMonth;
     applyI18n();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
+    applyPendingCatalog();
     show("home");
     openProfilePicker();
   </script>
