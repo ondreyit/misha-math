@@ -2792,7 +2792,7 @@
             <div class="prize-item">
               <div class="prize-title">${prizeTitle(prize)}</div>
               <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
-              <button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button">${t("redeemBuy")}</button>
+              <button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button"${coins.balance < prize.cost ? " disabled" : ""}>${t("redeemBuy")}</button>
             </div>`).join("")}</div>`
         : `<div class="empty-state"><div class="empty-icon">🎁</div><p>${t("redeemEmpty")}</p></div>`;
       const boughtHtml = bought.length
@@ -3371,9 +3371,7 @@
       applyFailExtra(extra);
       await pushFailExtra();
       applyQuestionCountToUnfinished(Math.round(value));
-      updateHome();
-      show("home");
-      showToast("ok", t("dataSaved"), t("dataSavedHint"), "✅");
+      document.getElementById("adminStatus").textContent = t("dataSaved");
     });
     document.getElementById("adminAddPrizeBtn").addEventListener("click", () => {
       const titleRu = document.getElementById("prizeTitleRu").value.trim();
