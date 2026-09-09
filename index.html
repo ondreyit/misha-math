@@ -430,14 +430,14 @@
     }
     .admin-flash.err { color: var(--bad); }
     .admin-prize-list {
-      display: grid; gap: 0; overflow-x: auto;
+      display: grid; gap: 0;
       border: 1px solid #dceaff; border-radius: 10px; background: #fff;
     }
     .admin-prize-head, .admin-prize-row {
       display: grid;
-      grid-template-columns: minmax(88px, 1.2fr) minmax(88px, 1.2fr) 64px auto auto;
+      grid-template-columns: minmax(0, 1fr) 64px auto auto;
       gap: 8px; align-items: center;
-      min-width: 460px; padding: 7px 10px;
+      padding: 7px 10px;
     }
     .admin-prize-head {
       background: #f3f8ff; font-size: 11px; font-weight: 800;
@@ -456,11 +456,11 @@
       text-decoration: underline; white-space: nowrap;
     }
     .admin-link.danger { color: var(--bad); }
-    .admin-prize-row input {
-      width: 100%; min-height: 34px; margin: 0; font-size: 13px; font-weight: 800;
-      border: 2px solid #cfe0ff; border-radius: 8px; padding: 0 8px;
-    }
-    .admin-prize-row input.admin-prize-cost-input { text-align: center; }
+    .admin-prize-form { margin-top: 12px; }
+    .admin-prize-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .admin-prize-form-actions .btn { width: auto; flex: 1; }
+    .admin-prize-form-actions .btn + .btn { margin-top: 0; }
+    #adminAddPrizeBtn { margin-top: 12px; }
     .guide-list { display: grid; gap: 10px; }
     .guide-row {
       display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
@@ -778,12 +778,16 @@
             <p class="note" data-i18n="adminWishlistHint">Dad adds prizes once — any profile can buy them.</p>
             <div class="admin-prize-list" id="adminWishlistList"></div>
             <p class="admin-flash" id="adminCatalogStatus"></p>
-            <div class="admin-row" style="margin-top:12px;">
-              <span class="label" data-i18n="adminAddPrize">Add prize</span>
+            <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
+            <div class="admin-row admin-prize-form hidden" id="adminPrizeForm">
+              <span class="label" id="adminPrizeFormTitle">Add prize</span>
               <input id="prizeTitleRu" type="text" placeholder="RU" data-i18n-placeholder="prizeTitleRuPh" />
               <input id="prizeTitleEn" type="text" placeholder="EN" data-i18n-placeholder="prizeTitleEnPh" />
               <input id="prizeCost" type="number" min="1" max="9999" step="1" placeholder="Cost" data-i18n-placeholder="prizeCostPh" />
-              <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add prize</button>
+              <div class="admin-prize-form-actions">
+                <button class="btn btn-accent btn-sm" id="adminSavePrizeBtn" type="button" data-i18n="adminSavePrize">Save prize</button>
+                <button class="btn btn-ghost btn-sm" id="adminCancelPrizeBtn" type="button" data-i18n="cancel">Cancel</button>
+              </div>
             </div>
           </div>
           <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
@@ -880,9 +884,9 @@
         adminAddPrize: "Добавить приз",
         adminAddPrizeBtn: "Добавить",
         adminEditPrize: "Редактировать",
-        adminSavePrize: "Сохранить",
-        prizeColRu: "Рус. название",
-        prizeColEn: "Англ. название",
+        adminEditPrizeTitle: "Редактировать приз",
+        adminSavePrize: "Сохранить награду",
+        prizeColName: "Название",
         prizeColCost: "Сумма",
         prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
         adminRemove: "Удалить",
@@ -1021,11 +1025,11 @@
         adminFailExtraHint: "How many new examples to add when the answer is wrong.",
         adminWishlistTitle: "Shared prize catalog",
         adminWishlistHint: "Dad adds prizes once — any profile can buy them.",
-        adminAddPrize: "Add prize", adminAddPrizeBtn: "Add prize",
+        adminAddPrize: "Add prize", adminAddPrizeBtn: "Add",
         adminEditPrize: "Edit",
-        adminSavePrize: "Save",
-        prizeColRu: "RU name",
-        prizeColEn: "EN name",
+        adminEditPrizeTitle: "Edit prize",
+        adminSavePrize: "Save prize",
+        prizeColName: "Name",
         prizeColCost: "Cost",
         prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
         adminRemove: "Delete",
@@ -3363,7 +3367,10 @@
       if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "done" && state) renderReward(state);
-      if (currentView === "admin") renderAdminWishlist();
+      if (currentView === "admin") {
+        renderAdminWishlist();
+        syncPrizeFormChrome();
+      }
     }
 
     function openPinModal() {
@@ -3379,6 +3386,7 @@
       document.getElementById("adminFailExtraInput").value = String(failExtra());
       setAdminFlash("adminStatus", "");
       setAdminFlash("adminCatalogStatus", "");
+      closePrizeForm();
       renderAdminWishlist();
       setHero(t("adminTitle"));
       show("admin");
@@ -3393,63 +3401,83 @@
       setAdminFlash(targetId, detail ? `${title}. ${detail}` : title);
       showToast("ok", title, detail || t("dataSavedHint"), "✅");
     }
+    function syncPrizeFormChrome() {
+      const form = document.getElementById("adminPrizeForm");
+      const addBtn = document.getElementById("adminAddPrizeBtn");
+      const title = document.getElementById("adminPrizeFormTitle");
+      const open = form && !form.classList.contains("hidden");
+      if (addBtn) addBtn.classList.toggle("hidden", !!open);
+      if (title) title.textContent = adminEditingPrizeId ? t("adminEditPrizeTitle") : t("adminAddPrize");
+    }
+    function closePrizeForm() {
+      adminEditingPrizeId = null;
+      const form = document.getElementById("adminPrizeForm");
+      if (form) form.classList.add("hidden");
+      const ru = document.getElementById("prizeTitleRu");
+      const en = document.getElementById("prizeTitleEn");
+      const cost = document.getElementById("prizeCost");
+      if (ru) ru.value = "";
+      if (en) en.value = "";
+      if (cost) cost.value = "";
+      syncPrizeFormChrome();
+      renderAdminWishlist();
+    }
+    function openPrizeForm(prize = null) {
+      adminEditingPrizeId = prize?.id || null;
+      document.getElementById("prizeTitleRu").value = prize?.titleRu || "";
+      document.getElementById("prizeTitleEn").value = prize?.titleEn || "";
+      document.getElementById("prizeCost").value = prize ? String(prize.cost) : "";
+      document.getElementById("adminPrizeForm").classList.remove("hidden");
+      syncPrizeFormChrome();
+      renderAdminWishlist();
+      document.getElementById("prizeTitleRu").focus();
+    }
+    function savePrizeForm() {
+      const titleRu = document.getElementById("prizeTitleRu").value.trim();
+      const titleEn = document.getElementById("prizeTitleEn").value.trim();
+      const cost = Number(document.getElementById("prizeCost").value);
+      if (!titleRu || !titleEn || !Number.isFinite(cost) || cost < 1) {
+        setAdminFlash("adminCatalogStatus", t("prizeTitleRuPh"), false);
+        return;
+      }
+      if (!catalog.prizes) catalog.prizes = [];
+      const existing = adminEditingPrizeId
+        ? catalog.prizes.find((p) => p.id === adminEditingPrizeId)
+        : null;
+      if (existing) {
+        existing.titleRu = titleRu;
+        existing.titleEn = titleEn;
+        existing.cost = Math.round(cost);
+      } else {
+        catalog.prizes.push({ id: uid(), titleRu, titleEn, cost: Math.round(cost) });
+      }
+      catalog.updatedAt = Date.now();
+      saveCatalog();
+      const added = !existing;
+      closePrizeForm();
+      notifyAdminSave("adminCatalogStatus", t("catalogSaved"), added ? t("prizeAdded") : t("prizeUpdated"));
+    }
     function renderAdminWishlist() {
       const box = document.getElementById("adminWishlistList");
+      if (!box) return;
       const list = catalog.prizes || [];
-      if (!list.length) { box.innerHTML = `<p class="note">${t("redeemEmpty")}</p>`; return; }
+      if (!list.length) { box.innerHTML = `<p class="note" style="margin:0;padding:10px;">${t("redeemEmpty")}</p>`; return; }
       const head = `<div class="admin-prize-head">
-        <span>${t("prizeColRu")}</span>
-        <span>${t("prizeColEn")}</span>
+        <span>${t("prizeColName")}</span>
         <span>${t("prizeColCost")}</span>
         <span></span><span></span>
       </div>`;
-      box.innerHTML = head + list.map((prize) => {
-        const editing = prize.id === adminEditingPrizeId;
-        const ru = editing
-          ? `<input class="admin-prize-ru" type="text" value="${escapeHtml(prize.titleRu || "")}" placeholder="${escapeHtml(t("prizeTitleRuPh"))}" />`
-          : `<span class="admin-prize-name">${escapeHtml(prize.titleRu || "")}</span>`;
-        const en = editing
-          ? `<input class="admin-prize-en" type="text" value="${escapeHtml(prize.titleEn || "")}" placeholder="${escapeHtml(t("prizeTitleEnPh"))}" />`
-          : `<span class="admin-prize-name">${escapeHtml(prize.titleEn || "")}</span>`;
-        const cost = editing
-          ? `<input class="admin-prize-cost-input" type="number" min="1" max="9999" step="1" value="${prize.cost}" />`
-          : `<span class="admin-prize-cost">${prize.cost} ${COIN_SYMBOL}</span>`;
-        const editBtn = editing
-          ? `<button class="admin-link admin-save-prize" data-id="${prize.id}" type="button">${t("adminSavePrize")}</button>`
-          : `<button class="admin-link admin-edit-prize" data-id="${prize.id}" type="button">${t("adminEditPrize")}</button>`;
-        return `<div class="admin-prize-row${editing ? " editing" : ""}" data-id="${prize.id}">
-          ${ru}${en}${cost}
-          ${editBtn}
+      box.innerHTML = head + list.map((prize) => `
+        <div class="admin-prize-row${prize.id === adminEditingPrizeId ? " editing" : ""}" data-id="${prize.id}">
+          <span class="admin-prize-name">${escapeHtml(prizeTitle(prize))}</span>
+          <span class="admin-prize-cost">${prize.cost} ${COIN_SYMBOL}</span>
+          <button class="admin-link admin-edit-prize" data-id="${prize.id}" type="button">${t("adminEditPrize")}</button>
           <button class="admin-link danger admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>
-        </div>`;
-      }).join("");
+        </div>`).join("");
       box.querySelectorAll(".admin-edit-prize").forEach((btn) => {
         btn.addEventListener("click", () => {
-          adminEditingPrizeId = btn.getAttribute("data-id");
-          renderAdminWishlist();
-        });
-      });
-      box.querySelectorAll(".admin-save-prize").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const row = btn.closest(".admin-prize-row");
-          const id = btn.getAttribute("data-id");
-          const prize = (catalog.prizes || []).find((p) => p.id === id);
-          if (!prize || !row) return;
-          const titleRu = row.querySelector(".admin-prize-ru").value.trim();
-          const titleEn = row.querySelector(".admin-prize-en").value.trim();
-          const nextCost = Number(row.querySelector(".admin-prize-cost-input").value);
-          if (!titleRu || !titleEn || !Number.isFinite(nextCost) || nextCost < 1) {
-            setAdminFlash("adminCatalogStatus", t("prizeTitleRuPh"), false);
-            return;
-          }
-          prize.titleRu = titleRu;
-          prize.titleEn = titleEn;
-          prize.cost = Math.round(nextCost);
-          catalog.updatedAt = Date.now();
-          saveCatalog();
-          adminEditingPrizeId = null;
-          renderAdminWishlist();
-          notifyAdminSave("adminCatalogStatus", t("catalogSaved"), t("prizeUpdated"));
+          const prize = (catalog.prizes || []).find((p) => p.id === btn.getAttribute("data-id"));
+          if (prize) openPrizeForm(prize);
         });
       });
       box.querySelectorAll(".admin-remove").forEach((btn) => {
@@ -3457,8 +3485,8 @@
           catalog.prizes = catalog.prizes.filter((p) => p.id !== btn.getAttribute("data-id"));
           catalog.updatedAt = Date.now();
           saveCatalog();
-          adminEditingPrizeId = null;
-          renderAdminWishlist();
+          if (adminEditingPrizeId === btn.getAttribute("data-id")) closePrizeForm();
+          else renderAdminWishlist();
           notifyAdminSave("adminCatalogStatus", t("catalogSaved"), t("prizeRemoved"));
         });
       });
@@ -3606,25 +3634,9 @@
       const changed = applyQuestionCountToUnfinished(Math.round(value));
       notifyAdminSave("adminStatus", t("adminSettingsSaved"), t("adminSaved", Math.round(value), changed));
     });
-    document.getElementById("adminAddPrizeBtn").addEventListener("click", () => {
-      const titleRu = document.getElementById("prizeTitleRu").value.trim();
-      const titleEn = document.getElementById("prizeTitleEn").value.trim();
-      const cost = Number(document.getElementById("prizeCost").value);
-      if (!titleRu || !titleEn || !Number.isFinite(cost) || cost < 1) {
-        setAdminFlash("adminCatalogStatus", t("prizeTitleRuPh"), false);
-        return;
-      }
-      if (!catalog.prizes) catalog.prizes = [];
-      catalog.prizes.push({ id: uid(), titleRu, titleEn, cost: Math.round(cost) });
-      catalog.updatedAt = Date.now();
-      saveCatalog();
-      document.getElementById("prizeTitleRu").value = "";
-      document.getElementById("prizeTitleEn").value = "";
-      document.getElementById("prizeCost").value = "";
-      adminEditingPrizeId = null;
-      renderAdminWishlist();
-      notifyAdminSave("adminCatalogStatus", t("catalogSaved"), t("prizeAdded"));
-    });
+    document.getElementById("adminAddPrizeBtn").addEventListener("click", () => openPrizeForm());
+    document.getElementById("adminSavePrizeBtn").addEventListener("click", savePrizeForm);
+    document.getElementById("adminCancelPrizeBtn").addEventListener("click", closePrizeForm);
     document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
     document.getElementById("profileChip").addEventListener("click", openProfilePicker);
     answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
