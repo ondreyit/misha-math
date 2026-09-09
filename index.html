@@ -6,7 +6,10 @@
   <meta name="theme-color" content="#2f6fed" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>Misha Math</title>
+  <title>Мишкоин</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <style>
     :root {
       --ink: #1a2450;
@@ -44,7 +47,7 @@
       z-index: 20; overflow: hidden;
     }
     .sidebar-title {
-      margin: 0 0 12px; font-size: 15px; font-weight: 900; letter-spacing: -0.02em;
+      margin: 0 0 12px; font-size: 22px; font-weight: 900; letter-spacing: -0.03em;
       cursor: default; user-select: none; text-align: center;
       background: linear-gradient(90deg, #2f6fed, #ff3d81);
       -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -358,14 +361,18 @@
     /* Redeem */
     .prize-list { display: grid; gap: 10px; }
     .prize-item {
-      display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
       padding: 14px; border: 2px solid #dceaff; border-radius: 16px; background: #fff;
     }
     .prize-item.purchased { background: var(--ok-bg); border-color: #7de0b8; }
-    .prize-title { font-size: 16px; font-weight: 800; }
-    .prize-cost { font-size: 14px; color: #8a5a00; font-weight: 800; }
-    .prize-item .btn-sm { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
-    .prize-meta { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .prize-info { min-width: 0; }
+    .prize-title {
+      font-size: 16px; font-weight: 800; line-height: 1.35;
+      overflow-wrap: anywhere; word-break: break-word; white-space: normal;
+    }
+    .prize-cost { font-size: 14px; color: #8a5a00; font-weight: 800; margin-top: 4px; }
+    .prize-item .btn-sm, .prize-item .plan-badge { align-self: center; }
+    .prize-meta { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 4px; }
     .redeem-block { margin-bottom: 14px; }
     .redeem-block > .label { display: block; margin-bottom: 10px; }
     .sync-dot {
@@ -392,7 +399,8 @@
       animation: fadeUp 0.35s ease;
     }
     .modal-card.wide { width: min(480px, 100%); }
-    .modal-card input, .admin-row input[type="number"], .admin-row input[type="text"] {
+    .modal-card input, .admin-row input[type="number"], .admin-row input[type="text"],
+    .admin-prize-row input[type="number"], .admin-prize-row input[type="text"] {
       width: 100%; min-height: 48px; border: 2px solid #cfe0ff; border-radius: 14px;
       padding: 0 12px; font-size: 18px; font-weight: 800; margin: 6px 0;
     }
@@ -404,22 +412,33 @@
       background: #fff; font-size: 20px; cursor: pointer; font-weight: 900;
     }
     .history-list { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
+    #historyPage .history-list { max-height: none; }
     .history-item {
       padding: 12px 14px; border-radius: 14px; border: 2px solid #dceaff;
       background: linear-gradient(180deg, #f7fbff, #fff);
       animation: fadeUp 0.3s ease;
     }
     .history-item.spend { background: linear-gradient(180deg, #fff0f3, #fff); border-color: #ffc2cf; }
-    .history-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .history-amount { font-size: 18px; font-weight: 900; color: #8a5a00; }
+    .history-amount { font-size: 18px; font-weight: 900; color: #8a5a00; flex-shrink: 0; }
     .history-amount.neg { color: var(--bad); }
     .history-parts { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted); }
     .admin-row { display: grid; gap: 6px; margin-bottom: 14px; }
     .admin-prize-row {
-      display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
-      padding: 10px; border: 2px solid #dceaff; border-radius: 12px; margin-bottom: 8px;
+      display: grid; gap: 8px;
+      padding: 12px; border: 2px solid #dceaff; border-radius: 12px; margin-bottom: 8px;
     }
+    .admin-prize-row input { width: 100%; min-height: 42px; }
+    .admin-prize-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .guide-list { display: grid; gap: 10px; }
+    .guide-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
+      padding: 12px 14px; border: 2px solid #dceaff; border-radius: 14px; background: #fff;
+    }
+    .guide-row p { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+    .guide-amt { font-size: 18px; font-weight: 900; color: #8a5a00; white-space: nowrap; }
+    .guide-note { margin: 0; }
     .fx-layer { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
     .burst { position: absolute; width: 12px; height: 12px; border-radius: 4px; animation: burstFly 0.9s ease forwards; }
     .floating-coin {
@@ -453,7 +472,7 @@
         flex-direction: column; padding: 10px 12px; border-right: 0;
         border-bottom: 2px solid #dceaff; z-index: 30;
       }
-      .sidebar-title { margin-bottom: 4px; font-size: 14px; }
+      .sidebar-title { margin-bottom: 4px; font-size: 18px; }
       .profile-chip { margin: 0 0 8px; }
       .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
       .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
@@ -561,7 +580,7 @@
   </div>
   <div class="app">
     <aside class="sidebar" id="sidebar">
-      <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Misha × Math</h1>
+      <h1 class="sidebar-title" id="appTitle" data-i18n="appTitle">Мишкоин</h1>
       <div class="sidebar-top">
         <button class="profile-chip" id="profileChip" type="button" title="Profile">
           <span id="profileChipName">...</span>
@@ -592,6 +611,7 @@
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
         <button class="nav-btn" data-view="pythagoras" type="button"><span class="nav-icon">✖️</span><span data-i18n="navPythagoras">Pythagoras table</span></button>
         <button class="nav-btn" data-view="redeem" type="button"><span class="nav-icon">🎁</span><span data-i18n="navRedeem">Redeem</span></button>
+        <button class="nav-btn" data-view="guide" type="button"><span class="nav-icon">📖</span><span data-i18n="navGuide">Reward guide</span></button>
         <button class="nav-btn" data-view="history" type="button"><span class="nav-icon">★</span><span data-i18n="navHistory">History</span></button>
       </nav>
     </aside>
@@ -662,6 +682,11 @@
           <h2 class="view-title" data-i18n="redeemTitle">Redeem prizes</h2>
           <p class="subtitle" data-i18n="redeemSubtitle">Spend Mishcoins on wishes!</p>
           <div id="redeemContent"></div>
+        </section>
+        <section id="guideView" class="hidden">
+          <h2 class="view-title" data-i18n="guideTitle">Reward guide</h2>
+          <p class="subtitle" data-i18n="guideSubtitle">What earns Mishcoins, and how many</p>
+          <div class="card" id="guidePage"></div>
         </section>
         <section id="historyView" class="hidden">
           <h2 class="view-title" data-i18n="coinHistoryTitle">Mishcoin history</h2>
@@ -775,7 +800,7 @@
 
     const I18N = {
       ru: {
-        appTitle: "Миша × Умножение",
+        appTitle: "Мишкоин",
         heroName: "Герой",
         profileTitle: "Кто играет?",
         profileHint: "Выбери свой профиль. Баланс, история, календарь и призы хранятся в облаке — на любом устройстве одни и те же данные.",
@@ -788,6 +813,7 @@
         navTables: "Таблицы",
         navPythagoras: "Таблица Пифагора",
         navRedeem: "Обмен",
+        navGuide: "Справочник наград",
         navHistory: "История",
         todayMission: "Задание дня",
         rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
@@ -822,6 +848,7 @@
         adminWishlistHint: "Папа добавляет призы один раз — купить их может любой профиль.",
         adminAddPrize: "Добавить приз",
         adminAddPrizeBtn: "Добавить",
+        adminSavePrize: "Сохранить приз",
         prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
         adminRemove: "Удалить",
         save: "Сохранить", open: "Открыть", cancel: "Отмена",
@@ -843,6 +870,7 @@
         heroCoins: (n) => `Ура! +${n} Мишкоинов!`,
         heroClosed: "Тренировка закрыта. Ты молодец!",
         heroRedeem: "Потрать Мишкоины на мечты!",
+        heroGuide: "За что дают Мишкоины — и сколько.",
         heroHistory: "Смотри, откуда взялись Мишкоины!",
         photoTitle: "Сменить фото",
         photoHint: "Выбери новое фото. Оно сохранится в облаке и будет на всех устройствах.",
@@ -868,9 +896,20 @@
         metaReady: (n) => `${n} примеров · можно начать`,
         metaMiss: (n) => `${n} примеров · не выполнено`,
         rewardOnTime: "Пройдено вовремя",
-        rewardLow: (r) => `Мало ошибок (${r}% < 5%)`,
-        rewardMid: (r) => `Ошибки ${r}% (5–10%)`,
-        rewardHigh: (r) => `Ошибок много (${r}% > 10%)`,
+        rewardLow: (r) => r ? `Мало ошибок (${r}% < 5%)` : "Мало ошибок (меньше 5%)",
+        rewardMid: (r) => r ? `Ошибки ${r}% (5–10%)` : "Ошибки 5–10%",
+        rewardHigh: (r) => r ? `Ошибок много (${r}% > 10%)` : "Ошибок больше 10%",
+        rewardLesson: "За урок",
+        guideTitle: "Справочник наград",
+        guideSubtitle: "За что дают Мишкоины и сколько",
+        guideAfterLesson: "После каждого пройденного урока:",
+        guideOnTime: "Урок сдан вовремя (в тот же день)",
+        guideLow: "Ошибок меньше 5%",
+        guideMid: "Ошибок от 5% до 10%",
+        guideHigh: "Ошибок больше 10%",
+        guideRepeat: "Урок можно повторять в тот же день — Мишкоины начисляются снова.",
+        guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
+        guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
         coinHistoryTitle: "История Мишкоинов",
         coinHistoryEmpty: "Пока нет записей. Пройди урок и заработай Мишкоины!",
         coinHistoryBalance: (n) => `Баланс: ${n} Мишкоинов`,
@@ -900,7 +939,7 @@
         weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
       },
       en: {
-        appTitle: "Misha × Math",
+        appTitle: "Mishcoin",
         heroName: "Hero",
         profileTitle: "Who is playing?",
         profileHint: "Choose your profile. Balance, history, calendar, and prizes live in the cloud — the same on every device.",
@@ -909,6 +948,7 @@
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table", navRedeem: "Redeem",
+        navGuide: "Reward guide",
         navHistory: "History",
         todayMission: "Today's mission",
         rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
@@ -942,6 +982,7 @@
         adminWishlistTitle: "Shared prize catalog",
         adminWishlistHint: "Dad adds prizes once — any profile can buy them.",
         adminAddPrize: "Add prize", adminAddPrizeBtn: "Add prize",
+        adminSavePrize: "Save prize",
         prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
         adminRemove: "Remove",
         save: "Save", open: "Open", cancel: "Cancel",
@@ -963,6 +1004,7 @@
         heroCoins: (n) => `Yay! +${n} Mishcoins!`,
         heroClosed: "Training closed. Great job!",
         heroRedeem: "Spend Mishcoins on wishes!",
+        heroGuide: "What earns Mishcoins, and how many.",
         heroHistory: "See where your Mishcoins came from!",
         photoTitle: "Change photo",
         photoHint: "Pick a new photo. It is saved in the cloud and shown on every device.",
@@ -988,9 +1030,20 @@
         metaReady: (n) => `${n} examples · ready to start`,
         metaMiss: (n) => `${n} examples · not done`,
         rewardOnTime: "Finished on time",
-        rewardLow: (r) => `Few mistakes (${r}% < 5%)`,
-        rewardMid: (r) => `Mistakes ${r}% (5–10%)`,
-        rewardHigh: (r) => `Too many mistakes (${r}% > 10%)`,
+        rewardLow: (r) => r ? `Few mistakes (${r}% < 5%)` : "Few mistakes (under 5%)",
+        rewardMid: (r) => r ? `Mistakes ${r}% (5–10%)` : "Mistakes 5–10%",
+        rewardHigh: (r) => r ? `Too many mistakes (${r}% > 10%)` : "More than 10% mistakes",
+        rewardLesson: "For the lesson",
+        guideTitle: "Reward guide",
+        guideSubtitle: "What earns Mishcoins, and how many",
+        guideAfterLesson: "After each completed lesson:",
+        guideOnTime: "Lesson finished on time (same day)",
+        guideLow: "Fewer than 5% mistakes",
+        guideMid: "5–10% mistakes",
+        guideHigh: "More than 10% mistakes",
+        guideRepeat: "You can repeat the lesson the same day and earn Mishcoins again.",
+        guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
+        guideSpend: "Spend Mishcoins in Redeem.",
         coinHistoryTitle: "Mishcoin history",
         coinHistoryEmpty: "No entries yet. Complete a lesson to earn Mishcoins!",
         coinHistoryBalance: (n) => `Balance: ${n} Mishcoins`,
@@ -1089,6 +1142,7 @@
       tables: document.getElementById("tablesView"),
       pythagoras: document.getElementById("pythagorasView"),
       redeem: document.getElementById("redeemView"),
+      guide: document.getElementById("guideView"),
       history: document.getElementById("historyView"),
       train: document.getElementById("trainView"),
       done: document.getElementById("doneView"),
@@ -1110,6 +1164,11 @@
     function t(key, ...args) {
       const value = I18N[lang][key];
       return typeof value === "function" ? value(...args) : value;
+    }
+    function escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
     }
 
     function todayKey(date = new Date()) {
@@ -1446,7 +1505,7 @@
         toUnix(e.at),
         e.dateKey || "",
         Number(e.amount) || 0,
-        (e.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || ""]),
+        (e.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || "", p.e || ""]),
       ]));
     }
     function compactMiniHistory(list) {
@@ -1481,7 +1540,7 @@
           dateKey: dateKey || "",
           amount: Number(amount) || 0,
           parts: (parts || []).map((p) => {
-            if (Array.isArray(p)) return { k: p[0], amount: Number(p[1]) || 0, r: p[2] || "" };
+            if (Array.isArray(p)) return { k: p[0], amount: Number(p[1]) || 0, r: p[2] || "", e: p[3] || "" };
             return p;
           }),
         };
@@ -1494,13 +1553,21 @@
     function historyFromDays(days) {
       return (days || [])
         .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
-        .map((d) => ({
-          id: `day-${d.date}-${d.runsCompleted || 1}`,
-          at: d.completedAt || `${d.date}T12:00:00.000Z`,
-          dateKey: d.date,
-          amount: Number(d.totalCoins || d.coinsAwarded) || 0,
-          parts: [{ k: "onTime", amount: Number(d.coinsAwarded) || 0 }],
-        }));
+        .map((d) => {
+          const amount = Number(d.totalCoins || d.coinsAwarded) || 0;
+          const reward = calcRewards(d);
+          const last = Number(d.coinsAwarded) || reward.total;
+          const parts = (last === amount && reward.parts && reward.parts.length)
+            ? reward.parts.filter((p) => p.amount > 0)
+            : [{ k: "lesson", amount }];
+          return {
+            id: `day-${d.date}-${d.runsCompleted || 1}`,
+            at: d.completedAt || `${d.date}T12:00:00.000Z`,
+            dateKey: d.date,
+            amount,
+            parts,
+          };
+        });
     }
     function dedupeHistory(list) {
       const items = Array.isArray(list) ? list : [];
@@ -1998,6 +2065,7 @@
       if (currentView === "tables") renderTablesSettings();
       if (currentView === "pythagoras") renderPythagoras();
       if (currentView === "redeem") renderRedeem();
+      if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "admin") renderAdminWishlist();
     }
@@ -2152,7 +2220,11 @@
         if (data.id === profileId) updateProfileChrome();
         return;
       }
-      if (data.k === "cfg") await pullFailExtra();
+      if (data.k === "cfg") {
+        await pullFailExtra();
+        if (currentView === "guide") renderRewardGuide();
+        return;
+      }
     }
     function listenCloudNotify() {
       if (cloudNotify || typeof EventSource !== "function") return;
@@ -2493,7 +2565,7 @@
       });
       document.querySelectorAll(".nav-btn").forEach((btn) => {
         const v = btn.getAttribute("data-view");
-        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem","history"].includes(view));
+        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem","guide","history"].includes(view));
       });
     }
     function navigate(view) {
@@ -2503,6 +2575,7 @@
       if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables"); return; }
       if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras"); return; }
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
+      if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide"); return; }
       if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history"); return; }
     }
 
@@ -2589,6 +2662,7 @@
       updateHome();
       renderCoins();
       if (currentView === "history") renderCoinHistory();
+      if (currentView === "guide") renderRewardGuide();
       if (!appStarted) {
         appStarted = true;
         listenCloudNotify();
@@ -2790,16 +2864,20 @@
       const shopHtml = shop.length
         ? `<div class="prize-list">${shop.map((prize) => `
             <div class="prize-item">
-              <div class="prize-title">${prizeTitle(prize)}</div>
-              <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
+              <div class="prize-info">
+                <div class="prize-title">${escapeHtml(prizeTitle(prize))}</div>
+                <div class="prize-cost">${prize.cost} ${COIN_SYMBOL}</div>
+              </div>
               <button class="btn btn-accent btn-sm redeem-buy" data-id="${prize.id}" type="button"${coins.balance < prize.cost ? " disabled" : ""}>${t("redeemBuy")}</button>
             </div>`).join("")}</div>`
         : `<div class="empty-state"><div class="empty-icon">🎁</div><p>${t("redeemEmpty")}</p></div>`;
       const boughtHtml = bought.length
         ? `<div class="prize-list">${bought.map((item) => `
             <div class="prize-item purchased">
-              <div class="prize-title">${prizeTitle(item)}</div>
-              <div class="prize-meta">${item.cost} ${COIN_SYMBOL} · ${formatHistoryDate(item.at)}</div>
+              <div class="prize-info">
+                <div class="prize-title">${escapeHtml(prizeTitle(item))}</div>
+                <div class="prize-meta">${item.cost} ${COIN_SYMBOL} · ${formatHistoryDate(item.at)}</div>
+              </div>
               <span class="plan-badge">${t("redeemPurchased")}</span>
             </div>`).join("")}</div>`
         : `<p class="note">${t("redeemBoughtEmpty")}</p>`;
@@ -2846,6 +2924,32 @@
       renderRedeem();
     }
 
+    function historyDayFor(item) {
+      const key = item?.dateKey;
+      if (!key) return null;
+      return dayStore[key] || null;
+    }
+    function inferredHistoryParts(item) {
+      const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
+      const lumped = stored.length === 1 && stored[0].k === "onTime" && Number(stored[0].amount) === Number(item.amount) && Number(item.amount) > 1;
+      if (stored.length && !lumped) return stored;
+      if ((item.amount || 0) < 0) return stored.length ? stored : [{ k: "prize", label: item.parts?.[0]?.label || "", amount: item.amount }];
+      if ((item.amount || 0) <= 0) return stored;
+      const day = historyDayFor(item);
+      if (day && (day.completed || day.answered)) {
+        const reward = calcRewards(day);
+        const last = Number(day.coinsAwarded) || reward.total;
+        if (Number(item.amount) === last || Number(item.amount) === reward.total) {
+          return (reward.parts || []).filter((p) => p.amount > 0);
+        }
+      }
+      const amount = Number(item.amount) || 0;
+      if (amount === 4) return [{ k: "onTime", amount: 1 }, { k: "low", amount: 3 }];
+      if (amount === 3) return [{ k: "low", amount: 3 }];
+      if (amount === 2) return [{ k: "onTime", amount: 1 }, { k: "mid", amount: 1 }];
+      if (amount === 1) return [{ k: "onTime", amount: 1 }];
+      return stored.length ? stored : [{ k: "lesson", amount }];
+    }
     function historyHtml() {
       if (!coins.history || !coins.history.length) {
         return `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
@@ -2853,7 +2957,7 @@
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
         <div class="history-list">${coins.history.map((item) => {
           const neg = item.amount < 0;
-          const partsHtml = (item.parts || []).map((p) => `<li>${partLabel(p)}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
+          const partsHtml = inferredHistoryParts(item).map((p) => `<li>${escapeHtml(partLabel(p))}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
           return `<div class="history-item${neg ? " spend" : ""}">
             <div class="history-top">
               <span class="history-date">${formatHistoryDate(item.at)}</span>
@@ -2862,6 +2966,22 @@
             ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
           </div>`;
         }).join("")}</div>`;
+    }
+    function renderRewardGuide() {
+      const box = document.getElementById("guidePage");
+      if (!box) return;
+      const extra = failExtra();
+      box.innerHTML = `
+        <p class="note guide-note" style="margin-bottom:12px;font-weight:800;">${t("guideAfterLesson")}</p>
+        <div class="guide-list">
+          <div class="guide-row"><p>${t("guideOnTime")}</p><span class="guide-amt">+1 ${COIN_SYMBOL}</span></div>
+          <div class="guide-row"><p>${t("guideLow")}</p><span class="guide-amt">+3 ${COIN_SYMBOL}</span></div>
+          <div class="guide-row"><p>${t("guideMid")}</p><span class="guide-amt">+1 ${COIN_SYMBOL}</span></div>
+          <div class="guide-row"><p>${t("guideHigh")}</p><span class="guide-amt">0 ${COIN_SYMBOL}</span></div>
+        </div>
+        <p class="note" style="margin-top:14px;">${t("guideRepeat")}</p>
+        <p class="note">${t("guideFailExtra", extra)}</p>
+        <p class="note">${t("guideSpend")}</p>`;
     }
     function renderCoinHistory() {
       const page = document.getElementById("historyPage");
@@ -3005,9 +3125,10 @@
     function partLabel(part) {
       if (!part) return "";
       if (part.k === "onTime") return t("rewardOnTime");
-      if (part.k === "low") return t("rewardLow", part.r || "0.0");
-      if (part.k === "mid") return t("rewardMid", part.r || "0.0");
-      if (part.k === "high") return t("rewardHigh", part.r || "0.0");
+      if (part.k === "low") return t("rewardLow", part.r || "");
+      if (part.k === "mid") return t("rewardMid", part.r || "");
+      if (part.k === "high") return t("rewardHigh", part.r || "");
+      if (part.k === "lesson") return t("rewardLesson");
       if (part.k === "prize") return t("redeemSpend", lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || ""));
       return part.label || "";
     }
@@ -3189,6 +3310,7 @@
       if (currentView === "tables") renderTablesSettings();
       if (currentView === "pythagoras") renderPythagoras();
       if (currentView === "redeem") renderRedeem();
+      if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "done" && state) renderReward(state);
       if (currentView === "admin") renderAdminWishlist();
@@ -3214,13 +3336,36 @@
       const box = document.getElementById("adminWishlistList");
       const list = catalog.prizes || [];
       if (!list.length) { box.innerHTML = `<p class="note">${t("redeemEmpty")}</p>`; return; }
-      box.innerHTML = list.map((prize) => {
-        const title = prizeTitle(prize);
-        return `<div class="admin-prize-row">
-          <div><strong>${title}</strong><br><span class="note">${prize.cost} ${COIN_SYMBOL}</span></div>
-          <button class="btn btn-ghost btn-sm admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>
-        </div>`;
-      }).join("");
+      box.innerHTML = list.map((prize) => `
+        <div class="admin-prize-row" data-id="${prize.id}">
+          <input class="admin-prize-ru" type="text" value="${escapeHtml(prize.titleRu || "")}" data-i18n-placeholder="prizeTitleRuPh" placeholder="${escapeHtml(t("prizeTitleRuPh"))}" />
+          <input class="admin-prize-en" type="text" value="${escapeHtml(prize.titleEn || "")}" data-i18n-placeholder="prizeTitleEnPh" placeholder="${escapeHtml(t("prizeTitleEnPh"))}" />
+          <input class="admin-prize-cost" type="number" min="1" max="9999" step="1" value="${prize.cost}" data-i18n-placeholder="prizeCostPh" placeholder="${escapeHtml(t("prizeCostPh"))}" />
+          <div class="admin-prize-actions">
+            <button class="btn btn-accent btn-sm admin-save-prize" data-id="${prize.id}" type="button">${t("adminSavePrize")}</button>
+            <button class="btn btn-ghost btn-sm admin-remove" data-id="${prize.id}" type="button">${t("adminRemove")}</button>
+          </div>
+        </div>`).join("");
+      box.querySelectorAll(".admin-save-prize").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = btn.closest(".admin-prize-row");
+          const id = btn.getAttribute("data-id");
+          const prize = (catalog.prizes || []).find((p) => p.id === id);
+          if (!prize || !row) return;
+          const titleRu = row.querySelector(".admin-prize-ru").value.trim();
+          const titleEn = row.querySelector(".admin-prize-en").value.trim();
+          const cost = Number(row.querySelector(".admin-prize-cost").value);
+          if (!titleRu || !titleEn || !Number.isFinite(cost) || cost < 1) return;
+          prize.titleRu = titleRu;
+          prize.titleEn = titleEn;
+          prize.cost = Math.round(cost);
+          catalog.updatedAt = Date.now();
+          saveCatalog();
+          renderAdminWishlist();
+          const status = document.getElementById("adminStatus");
+          if (status) status.textContent = t("dataSaved");
+        });
+      });
       box.querySelectorAll(".admin-remove").forEach((btn) => {
         btn.addEventListener("click", () => {
           catalog.prizes = catalog.prizes.filter((p) => p.id !== btn.getAttribute("data-id"));
