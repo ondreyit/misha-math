@@ -517,6 +517,10 @@
       flex-shrink: 0; box-shadow: 0 4px 0 rgba(0,0,0,0.08);
     }
     .earn-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+    .admin-tabs { margin-bottom: 14px; }
+    .admin-tabs .earn-tab {
+      min-height: 48px; padding: 8px 8px; font-size: 13px; line-height: 1.2; white-space: normal;
+    }
     .earn-tab {
       min-height: 42px; border: 2px solid var(--line-strong); border-radius: 14px;
       background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 800;
@@ -623,6 +627,8 @@
     }
     .admin-link.danger { color: var(--bad); }
     #adminAddPrizeBtn { margin-top: 12px; }
+    #adminClaimKinds { margin-top: 12px; }
+    #adminSaveBtn { margin-top: 8px; }
     .prize-form-actions { display: grid; gap: 8px; margin-top: 8px; }
     .prize-form-actions .btn + .btn { margin-top: 0; }
     .guide-list { display: grid; gap: 10px; }
@@ -1001,7 +1007,13 @@
         </section>
         <section id="adminView" class="hidden">
           <h2 class="view-title" data-i18n="adminTitle">Dad admin</h2>
-          <div class="card">
+          <div class="earn-tabs admin-tabs" id="adminTabs" role="tablist">
+            <button class="earn-tab on" id="adminTabGeneral" type="button" data-tab="general" data-i18n="adminTabGeneral">Общие</button>
+            <button class="earn-tab" id="adminTabCatalog" type="button" data-tab="catalog" data-i18n="adminTabCatalog">Каталог наград</button>
+            <button class="earn-tab" id="adminTabKinds" type="button" data-tab="kinds" data-i18n="adminTabKinds">Типы заявок</button>
+            <button class="earn-tab" id="adminTabClaims" type="button" data-tab="claims" data-i18n="adminTabClaims">Заявки на мишкоины</button>
+          </div>
+          <div class="card admin-pane" id="adminPaneGeneral" data-pane="general">
             <div class="admin-row">
               <span class="label" data-i18n="adminQuestions">Questions per unfinished test</span>
               <input id="adminCountInput" type="number" min="5" max="200" step="1" />
@@ -1013,15 +1025,21 @@
               <p class="note" data-i18n="adminFailExtraHint">How many new examples to add when the answer is wrong.</p>
             </div>
             <p class="admin-flash" id="adminStatus"></p>
+            <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
           </div>
-          <div class="card">
+          <div class="card admin-pane hidden" id="adminPaneCatalog" data-pane="catalog">
             <span class="label" data-i18n="adminWishlistTitle">Shared prize catalog</span>
             <p class="note" data-i18n="adminWishlistHint">Dad adds prizes once — any profile can buy them.</p>
             <div class="admin-prize-list" id="adminWishlistList"></div>
             <p class="admin-flash" id="adminCatalogStatus"></p>
             <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
           </div>
-          <div class="card">
+          <div class="card admin-pane hidden" id="adminPaneKinds" data-pane="kinds">
+            <span class="label" data-i18n="adminKindsTitle">Типы заявок</span>
+            <p class="note" data-i18n="adminKindsHint">Справочник типов заявок из «Еще мишкоинов».</p>
+            <div class="guide-list" id="adminClaimKinds"></div>
+          </div>
+          <div class="card admin-pane hidden" id="adminPaneClaims" data-pane="claims">
             <span class="label" data-i18n="adminClaimsTitle">Mishcoin requests</span>
             <p class="note" data-i18n="adminClaimsHint">Requests of the current profile. Check the new ones, then approve or reject.</p>
             <div class="admin-claim-list" id="adminClaimsList"></div>
@@ -1031,7 +1049,6 @@
             </div>
             <p class="admin-flash" id="adminClaimsStatus"></p>
           </div>
-          <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
           <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
         </section>
       </div>
@@ -1142,6 +1159,12 @@
         rewardFly: "Мишкоины летят в копилку!",
         runsToday: (n) => `Уроков сегодня: ${n}`,
         adminTitle: "Админка папы",
+        adminTabGeneral: "Общие",
+        adminTabCatalog: "Каталог наград",
+        adminTabKinds: "Типы заявок",
+        adminTabClaims: "Заявки на мишкоины",
+        adminKindsTitle: "Типы заявок",
+        adminKindsHint: "Справочник типов заявок из раздела «Еще мишкоинов». За эти награды дети подают заявки.",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
         adminFailExtra: "Вопросов за ошибку",
@@ -1341,6 +1364,12 @@
         rewardFly: "Mishcoins are flying into your balance!",
         runsToday: (n) => `Lessons today: ${n}`,
         adminTitle: "Dad admin",
+        adminTabGeneral: "General",
+        adminTabCatalog: "Reward catalog",
+        adminTabKinds: "Request types",
+        adminTabClaims: "Mishcoin requests",
+        adminKindsTitle: "Request types",
+        adminKindsHint: "Reference of request types from More Mishcoins. Kids send requests for these rewards.",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
         adminFailExtra: "Extra questions after a fail",
@@ -1524,6 +1553,7 @@
     let earnApprovedOnly = false;
     let pendingReject = null;
     let adminEditingPrizeId = null;
+    let adminTab = "general";
     let catalogPushing = false;
     let catalogPushQueued = false;
     let cloudSyncing = false;
@@ -2998,7 +3028,7 @@
       if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "earn") renderEarn();
-      if (currentView === "admin") { renderAdminWishlist(); renderAdminClaims(); }
+      if (currentView === "admin") setAdminTab(adminTab);
     }
     async function fetchCatalogCloud() {
       const remote = await fetchKvRaw("catalog");
@@ -3751,7 +3781,7 @@
         if (hint && hint.classList.contains("muted")) hint.textContent = t("pythHintIdle");
       }
       if (currentView === "earn") renderEarn();
-      if (currentView === "admin") renderAdminClaims();
+      if (currentView === "admin") setAdminTab(adminTab);
       renderWeekdays();
     }
 
@@ -4663,9 +4693,8 @@
       if (currentView === "earn") renderEarn();
       if (currentView === "done" && state) renderReward(state);
       if (currentView === "admin") {
-        renderAdminWishlist();
-        renderAdminClaims();
         syncPrizeFormChrome();
+        setAdminTab(adminTab);
       }
     }
 
@@ -4698,11 +4727,32 @@
       setAdminFlash("adminStatus", "");
       setAdminFlash("adminCatalogStatus", "");
       closePrizeForm();
-      renderAdminWishlist();
-      renderAdminClaims();
       setAdminFlash("adminClaimsStatus", "");
+      setAdminTab(adminTab);
       setHero(t("adminTitle"));
       show("admin", options);
+    }
+    function renderAdminClaimKinds() {
+      const box = document.getElementById("adminClaimKinds");
+      if (!box) return;
+      box.innerHTML = CLAIM_KINDS.map((kind) => `
+        <div class="guide-row">
+          <p>${escapeHtml(claimTitle(kind.id))}</p>
+          <span class="guide-amt">+${kind.amount} ${COIN_SYMBOL}</span>
+        </div>`).join("");
+    }
+    function setAdminTab(tab) {
+      const next = ["general", "catalog", "kinds", "claims"].includes(tab) ? tab : "general";
+      adminTab = next;
+      document.querySelectorAll("#adminView .admin-pane").forEach((pane) => {
+        pane.classList.toggle("hidden", pane.getAttribute("data-pane") !== next);
+      });
+      document.querySelectorAll("#adminTabs .earn-tab").forEach((btn) => {
+        btn.classList.toggle("on", btn.getAttribute("data-tab") === next);
+      });
+      if (next === "catalog") renderAdminWishlist();
+      if (next === "kinds") renderAdminClaimKinds();
+      if (next === "claims") renderAdminClaims();
     }
     function setAdminFlash(id, text, ok = true) {
       const el = document.getElementById(id);
@@ -4962,6 +5012,9 @@
     document.getElementById("adminCancelPrizeBtn").addEventListener("click", closePrizeForm);
     document.getElementById("prizeModal").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closePrizeForm();
+    });
+    document.querySelectorAll("#adminTabs .earn-tab").forEach((btn) => {
+      btn.addEventListener("click", () => setAdminTab(btn.getAttribute("data-tab")));
     });
     document.getElementById("adminBackBtn").addEventListener("click", goBack);
     document.getElementById("profileChip").addEventListener("click", openProfilePicker);
