@@ -526,6 +526,13 @@
       border-color: transparent; color: #fff;
       background: linear-gradient(135deg, #2f6fed, #6a4dff);
     }
+    .earn-history-filter {
+      display: flex; align-items: center; gap: 8px;
+      margin: -2px 0 12px; font-size: 14px; font-weight: 800; color: var(--ink);
+      cursor: pointer; user-select: none;
+    }
+    .earn-history-filter.hidden { display: none; }
+    .earn-history-filter input { width: 18px; height: 18px; accent-color: #2f6fed; flex-shrink: 0; }
     .redeem-block > .label { display: block; margin-bottom: 10px; }
     .sync-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -932,6 +939,10 @@
             <button class="earn-tab on" id="earnTabPending" type="button" data-tab="pending" data-i18n="earnTabPending">Review</button>
             <button class="earn-tab" id="earnTabHistory" type="button" data-tab="history" data-i18n="earnTabHistory">Request history</button>
           </div>
+          <label class="earn-history-filter hidden" id="earnHistoryFilter">
+            <input type="checkbox" id="earnApprovedOnly" />
+            <span data-i18n="earnHistoryApprovedOnly">Показать только согласованные</span>
+          </label>
           <div class="card" id="earnList"></div>
           <div class="admin-claim-actions hidden" id="earnInboxActions">
             <button class="btn btn-accent btn-sm" id="earnApproveBtn" type="button" data-i18n="adminApproveClaims">Approve</button>
@@ -1215,8 +1226,12 @@
         guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Еще мишкоинов». Папа согласует — и звёзды придут на баланс.",
         earnTitle: "Заработать Мишкоины",
         earnTabPending: "Согласование",
+        earnTabActive: "Активные заявки",
         earnTabHistory: "История заявок",
+        earnHistoryApprovedOnly: "Показать только согласованные",
         earnPapaHistoryEmpty: "Пока нет согласованных или отклонённых заявок.",
+        earnHistoryEmpty: "Пока нет согласованных или отклонённых заявок.",
+        earnHistoryApprovedEmpty: "Пока нет согласованных заявок.",
         earnSubtitle: "Подай заявку за график. Папа согласует или отклонит.",
         earnCreate: "Создать заявку",
         earnEmpty: "Пока нет заявок. Нажми «Создать заявку» и выбери награду.",
@@ -1409,8 +1424,12 @@
         guideEarn: "For morning, daytime, and evening schedules, send a request in More Mishcoins. Dad approves it, and the stars go to the balance.",
         earnTitle: "Earn Mishcoins",
         earnTabPending: "Review",
+        earnTabActive: "Active requests",
         earnTabHistory: "Request history",
+        earnHistoryApprovedOnly: "Show only approved",
         earnPapaHistoryEmpty: "No approved or rejected requests yet.",
+        earnHistoryEmpty: "No approved or rejected requests yet.",
+        earnHistoryApprovedEmpty: "No approved requests yet.",
         earnSubtitle: "Send a schedule request. Dad will approve or reject it.",
         earnCreate: "Create request",
         earnEmpty: "No requests yet. Tap Create request and choose a reward.",
@@ -1501,7 +1520,8 @@
     let familyClaimsPushing = false;
     let familyClaimsPushQueued = false;
     let editingClaimId = null;
-    let earnPapaTab = "pending";
+    let earnTab = "pending";
+    let earnApprovedOnly = false;
     let pendingReject = null;
     let adminEditingPrizeId = null;
     let catalogPushing = false;
@@ -3938,13 +3958,11 @@
       const profile = PROFILES.find((p) => p.id === claim.profileId);
       return profile ? profileLabel(profile) : (claim.profileId || "");
     }
-    function sortClaimsByStatus(list) {
-      const rank = { new: 0, approved: 1, rejected: 2 };
-      return (list || []).slice().sort((a, b) => {
-        const byStatus = (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
-        if (byStatus) return byStatus;
-        return (Date.parse(b.decidedAt || b.createdAt) || 0) - (Date.parse(a.decidedAt || a.createdAt) || 0);
-      });
+    function claimTime(claim) {
+      return Date.parse(claim?.decidedAt || claim?.createdAt) || 0;
+    }
+    function sortClaimsByTime(list) {
+      return (list || []).slice().sort((a, b) => claimTime(b) - claimTime(a));
     }
     function inboxClaims(tab = "all") {
       const list = familyClaims || [];
@@ -3953,7 +3971,7 @@
         : tab === "history"
           ? list.filter((claim) => claim.status === "approved" || claim.status === "rejected")
           : list;
-      return sortClaimsByStatus(filtered);
+      return sortClaimsByTime(filtered);
     }
     function claimReasonLine(claim) {
       return claim.status === "rejected" && claim.reason ? ` · ${t("claimReason", claim.reason)}` : "";
@@ -3976,39 +3994,54 @@
       const actions = document.getElementById("earnInboxActions");
       const flash = document.getElementById("earnClaimsStatus");
       const tabs = document.getElementById("earnTabs");
+      const historyFilter = document.getElementById("earnHistoryFilter");
+      const approvedOnly = document.getElementById("earnApprovedOnly");
+      const pendingTab = document.getElementById("earnTabPending");
+      const historyTab = document.getElementById("earnTabHistory");
       if (!box) return;
+      const history = earnTab === "history";
+      tabs?.classList.remove("hidden");
+      pendingTab?.classList.toggle("on", !history);
+      historyTab?.classList.toggle("on", history);
+      if (pendingTab) pendingTab.textContent = t(isPapa() ? "earnTabPending" : "earnTabActive");
+      if (historyTab) historyTab.textContent = t("earnTabHistory");
+      if (approvedOnly) approvedOnly.checked = earnApprovedOnly;
       if (isPapa()) {
         if (title) title.textContent = t("earnPapaTitle");
-        if (subtitle) subtitle.textContent = earnPapaTab === "history" ? t("earnTabHistory") : t("earnPapaSubtitle");
+        if (subtitle) subtitle.textContent = history ? t("earnTabHistory") : t("earnPapaSubtitle");
         createBtn?.classList.add("hidden");
-        tabs?.classList.remove("hidden");
-        document.getElementById("earnTabPending")?.classList.toggle("on", earnPapaTab !== "history");
-        document.getElementById("earnTabHistory")?.classList.toggle("on", earnPapaTab === "history");
-        const pending = earnPapaTab !== "history";
-        actions?.classList.toggle("hidden", !pending);
-        flash?.classList.toggle("hidden", !pending);
-        const claims = inboxClaims(pending ? "pending" : "history");
+        historyFilter?.classList.add("hidden");
+        actions?.classList.toggle("hidden", history);
+        flash?.classList.toggle("hidden", history);
+        const claims = inboxClaims(history ? "history" : "pending");
         box.innerHTML = claims.length
-          ? `<div class="admin-claim-list">${claims.map((claim) => inboxRowHtml(claim, pending)).join("")}</div>`
-          : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t(pending ? "earnPapaEmpty" : "earnPapaHistoryEmpty")}</p></div>`;
+          ? `<div class="admin-claim-list">${claims.map((claim) => inboxRowHtml(claim, !history)).join("")}</div>`
+          : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t(history ? "earnPapaHistoryEmpty" : "earnPapaEmpty")}</p></div>`;
         return;
       }
       if (title) title.textContent = t("earnTitle");
-      if (subtitle) subtitle.textContent = t("earnSubtitle");
+      if (subtitle) subtitle.textContent = history ? t("earnTabHistory") : t("earnSubtitle");
       createBtn?.classList.remove("hidden");
-      tabs?.classList.add("hidden");
+      historyFilter?.classList.toggle("hidden", !history);
       actions?.classList.add("hidden");
       flash?.classList.add("hidden");
-      const claims = sortClaimsByStatus(myClaims());
+      const mine = myClaims();
+      const claims = sortClaimsByTime(history
+        ? mine.filter((claim) => claim.status === "approved" || claim.status === "rejected")
+          .filter((claim) => !earnApprovedOnly || claim.status === "approved")
+        : mine.filter((claim) => claim.status === "new"));
       if (!claims.length) {
-        box.innerHTML = `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnEmpty")}</p></div>`;
+        const emptyKey = history
+          ? (earnApprovedOnly ? "earnHistoryApprovedEmpty" : "earnHistoryEmpty")
+          : "earnEmpty";
+        box.innerHTML = `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t(emptyKey)}</p></div>`;
         return;
       }
       box.innerHTML = `<div class="claim-list">${claims.map((claim) => `
         <div class="claim-row ${claim.status}">
           <div>
             <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
-            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
+            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
           </div>
           <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
           ${claim.status === "new" ? `<div class="claim-row-actions">
@@ -4055,6 +4088,7 @@
         showToast("ok", t("earnEdited"), t("earnSentHint"), "☀️");
         return;
       }
+      earnTab = "pending";
       familyClaims.unshift({
         id: uid(),
         profileId,
@@ -4150,7 +4184,7 @@
           if (await grantRemoteClaim(claim)) coinsAdded += claim.amount;
         }
       }
-      if (status === "rejected") earnPapaTab = "history";
+      if (status === "rejected") earnTab = "history";
       saveFamilyClaims();
       markProfileDirty();
       renderAdminClaims();
@@ -4881,8 +4915,12 @@
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
     document.getElementById("earnCreateBtn").addEventListener("click", () => openClaimModal());
-    document.getElementById("earnTabPending").addEventListener("click", () => { earnPapaTab = "pending"; renderEarn(); });
-    document.getElementById("earnTabHistory").addEventListener("click", () => { earnPapaTab = "history"; renderEarn(); });
+    document.getElementById("earnTabPending").addEventListener("click", () => { earnTab = "pending"; renderEarn(); });
+    document.getElementById("earnTabHistory").addEventListener("click", () => { earnTab = "history"; renderEarn(); });
+    document.getElementById("earnApprovedOnly").addEventListener("change", (e) => {
+      earnApprovedOnly = !!e.target.checked;
+      renderEarn();
+    });
     document.getElementById("claimCloseBtn").addEventListener("click", closeClaimModal);
     document.getElementById("claimModal").addEventListener("click", (e) => { if (e.target === document.getElementById("claimModal")) closeClaimModal(); });
     document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved", "#adminClaimsList", "adminClaimsStatus"));
