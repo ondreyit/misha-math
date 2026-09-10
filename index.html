@@ -518,6 +518,7 @@
       display: grid; place-items: center; padding: 18px; z-index: 80;
     }
     .modal.toast-modal { z-index: 110; }
+    .modal.pin-modal { z-index: 100; }
     .modal-card {
       width: min(420px, 100%); max-height: min(85vh, 640px); overflow-y: auto;
       background: var(--card); border-radius: 20px; padding: 18px;
@@ -692,7 +693,7 @@
       </div>
     </div>
   </div>
-  <div class="modal hidden" id="pinModal">
+  <div class="modal pin-modal hidden" id="pinModal">
     <div class="modal-card">
       <div class="label" data-i18n="adminPinTitle">Dad only</div>
       <p class="note" data-i18n="adminPinHint">Enter the secret PIN</p>
@@ -1427,6 +1428,7 @@
     let pendingPhoto = null;
     let failExtraSetting = FAIL_EXTRA_DEFAULT;
     let cloudNotify = null;
+    let pinPurpose = "admin";
 
     function storageKey() { return `${STORAGE_KEY_BASE}:${profileId}`; }
     function settingsKey() { return `${SETTINGS_KEY_BASE}:${profileId}`; }
@@ -3531,12 +3533,20 @@
         </button>
       `).join("");
       box.querySelectorAll(".profile-btn").forEach((btn) => {
-        btn.addEventListener("click", () => selectProfile(btn.getAttribute("data-profile")));
+        btn.addEventListener("click", () => requestProfile(btn.getAttribute("data-profile")));
       });
     }
     function openProfilePicker() {
       renderProfilePicker();
       profileModal.classList.remove("hidden");
+    }
+    function requestProfile(id) {
+      if (!PROFILES.some((p) => p.id === id)) return;
+      if (id === "papa" && profileId !== "papa") {
+        openPinModal("papa");
+        return;
+      }
+      selectProfile(id);
     }
     async function selectProfile(id) {
       if (!PROFILES.some((p) => p.id === id)) return;
@@ -4454,13 +4464,28 @@
       }
     }
 
-    function openPinModal() {
+    function openPinModal(purpose = "admin") {
+      pinPurpose = purpose === "papa" ? "papa" : "admin";
       pinModal.classList.remove("hidden");
       document.getElementById("pinError").textContent = "";
       const input = document.getElementById("pinInput");
       input.value = ""; input.focus();
     }
-    function closePinModal() { pinModal.classList.add("hidden"); }
+    function closePinModal() {
+      pinPurpose = "admin";
+      pinModal.classList.add("hidden");
+    }
+    function submitPin() {
+      const value = document.getElementById("pinInput").value.trim();
+      if (value !== ADMIN_PIN) {
+        document.getElementById("pinError").textContent = t("pinWrong");
+        return;
+      }
+      const purpose = pinPurpose;
+      closePinModal();
+      if (purpose === "papa") selectProfile("papa");
+      else openAdmin();
+    }
     function openAdmin(options = {}) {
       sessionStorage.setItem(ADMIN_KEY, "1");
       document.getElementById("adminCountInput").value = String(questionCount());
@@ -4599,7 +4624,7 @@
       if (titleTaps.length >= 5) {
         titleTaps = [];
         if (sessionStorage.getItem(ADMIN_KEY) === "1") openAdmin();
-        else openPinModal();
+        else openPinModal("admin");
       }
     }
 
@@ -4697,13 +4722,9 @@
     document.getElementById("pageBackBtn").addEventListener("click", goBack);
     document.getElementById("exitBtn").addEventListener("click", goBack);
     document.getElementById("backHomeBtn").addEventListener("click", goBack);
-    document.getElementById("pinOkBtn").addEventListener("click", () => {
-      const value = document.getElementById("pinInput").value.trim();
-      if (value === ADMIN_PIN) { closePinModal(); openAdmin(); }
-      else document.getElementById("pinError").textContent = t("pinWrong");
-    });
+    document.getElementById("pinOkBtn").addEventListener("click", submitPin);
     document.getElementById("pinCancelBtn").addEventListener("click", closePinModal);
-    document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("pinOkBtn").click(); });
+    document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
     document.getElementById("adminSaveBtn").addEventListener("click", async () => {
       const value = Number(document.getElementById("adminCountInput").value);
       const extra = Number(document.getElementById("adminFailExtraInput").value);
