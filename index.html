@@ -1032,7 +1032,7 @@
         rewardOnTime: "Пройдено вовремя",
         rewardLow: (r) => r ? `Мало ошибок (${r}% < 5%)` : "Мало ошибок (меньше 5%)",
         rewardMid: (r) => r ? `Ошибки ${r}% (5–10%)` : "Ошибки 5–10%",
-        rewardHigh: (r) => r ? `Ошибок много (${r}% > 10%)` : "Ошибок больше 10%",
+        rewardHigh: () => "Ошибок много: баллы за работу без ошибок не начислены",
         rewardLesson: "За урок",
         guideTitle: "Справочник наград",
         guideSubtitle: "За что дают Мишкоины и сколько",
@@ -1040,7 +1040,7 @@
         guideOnTime: "Урок сдан вовремя (в тот же день)",
         guideLow: "Ошибок меньше 5%",
         guideMid: "Ошибок от 5% до 10%",
-        guideHigh: "Ошибок больше 10%",
+        guideHigh: "Ошибок много: баллы за работу без ошибок не начислены",
         guideRepeat: "Урок можно повторять в тот же день — Мишкоины начисляются снова.",
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
@@ -1178,7 +1178,7 @@
         rewardOnTime: "Finished on time",
         rewardLow: (r) => r ? `Few mistakes (${r}% < 5%)` : "Few mistakes (under 5%)",
         rewardMid: (r) => r ? `Mistakes ${r}% (5–10%)` : "Mistakes 5–10%",
-        rewardHigh: (r) => r ? `Too many mistakes (${r}% > 10%)` : "More than 10% mistakes",
+        rewardHigh: () => "Too many mistakes: no accuracy bonus",
         rewardLesson: "For the lesson",
         guideTitle: "Reward guide",
         guideSubtitle: "What earns Mishcoins, and how many",
@@ -1186,7 +1186,7 @@
         guideOnTime: "Lesson finished on time (same day)",
         guideLow: "Fewer than 5% mistakes",
         guideMid: "5–10% mistakes",
-        guideHigh: "More than 10% mistakes",
+        guideHigh: "Too many mistakes: no accuracy bonus",
         guideRepeat: "You can repeat the lesson the same day and earn Mishcoins again.",
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
@@ -3354,7 +3354,10 @@
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
         <div class="history-list">${coins.history.map((item) => {
           const neg = item.amount < 0;
-          const partsHtml = inferredHistoryParts(item).map((p) => `<li>${escapeHtml(partLabel(p))}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
+          const partsHtml = inferredHistoryParts(item).map((p) => {
+            const label = escapeHtml(partLabel(p));
+            return p.amount ? `<li>${label}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>` : `<li>${label}</li>`;
+          }).join("");
           return `<div class="history-item${neg ? " spend" : ""}">
             <div class="history-top">
               <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
@@ -3561,7 +3564,7 @@
       list.innerHTML = "";
       (reward.parts || []).forEach((part) => {
         const li = document.createElement("li");
-        li.textContent = part.amount ? `${partLabel(part)}: +${part.amount}` : `${partLabel(part)}: 0`;
+        li.textContent = part.amount ? `${partLabel(part)}: +${part.amount}` : partLabel(part);
         list.appendChild(li);
       });
     }
