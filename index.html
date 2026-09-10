@@ -456,11 +456,9 @@
       text-decoration: underline; white-space: nowrap;
     }
     .admin-link.danger { color: var(--bad); }
-    .admin-prize-form { margin-top: 12px; }
-    .admin-prize-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .admin-prize-form-actions .btn { width: auto; flex: 1; }
-    .admin-prize-form-actions .btn + .btn { margin-top: 0; }
     #adminAddPrizeBtn { margin-top: 12px; }
+    .prize-form-actions { display: grid; gap: 8px; margin-top: 8px; }
+    .prize-form-actions .btn + .btn { margin-top: 0; }
     .guide-list { display: grid; gap: 10px; }
     .guide-row {
       display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
@@ -549,6 +547,18 @@
     <div class="reward-popup">
       <div class="reward-big" id="rewardBig">+0</div>
       <p class="note" id="rewardFlyText" style="color:#6a4700;font-weight:800;font-size:16px;">...</p>
+    </div>
+  </div>
+  <div class="modal hidden" id="prizeModal">
+    <div class="modal-card">
+      <div class="label" id="adminPrizeFormTitle">Add prize</div>
+      <input id="prizeTitleRu" type="text" placeholder="RU" data-i18n-placeholder="prizeTitleRuPh" />
+      <input id="prizeTitleEn" type="text" placeholder="EN" data-i18n-placeholder="prizeTitleEnPh" />
+      <input id="prizeCost" type="number" min="1" max="9999" step="1" placeholder="Cost" data-i18n-placeholder="prizeCostPh" />
+      <div class="prize-form-actions">
+        <button class="btn btn-accent" id="adminSavePrizeBtn" type="button" data-i18n="adminSavePrize">Save prize</button>
+        <button class="btn btn-ghost" id="adminCancelPrizeBtn" type="button" data-i18n="cancel">Cancel</button>
+      </div>
     </div>
   </div>
   <div class="modal hidden" id="pinModal">
@@ -779,16 +789,6 @@
             <div class="admin-prize-list" id="adminWishlistList"></div>
             <p class="admin-flash" id="adminCatalogStatus"></p>
             <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
-            <div class="admin-row admin-prize-form hidden" id="adminPrizeForm">
-              <span class="label" id="adminPrizeFormTitle">Add prize</span>
-              <input id="prizeTitleRu" type="text" placeholder="RU" data-i18n-placeholder="prizeTitleRuPh" />
-              <input id="prizeTitleEn" type="text" placeholder="EN" data-i18n-placeholder="prizeTitleEnPh" />
-              <input id="prizeCost" type="number" min="1" max="9999" step="1" placeholder="Cost" data-i18n-placeholder="prizeCostPh" />
-              <div class="admin-prize-form-actions">
-                <button class="btn btn-accent btn-sm" id="adminSavePrizeBtn" type="button" data-i18n="adminSavePrize">Save prize</button>
-                <button class="btn btn-ghost btn-sm" id="adminCancelPrizeBtn" type="button" data-i18n="cancel">Cancel</button>
-              </div>
-            </div>
           </div>
           <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
           <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
@@ -814,7 +814,7 @@
     const BAL_KEY_BASE = "misha-bal-v2";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
-    const POOL_VERSION = 2;
+    const POOL_VERSION = 5;
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -1295,6 +1295,43 @@
       return 2 - (idx % 2);
     }
     function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+    function digitWeight(d, scheduleMax) {
+      const n = Number(scheduleMax) || 0;
+      const raw = Number(d) || 0;
+      if (raw < 1 || n < 4) return 1;
+      const v = Math.min(raw, n);
+      const oldCount = n - 3;
+      const lowCount = oldCount <= 0 ? 0 : Math.max(1, Math.floor(oldCount / 2));
+      const midCount = oldCount - lowCount;
+      if (v <= lowCount) return 5;
+      if (v <= oldCount) return 7;
+      return (100 - 5 * lowCount - 7 * midCount) / 3;
+    }
+    function problemWeight(item, scheduleMax) {
+      return digitWeight(item.a, scheduleMax) * digitWeight(item.b, scheduleMax);
+    }
+    function pickWeighted(list, weightOf) {
+      if (!list.length) return null;
+      let total = 0;
+      const weights = list.map((item) => {
+        const w = Math.max(0, Number(weightOf(item)) || 0);
+        total += w;
+        return w;
+      });
+      if (total <= 0) return pick(list);
+      let roll = Math.random() * total;
+      for (let i = 0; i < list.length; i += 1) {
+        roll -= weights[i];
+        if (roll <= 0) return list[i];
+      }
+      return list[list.length - 1];
+    }
+    function weightedShuffle(list, weightOf) {
+      return list
+        .map((item) => ({ item, key: Math.pow(Math.random(), 1 / Math.max(0.001, Number(weightOf(item)) || 0.001)) }))
+        .sort((x, y) => y.key - x.key)
+        .map((row) => row.item);
+    }
     function setHero(text) { heroText.textContent = text; }
     function shuffle(list) {
       const copy = list.slice();
@@ -2507,17 +2544,20 @@
     function activeTables(dayState) {
       return dayState?.tables?.length ? dayState.tables : tablesForDate(dayState?.date || todayKey());
     }
-    function makeProblem(tables) {
+    function makeProblem(tables, dateKey) {
       const pool = buildPool(tables);
-      const item = pool[Math.floor(Math.random() * pool.length)];
+      const maxN = progressiveMax(dateKey || todayKey());
+      const item = pickWeighted(pool, (p) => problemWeight(p, maxN)) || pool[0];
       return { id: uid(), a: item.a, b: item.b, answer: item.answer };
     }
-    function makeQueue(count, tables) {
+    function makeQueue(count, tables, dateKey) {
       const pool = buildPool(tables);
-      const shuffled = shuffle(pool);
+      const maxN = progressiveMax(dateKey || todayKey());
+      const weightOf = (item) => problemWeight(item, maxN);
+      const shuffled = weightedShuffle(pool, weightOf);
       const queue = [];
       while (queue.length < count && pool.length) {
-        if (!shuffled.length) shuffled.push(...shuffle(pool));
+        if (!shuffled.length) shuffled.push(...weightedShuffle(pool, weightOf));
         const item = shuffled.pop();
         queue.push({ id: `${queue.length}-${item.a}x${item.b}-${Math.random().toString(16).slice(2, 6)}`, a: item.a, b: item.b, answer: item.answer });
       }
@@ -2527,7 +2567,7 @@
       const count = questionCount();
       const tables = tablesForDate(date);
       return {
-        date, tables, startCount: count, queue: makeQueue(count, tables),
+        date, tables, startCount: count, queue: makeQueue(count, tables, date),
         correct: 0, fails: 0, answered: 0, completed: false, sessionDone: false,
         completedAt: null, startedAt: null, runsCompleted: 0, totalCoins: 0,
         coinsAwarded: 0, coinParts: null, poolVersion: POOL_VERSION,
@@ -2538,7 +2578,7 @@
       dayState.tables = tables;
       dayState.poolVersion = POOL_VERSION;
       dayState.startCount = questionCount();
-      dayState.queue = makeQueue(dayState.startCount, tables);
+      dayState.queue = makeQueue(dayState.startCount, tables, dayState.date);
       dayState.correct = 0; dayState.fails = 0; dayState.answered = 0;
       dayState.sessionDone = false;
       dayState.startedAt = new Date().toISOString();
@@ -3345,7 +3385,7 @@
         feedbackEl.textContent = t("failLine", problem.answer, extra);
         feedbackEl.className = "feedback bad";
         problemCard.classList.add("flash-bad"); setHero(pick(t("cheer"))); spawnBurst(false);
-        for (let i = 0; i < extra; i += 1) state.queue.push(makeProblem(tables));
+        for (let i = 0; i < extra; i += 1) state.queue.push(makeProblem(tables, state.date));
       }
       persist(); updateTrainChrome();
       window.setTimeout(() => {
@@ -3402,17 +3442,13 @@
       showToast("ok", title, detail || t("dataSavedHint"), "✅");
     }
     function syncPrizeFormChrome() {
-      const form = document.getElementById("adminPrizeForm");
-      const addBtn = document.getElementById("adminAddPrizeBtn");
       const title = document.getElementById("adminPrizeFormTitle");
-      const open = form && !form.classList.contains("hidden");
-      if (addBtn) addBtn.classList.toggle("hidden", !!open);
       if (title) title.textContent = adminEditingPrizeId ? t("adminEditPrizeTitle") : t("adminAddPrize");
     }
     function closePrizeForm() {
       adminEditingPrizeId = null;
-      const form = document.getElementById("adminPrizeForm");
-      if (form) form.classList.add("hidden");
+      const modal = document.getElementById("prizeModal");
+      if (modal) modal.classList.add("hidden");
       const ru = document.getElementById("prizeTitleRu");
       const en = document.getElementById("prizeTitleEn");
       const cost = document.getElementById("prizeCost");
@@ -3427,8 +3463,8 @@
       document.getElementById("prizeTitleRu").value = prize?.titleRu || "";
       document.getElementById("prizeTitleEn").value = prize?.titleEn || "";
       document.getElementById("prizeCost").value = prize ? String(prize.cost) : "";
-      document.getElementById("adminPrizeForm").classList.remove("hidden");
       syncPrizeFormChrome();
+      document.getElementById("prizeModal").classList.remove("hidden");
       renderAdminWishlist();
       document.getElementById("prizeTitleRu").focus();
     }
@@ -3503,7 +3539,7 @@
         if (!day.answered) { store[key] = createDayState(key); changed += 1; return; }
         const desiredRemaining = Math.max(0, newCount - day.answered);
         while (day.queue.length > desiredRemaining) day.queue.pop();
-        while (day.queue.length < desiredRemaining) day.queue.push(makeProblem(tables));
+        while (day.queue.length < desiredRemaining) day.queue.push(makeProblem(tables, key));
         day.tables = tables; day.startCount = newCount;
         changed += 1;
       });
@@ -3637,6 +3673,9 @@
     document.getElementById("adminAddPrizeBtn").addEventListener("click", () => openPrizeForm());
     document.getElementById("adminSavePrizeBtn").addEventListener("click", savePrizeForm);
     document.getElementById("adminCancelPrizeBtn").addEventListener("click", closePrizeForm);
+    document.getElementById("prizeModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closePrizeForm();
+    });
     document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
     document.getElementById("profileChip").addEventListener("click", openProfilePicker);
     answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
