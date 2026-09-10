@@ -7,6 +7,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Мишкоин</title>
+  <script>
+    (function () {
+      try {
+        var hour = Number(new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", hour: "numeric", hourCycle: "h23"
+        }).formatToParts(new Date()).find(function (p) { return p.type === "hour"; }).value);
+        var dark = hour < 7 || hour >= 19;
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch (e) { /* keep light */ }
+    })();
+  </script>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="assets/favicon.ico" sizes="any" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
@@ -15,26 +27,89 @@
       --ink: #1a2450;
       --muted: #5a6490;
       --card: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #f3f8ff;
+      --surface-3: #f7fbff;
+      --line: #dceaff;
+      --line-strong: #cfe0ff;
+      --hover: #f3f8ff;
       --sky: #2f6fed;
       --mint: #18c59a;
       --gold: #f5b400;
       --ok: #0f9f6e;
       --ok-bg: #d8fff0;
+      --ok-ink: #0b8f63;
       --bad: #e11d48;
       --bad-bg: #ffe1e8;
       --focus: #2f6fed;
+      --gold-ink: #8a5a00;
       --shadow: 0 10px 28px rgba(36, 72, 140, 0.14);
       --sidebar-w: 240px;
+      --sidebar-bg: rgba(255,255,255,0.88);
+      --hero-bg: #ffffff;
+      --input-bg: #ffffff;
+      --ghost-bg: rgba(255,255,255,0.75);
+      --stat-bg: linear-gradient(180deg, #eef5ff, #f7fbff);
+      --page-spot-1: #fff7b0;
+      --page-spot-2: #ffb4d8;
+      --page-spot-3: #9ef0d2;
+      --page-grad: linear-gradient(180deg, #d7efff 0%, #ffe9d6 55%, #ffd8ef 100%);
+      --modal-dim: rgba(20,30,70,0.45);
+      --hint-bg: linear-gradient(135deg, #eef5ff, #fff7e8);
+      --history-bg: linear-gradient(180deg, #f7fbff, #fff);
+      --history-spend: linear-gradient(180deg, #fff0f3, #fff);
+      --theme-bar: #2f6fed;
+      --focus-ring: rgba(47,111,237,0.25);
+      --status-glow: rgba(255,255,255,0.7);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --ink: #e8eeff;
+      --muted: #9aa8d4;
+      --card: #1b2344;
+      --surface: #1e2748;
+      --surface-2: #243056;
+      --surface-3: #1a2140;
+      --line: #33406a;
+      --line-strong: #3d4d7a;
+      --hover: #2a3560;
+      --sky: #6d9bff;
+      --ok: #3ee0a4;
+      --ok-bg: #16382e;
+      --ok-ink: #5eecc0;
+      --bad: #ff6b8a;
+      --bad-bg: #3a1a28;
+      --focus: #6d9bff;
+      --gold-ink: #ffd27a;
+      --shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+      --sidebar-bg: rgba(14, 18, 40, 0.94);
+      --hero-bg: #1e2748;
+      --input-bg: #141a34;
+      --ghost-bg: rgba(30, 39, 72, 0.8);
+      --stat-bg: linear-gradient(180deg, #243056, #1a2240);
+      --page-spot-1: #2a1f4a;
+      --page-spot-2: #1a2a4a;
+      --page-spot-3: #12353a;
+      --page-grad: linear-gradient(180deg, #0d1228 0%, #151a38 55%, #1a1430 100%);
+      --modal-dim: rgba(4, 8, 20, 0.66);
+      --hint-bg: linear-gradient(135deg, #243056, #2a2848);
+      --history-bg: linear-gradient(180deg, #1e2748, #1b2344);
+      --history-spend: linear-gradient(180deg, #3a1a28, #1b2344);
+      --theme-bar: #12182e;
+      --focus-ring: rgba(120, 160, 255, 0.35);
+      --status-glow: rgba(0, 0, 0, 0.35);
     }
     * { box-sizing: border-box; }
+    html { color-scheme: light; }
+    html[data-theme="dark"] { color-scheme: dark; }
     html, body {
       margin: 0; min-height: 100%; color: var(--ink);
       font-family: "Segoe UI", "Trebuchet MS", sans-serif;
       background:
-        radial-gradient(circle at 12% 10%, #fff7b0 0%, transparent 28%),
-        radial-gradient(circle at 90% 0%, #ffb4d8 0%, transparent 32%),
-        radial-gradient(circle at 80% 90%, #9ef0d2 0%, transparent 34%),
-        linear-gradient(180deg, #d7efff 0%, #ffe9d6 55%, #ffd8ef 100%);
+        radial-gradient(circle at 12% 10%, var(--page-spot-1) 0%, transparent 28%),
+        radial-gradient(circle at 90% 0%, var(--page-spot-2) 0%, transparent 32%),
+        radial-gradient(circle at 80% 90%, var(--page-spot-3) 0%, transparent 34%),
+        var(--page-grad);
       background-attachment: fixed;
     }
     body { overflow-x: hidden; }
@@ -42,8 +117,8 @@
     .sidebar {
       position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
       display: flex; flex-direction: column; padding: 16px 14px;
-      background: rgba(255,255,255,0.88); backdrop-filter: blur(10px);
-      border-right: 2px solid #dceaff; box-shadow: 4px 0 24px rgba(36,72,140,0.08);
+      background: var(--sidebar-bg); backdrop-filter: blur(10px);
+      border-right: 2px solid var(--line); box-shadow: 4px 0 24px rgba(36,72,140,0.08);
       z-index: 20; overflow: hidden;
     }
     .sidebar-title {
@@ -63,7 +138,7 @@
     .photo-preview {
       width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
       border: 4px solid #fff; box-shadow: var(--shadow); display: block; margin: 8px auto 14px;
-      background: #eef4ff;
+      background: var(--surface-2);
     }
     .photo-file {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -77,8 +152,8 @@
     }
     .sidebar-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
     .lang-switch {
-      display: inline-flex; border: 2px solid #cfe0ff; border-radius: 999px;
-      overflow: hidden; background: #fff;
+      display: inline-flex; border: 2px solid var(--line-strong); border-radius: 999px;
+      overflow: hidden; background: var(--surface);
     }
     .lang-switch button {
       border: 0; background: transparent; min-height: 34px; padding: 0 10px;
@@ -102,8 +177,8 @@
     }
     .coins.pop { animation: coinPop 0.55s ease; }
     .hero-bubble {
-      position: relative; background: #fff; border-radius: 16px; padding: 10px 12px;
-      box-shadow: var(--shadow); border: 2px solid #dceaff; width: 100%;
+      position: relative; background: var(--hero-bg); border-radius: 16px; padding: 10px 12px;
+      box-shadow: var(--shadow); border: 2px solid var(--line); width: 100%;
       min-height: 88px; flex-shrink: 0;
       cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
@@ -120,11 +195,11 @@
     }
     .nav-btn {
       display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
-      padding: 0 12px; border: 2px solid #dceaff; border-radius: 14px;
-      background: #fff; color: var(--ink); font: inherit; font-size: 14px;
+      padding: 0 12px; border: 2px solid var(--line); border-radius: 14px;
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 14px;
       font-weight: 800; cursor: pointer; text-align: left; transition: all 0.12s ease;
     }
-    .nav-btn:hover { border-color: #a8c8ff; background: #f3f8ff; }
+    .nav-btn:hover { border-color: var(--sky); background: var(--hover); }
     .nav-btn.on {
       background: linear-gradient(135deg, #2f6fed, #6a4dff);
       border-color: transparent; color: #fff;
@@ -139,7 +214,7 @@
     .subtitle { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
     .view-title { margin: 0 0 4px; font-size: 24px; font-weight: 900; letter-spacing: -0.03em; }
     .card {
-      background: var(--card); border: 2px solid #e5f0ff; border-radius: 20px;
+      background: var(--card); border: 2px solid var(--line); border-radius: 20px;
       padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow);
       animation: fadeUp 0.45s ease;
     }
@@ -149,8 +224,8 @@
     }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
     .stat {
-      background: linear-gradient(180deg, #eef5ff, #f7fbff); border-radius: 14px;
-      padding: 10px 8px; text-align: center; border: 1px solid #dceaff;
+      background: var(--stat-bg); border-radius: 14px;
+      padding: 10px 8px; text-align: center; border: 1px solid var(--line);
     }
     .stat strong { display: block; font-size: 22px; line-height: 1.1; }
     .stat span { font-size: 12px; color: var(--muted); }
@@ -164,7 +239,7 @@
     .btn + .btn { margin-top: 10px; }
     .btn-accent { background: linear-gradient(135deg, #ff8a2b, #ff3d81); color: #fff; }
     .btn-ink { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
-    .btn-ghost { background: rgba(255,255,255,0.75); border: 2px solid #cfe0ff; color: var(--ink); box-shadow: none; }
+    .btn-ghost { background: var(--ghost-bg); border: 2px solid var(--line-strong); color: var(--ink); box-shadow: none; }
     .btn-sm { min-height: 42px; font-size: 15px; width: auto; padding: 0 16px; }
     .btn:disabled { opacity: 0.45; cursor: default; }
     .streak { margin-top: 8px; font-size: 15px; color: var(--muted); font-weight: 700; }
@@ -172,19 +247,19 @@
     .cal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
     .cal-head strong { font-size: 16px; text-transform: capitalize; }
     .cal-nav {
-      width: 38px; height: 38px; border-radius: 12px; border: 2px solid #cfe0ff;
-      background: #fff; font-weight: 900; cursor: pointer;
+      width: 38px; height: 38px; border-radius: 12px; border: 2px solid var(--line-strong);
+      background: var(--surface); color: var(--ink); font-weight: 900; cursor: pointer;
     }
     .cal-weekdays, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
     .cal-weekdays span { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
     .cal-cell {
-      aspect-ratio: 1; border-radius: 14px; border: 2px solid #dceaff; background: #fff;
+      aspect-ratio: 1; border-radius: 14px; border: 2px solid var(--line); background: var(--surface);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 1px; font-size: 12px; font-weight: 800; min-height: 0; padding: 2px;
     }
     .cal-cell .mark { font-size: 16px; line-height: 1; }
     .cal-cell.empty { border-color: transparent; background: transparent; }
-    .cal-cell.future { color: var(--muted); background: #f7faff; }
+    .cal-cell.future { color: var(--muted); background: var(--surface-3); }
     .cal-cell.before { opacity: 0.25; }
     .cal-cell.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
     .cal-cell.done { background: linear-gradient(180deg, #d8fff0, #baf7df); border-color: #7de0b8; color: var(--ok); animation: popIn 0.35s ease; }
@@ -203,13 +278,13 @@
     }
     .status-line .status-emoji { font-size: 26px; line-height: 1; }
     .status-line.status-done {
-      color: #0b8f63;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+      color: var(--ok-ink);
+      text-shadow: 0 1px 0 var(--status-glow);
       animation: statusHappy 0.7s ease;
     }
     .status-line.status-progress {
       color: #c67a00;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+      text-shadow: 0 1px 0 var(--status-glow);
       animation: statusThink 1.4s ease-in-out infinite;
     }
     .status-line.status-ready { color: var(--ink); }
@@ -217,11 +292,11 @@
       display: inline-flex; align-items: center; gap: 6px;
       padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 900;
     }
-    .status-pill.done { background: #d8fff0; color: #0b8f63; border: 2px solid #7de0b8; }
+    .status-pill.done { background: var(--ok-bg); color: var(--ok-ink); border: 2px solid #7de0b8; }
     .status-pill.progress { background: #fff3d6; color: #c67a00; border: 2px solid #ffb703; }
-    .status-pill.ready { background: #eef5ff; color: var(--sky); border: 2px solid #b7d0ff; }
-    .status-pill.miss, .status-pill.late { background: #ffe1e8; color: var(--bad); border: 2px solid #ff9aaf; }
-    .status-pill.future { background: #f3f7ff; color: var(--muted); border: 2px solid #dceaff; }
+    .status-pill.ready { background: var(--surface-2); color: var(--sky); border: 2px solid var(--line-strong); }
+    .status-pill.miss, .status-pill.late { background: var(--bad-bg); color: var(--bad); border: 2px solid #ff9aaf; }
+    .status-pill.future { background: var(--surface-3); color: var(--muted); border: 2px solid var(--line); }
     .day-mission-emoji { font-size: 42px; text-align: center; margin: 4px 0 10px; }
     .day-mission-meta { display: grid; gap: 8px; margin: 12px 0; }
     .day-mission-meta .row {
@@ -235,17 +310,17 @@
       font-size: 15px; font-weight: 900; color: #fff;
       background: linear-gradient(135deg, #2f6fed, #18c59a);
     }
-    .progress-bar { height: 12px; background: rgba(255,255,255,0.7); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; border: 2px solid #cfe0ff; }
+    .progress-bar { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; border: 2px solid var(--line-strong); }
     .progress-bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2f6fed, #18c59a, #ffb703); border-radius: inherit; transition: width 0.25s ease; }
     .progress-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 14px; font-weight: 700; }
     .problem-card { text-align: center; padding: 26px 18px 20px; transition: background 0.2s ease; }
     .problem { font-size: 46px; font-weight: 900; margin: 8px 0 22px; white-space: nowrap; animation: popIn 0.28s ease; }
     .answer-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .answer-row input {
-      width: 100%; min-height: 58px; border: 2px solid #cfe0ff; border-radius: 16px;
-      text-align: center; font-size: 30px; font-weight: 900; background: #fff; color: var(--ink);
+      width: 100%; min-height: 58px; border: 2px solid var(--line-strong); border-radius: 16px;
+      text-align: center; font-size: 30px; font-weight: 900; background: var(--input-bg); color: var(--ink);
     }
-    .answer-row input:focus { outline: 3px solid rgba(47,111,237,0.25); border-color: var(--focus); }
+    .answer-row input:focus { outline: 3px solid var(--focus-ring); border-color: var(--focus); }
     .answer-row .btn { width: 110px; min-height: 58px; }
     .feedback { min-height: 28px; margin-top: 14px; font-size: 17px; font-weight: 800; }
     .feedback.ok { color: var(--ok); }
@@ -265,7 +340,7 @@
     .reward-box ul { margin: 8px 0 0; padding-left: 18px; }
     .tables { display: flex; flex-wrap: wrap; gap: 8px; }
     .tables button, .table-chip {
-      width: 46px; height: 46px; border: 2px solid #cfe0ff; background: #fff;
+      width: 46px; height: 46px; border: 2px solid var(--line-strong); background: var(--surface);
       color: var(--ink); border-radius: 12px; font-size: 17px; font-weight: 800; cursor: pointer;
       position: relative; transition: all 0.12s ease;
     }
@@ -278,16 +353,16 @@
     .plan-list { display: grid; gap: 8px; }
     .plan-item {
       display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center;
-      width: 100%; padding: 12px 14px; border: 2px solid #dceaff; border-radius: 14px;
-      background: #fff; color: var(--ink); font: inherit; text-align: left; cursor: default;
+      width: 100%; padding: 12px 14px; border: 2px solid var(--line); border-radius: 14px;
+      background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: default;
     }
     .plan-item.action { cursor: pointer; }
     .plan-item.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
     .plan-item.done { background: var(--ok-bg); border-color: #7de0b8; }
     .plan-item.progress { background: linear-gradient(180deg, #fff8e8, #ffe7b0); border-color: #ffb703; }
     .plan-item.miss, .plan-item.late { background: var(--bad-bg); border-color: #ffb0c0; }
-    .plan-item.future { background: #f3f7ff; color: var(--muted); }
-    .plan-badge.done { color: #0b8f63; }
+    .plan-item.future { background: var(--surface-3); color: var(--muted); }
+    .plan-badge.done { color: var(--ok-ink); }
     .plan-badge.progress { color: #c67a00; }
     .plan-item .title { font-size: 15px; font-weight: 800; text-transform: capitalize; }
     .plan-item .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
@@ -302,19 +377,20 @@
     /* Pythagoras grid */
     .pyth-grid { overflow-x: auto; margin-top: 10px; }
     .pyth-hint {
-      min-height: 42px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px;
-      background: linear-gradient(135deg, #eef5ff, #fff7e8); border: 2px solid #dceaff;
-      font-size: 18px; font-weight: 900; text-align: center; color: var(--ink);
+      box-sizing: border-box; height: 52px; margin-bottom: 10px; padding: 8px 12px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--hint-bg); border: 2px solid var(--line);
+      font-size: 16px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--ink);
     }
-    .pyth-hint.muted { color: var(--muted); font-size: 15px; font-weight: 700; }
+    .pyth-hint.muted { color: var(--muted); }
     .pyth-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 320px; }
     .pyth-table th, .pyth-table td {
       text-align: center; padding: 8px 6px; border-radius: 10px; font-weight: 800; font-size: 14px;
-      transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+      transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
       cursor: default;
     }
     .pyth-table th { background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff; }
-    .pyth-table td { background: #f3f8ff; border: 1px solid #dceaff; }
+    .pyth-table td { background: var(--surface-2); border: 1px solid var(--line); }
     .pyth-table td.corner, .pyth-table th.corner { background: transparent; border: none; color: transparent; }
     .pyth-table td.diag { background: linear-gradient(135deg, #d8fff0, #baf7df); border-color: #7de0b8; }
     .pyth-table tr.row-hot th, .pyth-table tr.row-hot td { background: #fff1c9; border-color: #ffd36a; color: #7a5200; }
@@ -323,16 +399,16 @@
     .pyth-table th.col-hot { color: #fff !important; background: linear-gradient(135deg, #ffb703, #ff8a2b) !important; }
     .pyth-table td.cell-hot, .pyth-table th.cell-hot {
       background: linear-gradient(135deg, #2f6fed, #18c59a) !important;
-      color: #fff !important; border-color: transparent !important;
-      transform: scale(1.08); box-shadow: 0 6px 14px rgba(47,111,237,0.28); z-index: 1; position: relative;
+      color: #fff !important; border-color: #2f6fed !important;
+      box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #2f6fed;
     }
     .profile-grid {
       display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 4px;
     }
     .profile-btn {
       display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px;
-      padding: 10px 12px; border: 2px solid #dceaff; border-radius: 16px;
-      background: #fff; color: var(--ink); font: inherit; font-weight: 800;
+      padding: 10px 12px; border: 2px solid var(--line); border-radius: 16px;
+      background: var(--surface); color: var(--ink); font: inherit; font-weight: 800;
       cursor: pointer; text-align: left; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
     }
     .profile-btn:hover { transform: translateY(-2px); border-color: #a8c8ff; box-shadow: 0 8px 18px rgba(36,72,140,0.12); }
@@ -354,7 +430,7 @@
       font: inherit; font-size: 22px; font-weight: 900; letter-spacing: -0.03em;
       text-align: center; line-height: 1.15;
     }
-    .profile-chip:hover { color: #2f6fed; }
+    .profile-chip:hover { color: var(--sky); }
     @media (max-width: 420px) {
       .profile-grid { grid-template-columns: 1fr; }
     }
@@ -362,7 +438,7 @@
     .prize-list { display: grid; gap: 10px; }
     .prize-item {
       display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
-      padding: 14px; border: 2px solid #dceaff; border-radius: 16px; background: #fff;
+      padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface);
     }
     .prize-item.purchased { background: var(--ok-bg); border-color: #7de0b8; }
     .prize-info { min-width: 0; }
@@ -370,7 +446,7 @@
       font-size: 16px; font-weight: 800; line-height: 1.35;
       overflow-wrap: anywhere; word-break: break-word; white-space: normal;
     }
-    .prize-cost { font-size: 14px; color: #8a5a00; font-weight: 800; margin-top: 4px; }
+    .prize-cost { font-size: 14px; color: var(--gold-ink); font-weight: 800; margin-top: 4px; }
     .prize-item .btn-sm, .prize-item .plan-badge { align-self: center; }
     .prize-meta { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 4px; }
     .redeem-block { margin-bottom: 14px; }
@@ -388,40 +464,41 @@
     .empty-state p { margin: 0; font-size: 15px; font-weight: 700; }
     /* Modals */
     .modal {
-      position: fixed; inset: 0; background: rgba(20,30,70,0.45);
+      position: fixed; inset: 0; background: var(--modal-dim);
       display: grid; place-items: center; padding: 18px; z-index: 80;
     }
     .modal.toast-modal { z-index: 110; }
     .modal-card {
       width: min(420px, 100%); max-height: min(85vh, 640px); overflow-y: auto;
-      background: #fff; border-radius: 20px; padding: 18px;
-      box-shadow: var(--shadow); border: 2px solid #dceaff;
+      background: var(--card); border-radius: 20px; padding: 18px;
+      box-shadow: var(--shadow); border: 2px solid var(--line); color: var(--ink);
       animation: fadeUp 0.35s ease;
     }
     .modal-card.wide { width: min(480px, 100%); }
     .modal-card input, .admin-row input[type="number"], .admin-row input[type="text"],
     .admin-prize-row input[type="number"], .admin-prize-row input[type="text"] {
-      width: 100%; min-height: 48px; border: 2px solid #cfe0ff; border-radius: 14px;
+      width: 100%; min-height: 48px; border: 2px solid var(--line-strong); border-radius: 14px;
+      background: var(--input-bg); color: var(--ink);
       padding: 0 12px; font-size: 18px; font-weight: 800; margin: 6px 0;
     }
     .modal-card input[type="text"] { text-align: left; font-size: 16px; font-weight: 700; }
     .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .modal-head h2 { margin: 0; font-size: 20px; font-weight: 900; }
     .modal-close {
-      width: 36px; height: 36px; border-radius: 10px; border: 2px solid #cfe0ff;
-      background: #fff; font-size: 20px; cursor: pointer; font-weight: 900;
+      width: 36px; height: 36px; border-radius: 10px; border: 2px solid var(--line-strong);
+      background: var(--surface); color: var(--ink); font-size: 20px; cursor: pointer; font-weight: 900;
     }
     .history-list { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
     #historyPage .history-list { max-height: none; }
     .history-item {
-      padding: 12px 14px; border-radius: 14px; border: 2px solid #dceaff;
-      background: linear-gradient(180deg, #f7fbff, #fff);
+      padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line);
+      background: var(--history-bg);
       animation: fadeUp 0.3s ease;
     }
-    .history-item.spend { background: linear-gradient(180deg, #fff0f3, #fff); border-color: #ffc2cf; }
+    .history-item.spend { background: var(--history-spend); border-color: #ffc2cf; }
     .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .history-amount { font-size: 18px; font-weight: 900; color: #8a5a00; flex-shrink: 0; }
+    .history-amount { font-size: 18px; font-weight: 900; color: var(--gold-ink); flex-shrink: 0; }
     .history-amount.neg { color: var(--bad); }
     .history-parts { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted); }
     .admin-row { display: grid; gap: 6px; margin-bottom: 14px; }
@@ -431,7 +508,7 @@
     .admin-flash.err { color: var(--bad); }
     .admin-prize-list {
       display: grid; gap: 0;
-      border: 1px solid #dceaff; border-radius: 10px; background: #fff;
+      border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
     }
     .admin-prize-head, .admin-prize-row {
       display: grid;
@@ -440,18 +517,18 @@
       padding: 7px 10px;
     }
     .admin-prize-head {
-      background: #f3f8ff; font-size: 11px; font-weight: 800;
+      background: var(--surface-2); font-size: 11px; font-weight: 800;
       color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em;
     }
-    .admin-prize-row + .admin-prize-row { border-top: 1px solid #e8f0ff; }
-    .admin-prize-row.editing { background: #f7fbff; }
+    .admin-prize-row + .admin-prize-row { border-top: 1px solid var(--line); }
+    .admin-prize-row.editing { background: var(--surface-3); }
     .admin-prize-name {
       font-size: 13px; font-weight: 800; line-height: 1.25;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
     }
-    .admin-prize-cost { font-size: 13px; font-weight: 800; color: #8a5a00; white-space: nowrap; }
+    .admin-prize-cost { font-size: 13px; font-weight: 800; color: var(--gold-ink); white-space: nowrap; }
     .admin-link {
-      border: 0; background: none; padding: 0; color: #2f6fed;
+      border: 0; background: none; padding: 0; color: var(--sky);
       font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
       text-decoration: underline; white-space: nowrap;
     }
@@ -462,10 +539,10 @@
     .guide-list { display: grid; gap: 10px; }
     .guide-row {
       display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
-      padding: 12px 14px; border: 2px solid #dceaff; border-radius: 14px; background: #fff;
+      padding: 12px 14px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface);
     }
     .guide-row p { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
-    .guide-amt { font-size: 18px; font-weight: 900; color: #8a5a00; white-space: nowrap; }
+    .guide-amt { font-size: 18px; font-weight: 900; color: var(--gold-ink); white-space: nowrap; }
     .guide-note { margin: 0; }
     .fx-layer { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
     .burst { position: absolute; width: 12px; height: 12px; border-radius: 4px; animation: burstFly 0.9s ease forwards; }
@@ -498,7 +575,7 @@
       .sidebar {
         position: sticky; top: 0; left: 0; right: 0; bottom: auto; width: 100%;
         flex-direction: column; padding: 10px 12px; border-right: 0;
-        border-bottom: 2px solid #dceaff; z-index: 30;
+        border-bottom: 2px solid var(--line); z-index: 30;
       }
       .sidebar-title { margin-bottom: 4px; font-size: 18px; }
       .profile-chip { margin: 0 0 8px; }
@@ -539,6 +616,10 @@
     }
     .toast-modal.ok h2 { color: #0b8f63; }
     .toast-modal.ok p { color: #26614c; }
+    html[data-theme="dark"] .reward-box { color: #ffe7a8; background: linear-gradient(135deg, #3a2e12, #2d2410); border-color: #c9a227; }
+    html[data-theme="dark"] .cal-cell.progress,
+    html[data-theme="dark"] .status-pill.progress { background: #3a2c10; color: #ffd27a; }
+    html[data-theme="dark"] .plan-item.progress { background: linear-gradient(180deg, #3a2c10, #2d2410); }
   </style>
 </head>
 <body>
@@ -688,9 +769,9 @@
             <div class="cal-weekdays" id="calWeekdays"></div>
             <div class="cal-grid" id="calGrid"></div>
             <div class="cal-legend">
-              <span>🎉 <span data-i18n="legendDone">done on time</span></span>
+              <span>🎉 <span data-i18n="legendDone">done</span></span>
               <span>🤔 <span data-i18n="legendProgress">in progress</span></span>
-              <span>😡 <span data-i18n="legendBad">missed / late</span></span>
+              <span>😡 <span data-i18n="legendBad">missed</span></span>
             </div>
           </div>
         </section>
@@ -798,6 +879,7 @@
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
+    const RECOVERED_DONE = { misha: ["2026-09-04", "2026-09-05", "2026-09-06"] };
     const FAIL_EXTRA_DEFAULT = 2;
     const FAIL_EXTRA_KEY = "misha-fail-extra-v1";
     const ADMIN_PIN = "2018";
@@ -853,7 +935,7 @@
         todayMission: "Задание дня",
         rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
         left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
-        legendDone: "вовремя", legendProgress: "в процессе", legendBad: "пропуск / опоздание",
+        legendDone: "сделано", legendProgress: "в процессе", legendBad: "пропуск",
         calendarSubtitle: "Твой прогресс тренировок",
         dayMissionTitle: "Миссия дня",
         dayMissionTables: "Таблицы",
@@ -997,7 +1079,7 @@
         todayMission: "Today's mission",
         rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
         left: "left", correct: "correct", fails: "fails", answers: "answers",
-        legendDone: "on time", legendProgress: "in progress", legendBad: "missed / late",
+        legendDone: "done", legendProgress: "in progress", legendBad: "missed",
         calendarSubtitle: "Your training progress",
         dayMissionTitle: "Day mission",
         dayMissionTables: "Tables",
@@ -1243,6 +1325,26 @@
       const d = new Date(iso);
       return d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     }
+    function estHour(now = new Date()) {
+      const hour = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        hourCycle: "h23",
+      }).formatToParts(now).find((part) => part.type === "hour");
+      return Number(hour?.value) || 0;
+    }
+    function desiredEstTheme(now = new Date()) {
+      const hour = estHour(now);
+      return (hour >= 7 && hour < 19) ? "light" : "dark";
+    }
+    function applyEstTheme() {
+      const theme = desiredEstTheme();
+      const root = document.documentElement;
+      root.setAttribute("data-theme", theme);
+      root.style.colorScheme = theme;
+      const meta = document.querySelector("meta[name='theme-color']");
+      if (meta) meta.content = theme === "dark" ? "#12182e" : "#2f6fed";
+    }
     function questionCount() { return Number(settings.questionCount) || 20; }
     function clampFailExtra(n) {
       const value = Number(n);
@@ -1275,7 +1377,8 @@
     }
     function progressiveMax(dateKey) {
       const idx = dayIndex(dateKey);
-      return Math.min(9, 3 + Math.floor(idx / 2));
+      const shifted = idx >= 7 ? idx + 1 : idx;
+      return Math.min(9, 3 + Math.floor(shifted / 2));
     }
     function effectiveTablesMax(dateKey) {
       const floor = progressiveMax(dateKey);
@@ -1289,10 +1392,13 @@
       return tables;
     }
     function daysUntilNextTable(dateKey) {
-      const idx = dayIndex(dateKey);
-      const maxN = progressiveMax(dateKey);
-      if (maxN >= 9) return 0;
-      return 2 - (idx % 2);
+      const current = progressiveMax(dateKey);
+      if (current >= 9) return 0;
+      for (let i = 1; i <= 4; i += 1) {
+        const next = todayKey(dayOffset(parseKey(dateKey), i));
+        if (progressiveMax(next) > current) return i;
+      }
+      return 0;
     }
     function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
     function digitWeight(d, scheduleMax) {
@@ -1538,6 +1644,7 @@
         h: coins.history || [],
         y: coins.purchases || [],
         d: compactDays(dayStore),
+        c: completedOffsetList(dayStore).join(","),
         q: settings.questionCount,
         m: settings.tablesMax,
       };
@@ -1562,6 +1669,7 @@
         if (pending.q) settings.questionCount = Number(pending.q) || settings.questionCount;
         if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
         if (pending.d) mergeRemoteDays(expandDays(pending.d));
+        if (pending.c) applyCompletedOffsets(pending.c);
         cloudMeta.updatedAt = Number(pending.u) || Date.now();
         renderCoins();
       } finally {
@@ -1700,12 +1808,109 @@
       if (!day) return false;
       return !!(day.completed || day.answered || day.runsCompleted || day.coinsAwarded);
     }
+    function dateOffset(key) {
+      if (!key || key < PROGRAM_START) return -1;
+      const n = Math.round((parseKey(key) - parseKey(PROGRAM_START)) / 86400000);
+      return Number.isFinite(n) && n >= 0 && n < 400 ? n : -1;
+    }
+    function keyFromOffset(n) {
+      return todayKey(dayOffset(parseKey(PROGRAM_START), n));
+    }
+    function addCompletedOffset(offsets, key) {
+      const n = dateOffset(key);
+      if (n >= 0) offsets.add(n);
+    }
+    function completedOffsetList(store = dayStore) {
+      const offsets = new Set();
+      Object.keys(store || {}).forEach((key) => {
+        if (store[key]?.completed) addCompletedOffset(offsets, key);
+      });
+      (coins.history || []).forEach((entry) => {
+        if ((entry.amount || 0) <= 0) return;
+        addCompletedOffset(offsets, entry.dateKey);
+        addCompletedOffset(offsets, trainedKeyFromAt(entry.at));
+      });
+      return [...offsets].sort((a, b) => a - b);
+    }
+    function trainedKeyFromAt(iso) {
+      if (!iso) return "";
+      const key = todayKey(new Date(iso));
+      return key >= PROGRAM_START ? key : "";
+    }
+    function stubCompletedDay(key, extra = {}) {
+      return {
+        date: key,
+        tables: tablesForDate(key),
+        startCount: questionCount(),
+        queue: [],
+        correct: Number(extra.correct) || 0,
+        fails: Number(extra.fails) || 0,
+        answered: Number(extra.answered) || Number(extra.correct) || 0,
+        completed: true,
+        sessionDone: true,
+        completedAt: extra.completedAt || `${key}T12:00:00.000Z`,
+        startedAt: extra.startedAt || null,
+        runsCompleted: Math.max(1, Number(extra.runsCompleted) || 1),
+        totalCoins: Number(extra.totalCoins) || Number(extra.coinsAwarded) || 0,
+        coinsAwarded: Number(extra.coinsAwarded) || 0,
+        coinParts: extra.coinParts || null,
+        poolVersion: POOL_VERSION,
+      };
+    }
+    function markDayCompleted(store, key, extra = {}) {
+      if (!key || key < PROGRAM_START) return false;
+      if (!store[key]) {
+        store[key] = stubCompletedDay(key, extra);
+        return true;
+      }
+      if (store[key].completed) return false;
+      store[key].completed = true;
+      store[key].sessionDone = true;
+      store[key].completedAt = store[key].completedAt || extra.completedAt || `${key}T12:00:00.000Z`;
+      store[key].runsCompleted = Math.max(1, store[key].runsCompleted || 0);
+      if (extra.totalCoins || extra.coinsAwarded) {
+        store[key].totalCoins = Math.max(Number(store[key].totalCoins) || 0, Number(extra.totalCoins) || Number(extra.coinsAwarded) || 0);
+      }
+      return true;
+    }
+    function applyCompletedOffsets(raw, store = dayStore) {
+      let changed = false;
+      String(raw || "").split(",").forEach((part) => {
+        const text = String(part).trim();
+        if (!/^\d+$/.test(text)) return;
+        const n = Number(text);
+        if (markDayCompleted(store, keyFromOffset(n))) changed = true;
+      });
+      return changed;
+    }
+    function dayWasEarned(key) {
+      return (coins.history || []).some((entry) => {
+        if ((entry.amount || 0) <= 0) return false;
+        return entry.dateKey === key || trainedKeyFromAt(entry.at) === key;
+      });
+    }
+    function fillDaysFromHistory() {
+      const store = loadStore();
+      let changed = false;
+      (RECOVERED_DONE[profileId] || []).forEach((key) => {
+        if (markDayCompleted(store, key)) changed = true;
+      });
+      (coins.history || []).forEach((entry) => {
+        if ((entry.amount || 0) <= 0) return;
+        const extra = { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
+        if (entry.dateKey && markDayCompleted(store, entry.dateKey, extra)) changed = true;
+        const trained = trainedKeyFromAt(entry.at);
+        if (trained && markDayCompleted(store, trained, extra)) changed = true;
+      });
+      if (changed) saveStore(store, { quiet: true });
+      return changed;
+    }
     function compactDays(store) {
       return Object.keys(store || {})
         .sort()
         .map((key) => store[key])
         .filter(dayHasProgress)
-        .slice(-12)
+        .slice(-8)
         .map((day) => ([
           day.date,
           day.completed ? 1 : 0,
@@ -1889,14 +2094,13 @@
       try {
         coins = {
           balance: Number(remote.coins?.balance) || 0,
-          history: mergeHistory([], remote.coins?.history),
-          purchases: Array.isArray(remote.coins?.purchases) ? remote.coins.purchases : [],
+          history: mergeHistory(coins.history, remote.coins?.history),
+          purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
         };
-        settings = parseSettings(remote.settings);
-        dayStore = {};
-        (remote.days || []).forEach((day) => {
-          if (day?.date) dayStore[day.date] = day;
-        });
+        if (remote.settings) settings = parseSettings(remote.settings);
+        mergeRemoteDays(remote.days || []);
+        if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
+        fillDaysFromHistory();
         fillHistoryFromDays();
         cloudMeta.updatedAt = Number(remote.updatedAt) || 0;
         renderCoins();
@@ -2130,8 +2334,9 @@
         payload.coins.history = mergeHistory(payload.coins.history, expandHistory(histRaw.h || histRaw.history));
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(histRaw.u || histRaw.updatedAt) || 0);
       }
-      if (daysRaw && (Array.isArray(daysRaw.d) || Array.isArray(daysRaw.days))) {
+      if (daysRaw && (Array.isArray(daysRaw.d) || Array.isArray(daysRaw.days) || daysRaw.c)) {
         payload.days = mergeDayLists(payload.days, expandDays(daysRaw.d || daysRaw.days));
+        payload.completedOffsets = String(daysRaw.c || daysRaw.completed || payload.completedOffsets || "");
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(daysRaw.u || daysRaw.updatedAt) || 0);
       }
       if (buyRaw && (Array.isArray(buyRaw.y) || Array.isArray(buyRaw.purchases))) {
@@ -2375,15 +2580,32 @@
         cloudSyncing = false;
       }
     }
+    function encodeDaysHex(updatedAt) {
+      const key = cloudDaysKey();
+      const limit = cloudHexBudget(key);
+      const c = completedOffsetList(dayStore).join(",");
+      let d = compactDays(dayStore);
+      let obj = { u: updatedAt, c, d };
+      let hex = bytesToHex(JSON.stringify(obj));
+      while (hex.length > limit && d.length) {
+        d = d.slice(1);
+        obj = { u: updatedAt, c, d };
+        hex = bytesToHex(JSON.stringify(obj));
+      }
+      if (hex.length > limit) {
+        obj = { u: updatedAt, c };
+        hex = bytesToHex(JSON.stringify(obj));
+      }
+      return hex;
+    }
     async function pushHistoryAndDays(payload, updatedAt) {
       const hist = { u: updatedAt, h: compactMiniHistory(payload.coins.history) };
-      const days = { u: updatedAt, d: compactDays(dayStore) };
       const buys = {
         u: updatedAt,
         y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
       };
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; }, cloudHistKey());
-      const daysHex = encodeJsonHex(days, (obj) => { if (obj.d && obj.d.length) { obj.d.shift(); return true; } return false; }, cloudDaysKey());
+      const daysHex = encodeDaysHex(updatedAt);
       const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; }, cloudBuyKey());
       await putKvRaw(cloudHistKey(), histHex);
       await putKvRaw(cloudDaysKey(), daysHex);
@@ -2593,9 +2815,13 @@
       if (date < PROGRAM_START) return null;
       const store = loadStore();
       if (!store[date]) {
-        store[date] = createDayState(date);
+        store[date] = dayWasEarned(date) ? stubCompletedDay(date) : createDayState(date);
         saveStore(store, { quiet: true });
         return store[date];
+      }
+      if (dayWasEarned(date) && !store[date].completed) {
+        markDayCompleted(store, date);
+        saveStore(store, { quiet: true });
       }
       const day = store[date];
       if (day.sessionDone == null) day.sessionDone = !!day.completed;
@@ -2640,7 +2866,7 @@
       if (key < PROGRAM_START) return "before";
       if (key > today) return "future";
       const dayState = store[key];
-      if (dayState?.completed) return isLate(dayState) ? "bad" : "done";
+      if (dayState?.completed || dayWasEarned(key)) return "done";
       if (dayState && dayState.answered > 0) return key < today ? "bad" : "progress";
       if (key < today) return "bad";
       return "today";
@@ -2711,6 +2937,11 @@
           writePendingSnapshot();
         }
         coins.history = dedupeHistory(coins.history);
+        if (fillDaysFromHistory() || (!remote?.completedOffsets && completedOffsetList().length)) {
+          profileDirty = true;
+          cloudMeta.updatedAt = Date.now();
+          writePendingSnapshot();
+        }
         await loadProfilePhoto(profileId);
         const legacy = readLegacyDeviceProfile(profileId);
         if (legacyRicherThanCloud(legacy, remote)) {
@@ -2829,6 +3060,7 @@
       document.getElementById("calWeekdays").innerHTML = t("weekdays").map((d) => `<span>${d}</span>`).join("");
     }
     function renderCalendar() {
+      fillDaysFromHistory();
       const grid = document.getElementById("calGrid");
       const store = loadStore();
       const today = todayKey();
@@ -2894,21 +3126,30 @@
       document.getElementById("tablesSettingsNote").textContent = t("tablesSettingsHint");
     }
 
-    function clearPythHot() {
+    function clearPythMarks() {
       const table = document.querySelector("#pythagorasGrid .pyth-table");
       if (!table) return;
       table.querySelectorAll(".row-hot").forEach((el) => el.classList.remove("row-hot"));
       table.querySelectorAll(".col-hot, .cell-hot").forEach((el) => el.classList.remove("col-hot", "cell-hot"));
+    }
+    function resetPythHint() {
       const hint = document.getElementById("pythHint");
       hint.textContent = t("pythHintIdle");
       hint.classList.add("muted");
     }
+    function clearPythHot() {
+      clearPythMarks();
+      resetPythHint();
+    }
     function highlightPyth(row, col) {
       const table = document.querySelector("#pythagorasGrid .pyth-table");
       if (!table) return;
-      clearPythHot();
+      clearPythMarks();
       const hint = document.getElementById("pythHint");
-      if (!row && !col) return;
+      if (!row && !col) {
+        resetPythHint();
+        return;
+      }
       table.querySelectorAll("tbody tr").forEach((tr) => {
         const r = Number(tr.getAttribute("data-row"));
         if (row && r === row) tr.classList.add("row-hot");
@@ -3063,7 +3304,7 @@
       if (!coins.history || !coins.history.length) {
         return `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
       }
-      return `<p class="note" style="margin-bottom:12px;font-weight:800;color:#8a5a00;">${t("coinHistoryBalance", coins.balance)}</p>
+      return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
         <div class="history-list">${coins.history.map((item) => {
           const neg = item.amount < 0;
           const partsHtml = inferredHistoryParts(item).map((p) => `<li>${escapeHtml(partLabel(p))}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
@@ -3123,10 +3364,11 @@
       const isToday = key === today;
       if (key < PROGRAM_START) return { kind: "future", badge: "—", meta: "—", action: false };
       if (key > today) return { kind: "future", badge: t("badgeFuture"), meta: t("metaFuture", count), action: false };
-      if (dayState?.completed) {
-        const late = isLate(dayState);
-        const coinText = dayState.coinsAwarded ? ` · +${dayState.coinsAwarded} ${COIN_SYMBOL}` : "";
-        return { kind: late ? "late" : "done", badge: late ? t("badgeLate") : t("badgeDone"), meta: t("metaStats", dayState.correct, dayState.fails, coinText), action: true };
+      if (dayState?.completed || dayWasEarned(key)) {
+        const coinText = dayState?.coinsAwarded ? ` · +${dayState.coinsAwarded} ${COIN_SYMBOL}` : "";
+        const correct = dayState?.correct || 0;
+        const fails = dayState?.fails || 0;
+        return { kind: "done", badge: t("badgeDone"), meta: t("metaStats", correct, fails, coinText), action: true };
       }
       if (dayState && dayState.answered > 0) {
         return { kind: isToday ? "progress" : "miss", badge: isToday ? t("badgeProgress") : t("badgeUnfinished"), meta: t("metaProgress", dayState.queue.length, dayState.correct, dayState.fails), action: true };
@@ -3135,6 +3377,7 @@
       return { kind: "miss", badge: t("badgeMiss"), meta: t("metaMiss", count), action: true };
     }
     function renderPlanList() {
+      fillDaysFromHistory();
       const box = document.getElementById("planList");
       box.innerHTML = "";
       const store = loadStore();
@@ -3303,6 +3546,7 @@
       showCurrentProblem();
     }
     function updateHome() {
+      fillDaysFromHistory();
       const date = todayKey();
       state = date >= PROGRAM_START ? getDayState(date) : null;
       const store = loadStore();
@@ -3373,6 +3617,13 @@
       };
       if (reward.total) addCoins(reward.total, historyEntry);
       persist();
+      const trainedKey = todayKey();
+      if (trainedKey !== state.date) {
+        const store = loadStore();
+        if (markDayCompleted(store, trainedKey, { completedAt: historyEntry.at, coinsAwarded: 0 })) {
+          saveStore(store, { quiet: true });
+        }
+      }
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
@@ -3697,6 +3948,11 @@
 
     const startMonth = monthStart(parseKey(PROGRAM_START));
     if (calMonth < startMonth) calMonth = startMonth;
+    applyEstTheme();
+    window.setInterval(applyEstTheme, 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") applyEstTheme();
+    });
     applyI18n();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     restorePhotoCache();
