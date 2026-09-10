@@ -498,6 +498,8 @@
     .admin-claim-row input { width: 20px; height: 20px; accent-color: #2f6fed; }
     .admin-claim-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .admin-claim-actions .btn { margin-top: 0; }
+    .claim-row-actions { display: flex; gap: 8px; grid-column: 1 / -1; }
+    .claim-row-actions .btn { width: auto; min-height: 36px; margin-top: 0; padding: 0 12px; font-size: 13px; }
     .redeem-block > .label { display: block; margin-bottom: 10px; }
     .sync-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -868,9 +870,14 @@
           <div id="redeemContent"></div>
         </section>
         <section id="earnView" class="hidden">
-          <h2 class="view-title" data-i18n="earnTitle">Earn Mishcoins</h2>
-          <p class="subtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
+          <h2 class="view-title" id="earnTitle" data-i18n="earnTitle">Earn Mishcoins</h2>
+          <p class="subtitle" id="earnSubtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
           <div class="card" id="earnList"></div>
+          <div class="admin-claim-actions hidden" id="earnInboxActions">
+            <button class="btn btn-accent btn-sm" id="earnApproveBtn" type="button" data-i18n="adminApproveClaims">Approve</button>
+            <button class="btn btn-ghost btn-sm" id="earnRejectBtn" type="button" data-i18n="adminRejectClaims">Reject</button>
+          </div>
+          <p class="admin-flash hidden" id="earnClaimsStatus"></p>
           <button class="btn btn-accent" id="earnCreateBtn" type="button" data-i18n="earnCreate">Create request</button>
         </section>
         <section id="guideView" class="hidden">
@@ -977,6 +984,7 @@
     const CLOUD_META_KEY_BASE = "misha-cloud-meta-v1";
     const CATALOG_KEY = "misha-prize-catalog-v1";
     const CATALOG_PENDING_KEY = "misha-catalog-pending-v1";
+    const FAMILY_CLAIMS_KEY = "misha-family-claims-v1";
     const LANG_KEY = "misha-lang-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
@@ -1147,7 +1155,7 @@
         earnEmpty: "Пока нет заявок. Нажми «Создать заявку» и выбери награду.",
         earnPickHint: "Выбери одну награду. Заявка уйдёт папе на согласование.",
         earnSent: "Заявка отправлена",
-        earnSentHint: "Папа увидит её в админке и сможет согласовать.",
+        earnSentHint: "Папа увидит её у себя и сможет согласовать.",
         claimStatus_new: "Новый",
         claimStatus_approved: "Согласовано",
         claimStatus_rejected: "Отклонено",
@@ -1158,7 +1166,15 @@
         claimKind_evening: "Вечерний график",
         claimKind_eveningOnTime: "Вечерний график вовремя",
         adminClaimsTitle: "Заявки на Мишкоины",
-        adminClaimsHint: "Заявки текущего профиля. Отметь новые и согласуй или отклони.",
+        adminClaimsHint: "Сюда падают заявки всех профилей. Отметь новые и согласуй или отклони.",
+        earnPapaTitle: "Заявки на согласование",
+        earnPapaSubtitle: "Все заявки семьи. Отметь нужные и согласуй или отклони.",
+        earnPapaEmpty: "Пока нет заявок на согласование.",
+        earnEdit: "Изменить",
+        earnDelete: "Удалить",
+        earnEdited: "Заявка обновлена",
+        earnDeleted: "Заявка удалена",
+        earnSentHint: "Папа увидит её у себя и сможет согласовать.",
         adminApproveClaims: "Согласовать",
         adminRejectClaims: "Отклонить",
         adminClaimsEmpty: "Заявок пока нет.",
@@ -1320,7 +1336,14 @@
         earnEmpty: "No requests yet. Tap Create request and choose a reward.",
         earnPickHint: "Choose one reward. The request will go to Dad for approval.",
         earnSent: "Request sent",
-        earnSentHint: "Dad will see it in admin and can approve it.",
+        earnSentHint: "Dad will see it on his profile and can approve it.",
+        earnPapaTitle: "Requests to approve",
+        earnPapaSubtitle: "All family requests. Check the ones you want, then approve or reject.",
+        earnPapaEmpty: "No requests waiting for approval.",
+        earnEdit: "Edit",
+        earnDelete: "Delete",
+        earnEdited: "Request updated",
+        earnDeleted: "Request deleted",
         claimStatus_new: "New",
         claimStatus_approved: "Approved",
         claimStatus_rejected: "Rejected",
@@ -1331,7 +1354,7 @@
         claimKind_evening: "Evening schedule",
         claimKind_eveningOnTime: "Evening schedule on time",
         adminClaimsTitle: "Mishcoin requests",
-        adminClaimsHint: "Requests of the current profile. Check the new ones, then approve or reject.",
+        adminClaimsHint: "Requests from every profile. Check the new ones, then approve or reject.",
         adminApproveClaims: "Approve",
         adminRejectClaims: "Reject",
         adminClaimsEmpty: "No requests yet.",
@@ -1385,6 +1408,12 @@
     let cloudPushTimer = null;
     let catalogPushTimer = null;
     let catalogDirty = false;
+    let familyClaims = [];
+    let familyClaimsUpdatedAt = 0;
+    let familyClaimsDirty = false;
+    let familyClaimsPushing = false;
+    let familyClaimsPushQueued = false;
+    let editingClaimId = null;
     let adminEditingPrizeId = null;
     let catalogPushing = false;
     let catalogPushQueued = false;
@@ -1404,11 +1433,12 @@
     function coinsKey() { return `${COINS_KEY_BASE}:${profileId}`; }
     function cloudMetaKey() { return `${CLOUD_META_KEY_BASE}:${profileId}`; }
     function cloudKvKey() { return `p_${profileId}`; }
-    function cloudHistKey() { return `h_${profileId}`; }
+    function cloudHistKey(id = profileId) { return `h_${id}`; }
     function cloudDaysKey() { return `d_${profileId}`; }
     function cloudBuyKey() { return `y_${profileId}`; }
-    function cloudClaimKey() { return `r_${profileId}`; }
-    function cloudBalKey() { return `b_${profileId}`; }
+    function cloudClaimKey(id = profileId) { return `r_${id}`; }
+    function cloudBalKey(id = profileId) { return `b_${id}`; }
+    function cloudFamilyClaimsKey() { return "claims"; }
     function rememberedBalKey(id = profileId) { return `${BAL_KEY_BASE}:${id}`; }
     function readRememberedBalance(id = profileId) {
       if (!id) return 0;
@@ -1698,8 +1728,9 @@
         balance: Math.max(coins.balance, legacy.coins.balance),
         history: mergeHistory(coins.history, legacy.coins.history),
         purchases: mergePurchases(coins.purchases, legacy.coins.purchases),
-        claims: mergeClaims(coins.claims, legacy.coins.claims),
+        claims: mergeClaims(coins.claims, legacy.coins.claims, profileId),
       };
+      adoptClaims(legacy.coins.claims, profileId);
       settings = parseSettings(legacy.settings);
       Object.keys(legacy.store || {}).forEach((key) => {
         dayStore[key] = mergeDayState(dayStore[key], expandDayRow({ ...legacy.store[key], date: key }));
@@ -1831,7 +1862,7 @@
         coins.balance = Math.max(Number(coins.balance) || 0, Number(pending.b) || 0);
         coins.history = mergeHistory(coins.history, pending.h || []);
         coins.purchases = mergePurchases(coins.purchases, pending.y || []);
-        coins.claims = mergeClaims(coins.claims, pending.r || pending.claims || []);
+        adoptClaims(pending.r || pending.claims || [], profileId);
         if (pending.q) settings.questionCount = Number(pending.q) || settings.questionCount;
         if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
         if (pending.d) mergeRemoteDays(expandDays(pending.d));
@@ -1995,6 +2026,7 @@
       const status = ["new", "approved", "rejected"].includes(raw.status) ? raw.status : "new";
       return {
         id: raw.id || uid(),
+        profileId: raw.profileId || "",
         kind: kind.id,
         amount: kind.amount,
         status,
@@ -2005,8 +2037,9 @@
     }
     function compactClaims(list) {
       const statusIdx = { new: 0, approved: 1, rejected: 2 };
-      return (list || []).slice(0, 20).map((c) => ([
+      return (list || []).slice(0, 30).map((c) => ([
         c.id,
+        Math.max(0, PROFILES.findIndex((p) => p.id === c.profileId)),
         Math.max(0, CLAIM_KINDS.findIndex((k) => k.id === c.kind)),
         statusIdx[c.status] ?? 0,
         toUnix(c.createdAt),
@@ -2014,12 +2047,28 @@
         c.paid ? 1 : 0,
       ]));
     }
-    function expandClaim(row) {
+    function expandClaim(row, fallbackProfile = "") {
       if (!row) return null;
-      if (!Array.isArray(row)) return normalizeClaim(row);
+      if (!Array.isArray(row)) {
+        const claim = normalizeClaim(row);
+        if (claim && !claim.profileId) claim.profileId = fallbackProfile;
+        return claim;
+      }
+      if (row.length >= 7) {
+        return normalizeClaim({
+          id: row[0],
+          profileId: PROFILES[row[1]]?.id || fallbackProfile,
+          kind: (CLAIM_KINDS[row[2]] || CLAIM_KINDS[0]).id,
+          status: ["new", "approved", "rejected"][row[3]] || "new",
+          createdAt: fromUnix(row[4]),
+          decidedAt: fromUnix(row[5]) || null,
+          paid: !!row[6],
+        });
+      }
       const kind = CLAIM_KINDS[row[1]] || CLAIM_KINDS[0];
       return normalizeClaim({
         id: row[0],
+        profileId: fallbackProfile,
         kind: kind.id,
         status: ["new", "approved", "rejected"][row[2]] || "new",
         createdAt: fromUnix(row[3]),
@@ -2027,8 +2076,8 @@
         paid: !!row[5],
       });
     }
-    function expandClaims(list) {
-      return (Array.isArray(list) ? list : []).map(expandClaim).filter(Boolean);
+    function expandClaims(list, fallbackProfile = "") {
+      return (Array.isArray(list) ? list : []).map((row) => expandClaim(row, fallbackProfile)).filter(Boolean);
     }
     function mergeClaim(a, b) {
       if (!a) return b;
@@ -2038,31 +2087,118 @@
         ? ((rank[b.status] || 0) > (rank[a.status] || 0) ? b : a)
         : ((Date.parse(b.decidedAt || b.createdAt) || 0) >= (Date.parse(a.decidedAt || a.createdAt) || 0) ? b : a);
       next.paid = !!(a.paid || b.paid || next.paid);
+      next.profileId = next.profileId || a.profileId || b.profileId || "";
       return next;
     }
-    function mergeClaims(local, remote) {
+    function mergeClaims(local, remote, fallbackProfile = "") {
       const map = new Map();
-      [...expandClaims(remote), ...expandClaims(local)].forEach((item) => {
+      [...expandClaims(remote, fallbackProfile), ...expandClaims(local, fallbackProfile)].forEach((item) => {
         if (!item?.id) return;
+        if (fallbackProfile && !item.profileId) item.profileId = fallbackProfile;
         map.set(item.id, mergeClaim(map.get(item.id), item));
       });
       return [...map.values()]
         .sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
-        .slice(0, 40);
+        .slice(0, 60);
+    }
+    function isPapa() { return profileId === "papa"; }
+    function myClaims() {
+      return (familyClaims || []).filter((claim) => claim.profileId === profileId);
+    }
+    function syncMyClaims() {
+      coins.claims = myClaims();
+    }
+    function adoptClaims(list, fallbackProfile = profileId) {
+      familyClaims = mergeClaims(familyClaims, list, fallbackProfile);
+      syncMyClaims();
+    }
+    function readLocalFamilyClaims() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(FAMILY_CLAIMS_KEY) || "null");
+        if (!raw) return;
+        familyClaims = mergeClaims(familyClaims, raw.r || raw.claims || []);
+        familyClaimsUpdatedAt = Math.max(familyClaimsUpdatedAt, Number(raw.u || raw.updatedAt) || 0);
+        syncMyClaims();
+      } catch { /* ignore */ }
+    }
+    function writeLocalFamilyClaims() {
+      try {
+        localStorage.setItem(FAMILY_CLAIMS_KEY, JSON.stringify({ u: familyClaimsUpdatedAt, r: familyClaims }));
+      } catch { /* ignore */ }
+    }
+    function saveFamilyClaims() {
+      familyClaimsUpdatedAt = Date.now();
+      familyClaimsDirty = true;
+      syncMyClaims();
+      writeLocalFamilyClaims();
+      scheduleFamilyClaimsPush();
+    }
+    async function fetchFamilyClaimsCloud() {
+      const shared = await fetchKvRaw(cloudFamilyClaimsKey());
+      let all = expandClaims(shared?.r || shared?.claims || []);
+      const rows = await Promise.all(PROFILES.map((p) => fetchKvRaw(cloudClaimKey(p.id))));
+      rows.forEach((raw, i) => {
+        all = mergeClaims(all, raw?.r || raw?.claims || [], PROFILES[i].id);
+      });
+      return {
+        updatedAt: Number(shared?.u || shared?.updatedAt) || 0,
+        claims: all,
+      };
+    }
+    async function pullFamilyClaims() {
+      readLocalFamilyClaims();
+      const remote = await fetchFamilyClaimsCloud();
+      const remoteAt = Number(remote.updatedAt) || 0;
+      if (familyClaimsDirty && familyClaimsUpdatedAt > remoteAt) {
+        scheduleFamilyClaimsPush();
+        return;
+      }
+      if (remote.claims.length || remoteAt) {
+        familyClaims = mergeClaims(familyClaims, remote.claims);
+        familyClaimsUpdatedAt = Math.max(familyClaimsUpdatedAt, remoteAt);
+        syncMyClaims();
+        writeLocalFamilyClaims();
+        if ((familyClaims.length > (remote.claims || []).length) || familyClaimsUpdatedAt > remoteAt) {
+          familyClaimsDirty = true;
+          scheduleFamilyClaimsPush();
+        }
+      }
+      creditApprovedClaims();
+    }
+    async function pushFamilyClaimsSync() {
+      if (familyClaimsPushing) {
+        familyClaimsPushQueued = true;
+        return false;
+      }
+      familyClaimsPushing = true;
+      try {
+        const payload = { u: familyClaimsUpdatedAt || Date.now(), r: compactClaims(familyClaims) };
+        const hex = encodeJsonHex(payload, (obj) => { if (obj.r && obj.r.length) { obj.r.pop(); return true; } return false; }, cloudFamilyClaimsKey());
+        const ok = await putKvRaw(cloudFamilyClaimsKey(), hex);
+        if (ok) {
+          familyClaimsDirty = false;
+          notifyCloud("claim");
+          return true;
+        }
+        return false;
+      } finally {
+        familyClaimsPushing = false;
+        if (familyClaimsPushQueued) {
+          familyClaimsPushQueued = false;
+          pushFamilyClaimsSync();
+        }
+      }
+    }
+    function scheduleFamilyClaimsPush() {
+      pushFamilyClaimsSync();
     }
     function isClaimHistory(entry) {
       return String(entry?.id || "").startsWith("claim-")
         || (entry?.parts || []).some((part) => part && part.k === "claim");
     }
-    function creditClaim(claim) {
-      if (!claim || claim.status !== "approved") return false;
-      const histId = `claim-${claim.id}`;
-      if (claim.paid || (coins.history || []).some((item) => item.id === histId || historyKey(item) === histId)) {
-        claim.paid = true;
-        return false;
-      }
-      addCoins(claim.amount, {
-        id: histId,
+    function claimHistoryEntry(claim) {
+      return {
+        id: `claim-${claim.id}`,
         at: claim.decidedAt || new Date().toISOString(),
         dateKey: "",
         amount: claim.amount,
@@ -2072,16 +2208,61 @@
           e: I18N.en[`claimKind_${claim.kind}`] || claim.kind,
           amount: claim.amount,
         }],
-      });
+      };
+    }
+    function creditClaim(claim) {
+      if (!claim || claim.status !== "approved") return false;
+      if (claim.profileId && claim.profileId !== profileId) return false;
+      const histId = `claim-${claim.id}`;
+      if ((coins.history || []).some((item) => item.id === histId || historyKey(item) === histId)) {
+        claim.paid = true;
+        return false;
+      }
+      if (claim.paid) {
+        pushCoinHistory(claimHistoryEntry(claim));
+        return false;
+      }
+      addCoins(claim.amount, claimHistoryEntry(claim));
       claim.paid = true;
       return true;
     }
     function creditApprovedClaims() {
       let added = 0;
-      (coins.claims || []).forEach((claim) => {
+      myClaims().forEach((claim) => {
         if (creditClaim(claim)) added += claim.amount;
       });
+      syncMyClaims();
       return added;
+    }
+    async function grantRemoteClaim(claim) {
+      if (!claim || claim.status !== "approved" || claim.paid) return false;
+      if (!claim.profileId || claim.profileId === profileId) {
+        return creditClaim(claim);
+      }
+      const histId = `claim-${claim.id}`;
+      const histRaw = await fetchKvRaw(cloudHistKey(claim.profileId));
+      const hist = expandHistory(histRaw?.h || histRaw?.history || []);
+      if (hist.some((item) => item.id === histId)) {
+        claim.paid = true;
+        return false;
+      }
+      const remoteB = await fetchBalanceCloud(claim.profileId);
+      const remembered = readRememberedBalance(claim.profileId);
+      const nextB = Math.max(remoteB, remembered) + claim.amount;
+      const okBal = await putKvRaw(cloudBalKey(claim.profileId), bytesToHex(String(nextB)));
+      if (!okBal) return false;
+      writeRememberedBalance(nextB, claim.profileId);
+      hist.unshift(claimHistoryEntry(claim));
+      const histHex = encodeJsonHex(
+        { u: Date.now(), h: compactMiniHistory(hist) },
+        (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; },
+        cloudHistKey(claim.profileId)
+      );
+      await putKvRaw(cloudHistKey(claim.profileId), histHex);
+      claim.paid = true;
+      notifyCloud("bal", { id: claim.profileId });
+      notifyCloud("claim", { id: claim.profileId });
+      return true;
     }
     function dayHasProgress(day) {
       if (!day) return false;
@@ -2404,8 +2585,9 @@
           balance: Number(remote.coins?.balance) || 0,
           history: mergeHistory(coins.history, remote.coins?.history),
           purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
-          claims: mergeClaims(coins.claims, remote.coins?.claims),
+          claims: mergeClaims(coins.claims, remote.coins?.claims, profileId),
         };
+        adoptClaims(coins.claims, profileId);
         if (remote.settings) settings = parseSettings(remote.settings);
         mergeRemoteDays(remote.days || []);
         if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
@@ -2610,9 +2792,9 @@
         return false;
       }
     }
-    async function fetchBalanceCloud() {
-      if (!profileId) return 0;
-      const raw = await fetchKvRaw(cloudBalKey());
+    async function fetchBalanceCloud(id = profileId) {
+      if (!id) return 0;
+      const raw = await fetchKvRaw(cloudBalKey(id));
       if (typeof raw === "number" && Number.isFinite(raw)) return raw;
       if (raw && typeof raw === "object" && raw.b != null) return Number(raw.b) || 0;
       return 0;
@@ -2655,7 +2837,7 @@
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(buyRaw.u || buyRaw.updatedAt) || 0);
       }
       if (claimRaw && (Array.isArray(claimRaw.r) || Array.isArray(claimRaw.claims))) {
-        payload.coins.claims = mergeClaims(payload.coins.claims, expandClaims(claimRaw.r || claimRaw.claims));
+        payload.coins.claims = mergeClaims(payload.coins.claims, expandClaims(claimRaw.r || claimRaw.claims, profileId), profileId);
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(claimRaw.u || claimRaw.updatedAt) || 0);
       }
       return payload;
@@ -2838,11 +3020,15 @@
         return;
       }
       if (data.k === "claim") {
-        if (data.id && profileId && data.id !== profileId) return;
-        await pullCloudSync();
+        await pullFamilyClaims();
+        if (!data.id || data.id === profileId) {
+          await pullBalanceOnly();
+          creditApprovedClaims();
+        }
         if (currentView === "earn") renderEarn();
         if (currentView === "admin") renderAdminClaims();
         if (currentView === "history") renderCoinHistory();
+        renderCoins();
         return;
       }
     }
@@ -2876,6 +3062,7 @@
       setSyncState("busy");
       try {
         await pullCatalogSync();
+        await pullFamilyClaims();
         const remote = await fetchProfileCloud();
         if (!remote) {
           setSyncState(profileDirty ? "busy" : "ok");
@@ -3271,7 +3458,7 @@
       if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables", options); return; }
       if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras", options); return; }
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem", options); return; }
-      if (view === "earn") { renderEarn(); setHero(t("heroEarn")); show("earn", options); return; }
+      if (view === "earn") { renderEarn(); setHero(isPapa() ? t("earnPapaTitle") : t("heroEarn")); show("earn", options); return; }
       if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide", options); return; }
       if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history", options); return; }
     }
@@ -3280,6 +3467,7 @@
       setSyncState("busy");
       try {
         await pullCatalogSync();
+        await pullFamilyClaims();
         const remote = await fetchProfileCloud();
         const pending = readPendingSnapshot();
         const remoteB = Number(remote?.coins?.balance) || 0;
@@ -3615,10 +3803,53 @@
     function claimStatusLabel(status) {
       return t(`claimStatus_${status}`) || status;
     }
+    function claimOwnerName(claim) {
+      const profile = PROFILES.find((p) => p.id === claim.profileId);
+      return profile ? profileLabel(profile) : (claim.profileId || "");
+    }
+    function inboxClaims() {
+      return (familyClaims || []).slice().sort((a, b) => {
+        if (a.status === "new" && b.status !== "new") return -1;
+        if (b.status === "new" && a.status !== "new") return 1;
+        return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+      });
+    }
+    function inboxRowHtml(claim) {
+      return `<label class="admin-claim-row">
+        <input class="claim-pick" type="checkbox" data-id="${escapeHtml(claim.id)}"${claim.status === "new" ? "" : " disabled"} />
+        <div>
+          <div class="claim-title">${escapeHtml(claimOwnerName(claim))} · ${escapeHtml(claimTitle(claim.kind))}</div>
+          <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
+        </div>
+        <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
+      </label>`;
+    }
     function renderEarn() {
       const box = document.getElementById("earnList");
+      const title = document.getElementById("earnTitle");
+      const subtitle = document.getElementById("earnSubtitle");
+      const createBtn = document.getElementById("earnCreateBtn");
+      const actions = document.getElementById("earnInboxActions");
+      const flash = document.getElementById("earnClaimsStatus");
       if (!box) return;
-      const claims = coins.claims || [];
+      if (isPapa()) {
+        if (title) title.textContent = t("earnPapaTitle");
+        if (subtitle) subtitle.textContent = t("earnPapaSubtitle");
+        createBtn?.classList.add("hidden");
+        actions?.classList.remove("hidden");
+        flash?.classList.remove("hidden");
+        const claims = inboxClaims();
+        box.innerHTML = claims.length
+          ? `<div class="admin-claim-list">${claims.map(inboxRowHtml).join("")}</div>`
+          : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnPapaEmpty")}</p></div>`;
+        return;
+      }
+      if (title) title.textContent = t("earnTitle");
+      if (subtitle) subtitle.textContent = t("earnSubtitle");
+      createBtn?.classList.remove("hidden");
+      actions?.classList.add("hidden");
+      flash?.classList.add("hidden");
+      const claims = myClaims();
       if (!claims.length) {
         box.innerHTML = `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnEmpty")}</p></div>`;
         return;
@@ -3630,9 +3861,20 @@
             <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
           </div>
           <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
+          ${claim.status === "new" ? `<div class="claim-row-actions">
+            <button class="btn btn-ink btn-sm claim-edit" type="button" data-id="${escapeHtml(claim.id)}">${t("earnEdit")}</button>
+            <button class="btn btn-ghost btn-sm claim-delete" type="button" data-id="${escapeHtml(claim.id)}">${t("earnDelete")}</button>
+          </div>` : ""}
         </div>`).join("")}</div>`;
+      box.querySelectorAll(".claim-edit").forEach((btn) => {
+        btn.addEventListener("click", () => openClaimModal(btn.getAttribute("data-id")));
+      });
+      box.querySelectorAll(".claim-delete").forEach((btn) => {
+        btn.addEventListener("click", () => deleteClaim(btn.getAttribute("data-id")));
+      });
     }
-    function openClaimModal() {
+    function openClaimModal(claimId = null) {
+      editingClaimId = claimId || null;
       const list = document.getElementById("claimKindList");
       list.innerHTML = CLAIM_KINDS.map((kind) => `
         <button class="claim-kind" type="button" data-kind="${kind.id}">
@@ -3640,83 +3882,101 @@
           <span>+${kind.amount} ${COIN_SYMBOL}</span>
         </button>`).join("");
       list.querySelectorAll(".claim-kind").forEach((btn) => {
-        btn.addEventListener("click", () => createClaim(btn.getAttribute("data-kind")));
+        btn.addEventListener("click", () => submitClaimKind(btn.getAttribute("data-kind")));
       });
       document.getElementById("claimModal").classList.remove("hidden");
     }
     function closeClaimModal() {
+      editingClaimId = null;
       document.getElementById("claimModal").classList.add("hidden");
     }
-    function createClaim(kindId) {
+    function submitClaimKind(kindId) {
       const kind = claimKindById(kindId);
-      if (!kind) return;
-      if (!coins.claims) coins.claims = [];
-      coins.claims.unshift({
+      if (!kind || isPapa()) return;
+      if (editingClaimId) {
+        const claim = familyClaims.find((item) => item.id === editingClaimId && item.profileId === profileId);
+        if (!claim || claim.status !== "new") return;
+        claim.kind = kind.id;
+        claim.amount = kind.amount;
+        saveFamilyClaims();
+        markProfileDirty();
+        closeClaimModal();
+        renderEarn();
+        showToast("ok", t("earnEdited"), t("earnSentHint"), "☀️");
+        return;
+      }
+      familyClaims.unshift({
         id: uid(),
+        profileId,
         kind: kind.id,
         amount: kind.amount,
         status: "new",
         createdAt: new Date().toISOString(),
         decidedAt: null,
+        paid: false,
       });
-      if (coins.claims.length > 40) coins.claims.length = 40;
-      saveCoins();
-      notifyCloud("claim", { id: profileId });
+      if (familyClaims.length > 60) familyClaims.length = 60;
+      saveFamilyClaims();
+      markProfileDirty();
       closeClaimModal();
       renderEarn();
       showToast("ok", t("earnSent"), t("earnSentHint"), "☀️");
     }
-    function selectedAdminClaimIds() {
-      return [...document.querySelectorAll("#adminClaimsList input[type=checkbox]:checked")]
+    function deleteClaim(id) {
+      const claim = familyClaims.find((item) => item.id === id);
+      if (!claim || claim.profileId !== profileId || claim.status !== "new") return;
+      familyClaims = familyClaims.filter((item) => item.id !== id);
+      saveFamilyClaims();
+      markProfileDirty();
+      renderEarn();
+      showToast("ok", t("earnDeleted"), t("earnSentHint"), "🗑️");
+    }
+    function selectedClaimIds(scope) {
+      return [...document.querySelectorAll(`${scope} input.claim-pick:checked`)]
         .map((el) => el.getAttribute("data-id"))
         .filter(Boolean);
     }
     function renderAdminClaims() {
       const box = document.getElementById("adminClaimsList");
       if (!box) return;
-      const claims = coins.claims || [];
+      const claims = inboxClaims();
       if (!claims.length) {
         box.innerHTML = `<p class="note">${t("adminClaimsEmpty")}</p>`;
         return;
       }
-      box.innerHTML = claims.map((claim) => `
-        <label class="admin-claim-row">
-          <input type="checkbox" data-id="${escapeHtml(claim.id)}"${claim.status === "new" ? "" : " disabled"} />
-          <div>
-            <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
-            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
-          </div>
-          <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
-        </label>`).join("");
+      box.innerHTML = claims.map(inboxRowHtml).join("");
     }
-    function decideSelectedClaims(status) {
-      const ids = new Set(selectedAdminClaimIds());
+    async function decideSelectedClaims(status, scope, flashId) {
+      const ids = new Set(selectedClaimIds(scope));
       if (!ids.size) {
-        setAdminFlash("adminClaimsStatus", t("adminClaimsNoneSelected"), false);
+        setAdminFlash(flashId, t("adminClaimsNoneSelected"), false);
         return;
       }
       const now = new Date().toISOString();
-      let count = 0;
-      let coinsAdded = 0;
-      (coins.claims || []).forEach((claim) => {
+      const chosen = [];
+      familyClaims.forEach((claim) => {
         if (!ids.has(claim.id) || claim.status !== "new") return;
         claim.status = status;
         claim.decidedAt = now;
-        count += 1;
-        if (status === "approved") coinsAdded += claim.amount;
+        chosen.push(claim);
       });
-      if (!count) {
-        setAdminFlash("adminClaimsStatus", t("adminClaimsNoneSelected"), false);
+      if (!chosen.length) {
+        setAdminFlash(flashId, t("adminClaimsNoneSelected"), false);
         return;
       }
-      creditApprovedClaims();
-      saveCoins();
-      notifyCloud("claim", { id: profileId });
+      let coinsAdded = 0;
+      if (status === "approved") {
+        for (const claim of chosen) {
+          if (await grantRemoteClaim(claim)) coinsAdded += claim.amount;
+        }
+      }
+      saveFamilyClaims();
+      markProfileDirty();
       renderAdminClaims();
       renderEarn();
       renderCoinHistory();
-      const detail = status === "approved" ? t("adminClaimsApproved", count, coinsAdded) : t("adminClaimsRejected", count);
-      notifyAdminSave("adminClaimsStatus", t(status === "approved" ? "adminApproveClaims" : "adminRejectClaims"), detail);
+      const detail = status === "approved" ? t("adminClaimsApproved", chosen.length, coinsAdded) : t("adminClaimsRejected", chosen.length);
+      notifyAdminSave(flashId, t(status === "approved" ? "adminApproveClaims" : "adminRejectClaims"), detail);
     }
 
     function buyPrize(id) {
@@ -4421,11 +4681,13 @@
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
-    document.getElementById("earnCreateBtn").addEventListener("click", openClaimModal);
+    document.getElementById("earnCreateBtn").addEventListener("click", () => openClaimModal());
     document.getElementById("claimCloseBtn").addEventListener("click", closeClaimModal);
     document.getElementById("claimModal").addEventListener("click", (e) => { if (e.target === document.getElementById("claimModal")) closeClaimModal(); });
-    document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved"));
-    document.getElementById("adminRejectClaimsBtn").addEventListener("click", () => decideSelectedClaims("rejected"));
+    document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved", "#adminClaimsList", "adminClaimsStatus"));
+    document.getElementById("adminRejectClaimsBtn").addEventListener("click", () => decideSelectedClaims("rejected", "#adminClaimsList", "adminClaimsStatus"));
+    document.getElementById("earnApproveBtn").addEventListener("click", () => decideSelectedClaims("approved", "#earnList", "earnClaimsStatus"));
+    document.getElementById("earnRejectBtn").addEventListener("click", () => decideSelectedClaims("rejected", "#earnList", "earnClaimsStatus"));
     document.getElementById("calPrev").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
     document.getElementById("calNext").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
     document.getElementById("startBtn").addEventListener("click", startTraining);
@@ -4473,6 +4735,7 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") applyEstTheme();
     });
+    readLocalFamilyClaims();
     applyI18n();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     restorePhotoCache();
