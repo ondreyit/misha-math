@@ -495,11 +495,30 @@
       display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center;
       padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface);
     }
+    .admin-claim-row.plain { grid-template-columns: minmax(0, 1fr) auto; }
     .admin-claim-row input { width: 20px; height: 20px; accent-color: #2f6fed; }
     .admin-claim-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .admin-claim-actions .btn { margin-top: 0; }
     .claim-row-actions { display: flex; gap: 8px; grid-column: 1 / -1; }
     .claim-row-actions .btn { width: auto; min-height: 36px; margin-top: 0; padding: 0 12px; font-size: 13px; }
+    .earn-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .earn-head-text { min-width: 0; flex: 1; }
+    .earn-head-text .view-title { margin-bottom: 4px; }
+    .earn-head-text .subtitle { margin-bottom: 0; }
+    .earn-create-btn {
+      width: auto; min-height: 36px; padding: 0 12px; font-size: 13px; margin-top: 2px;
+      flex-shrink: 0; box-shadow: 0 4px 0 rgba(0,0,0,0.08);
+    }
+    .earn-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+    .earn-tab {
+      min-height: 42px; border: 2px solid var(--line-strong); border-radius: 14px;
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 800;
+      cursor: pointer;
+    }
+    .earn-tab.on {
+      border-color: transparent; color: #fff;
+      background: linear-gradient(135deg, #2f6fed, #6a4dff);
+    }
     .redeem-block > .label { display: block; margin-bottom: 10px; }
     .sync-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -871,15 +890,23 @@
           <div id="redeemContent"></div>
         </section>
         <section id="earnView" class="hidden">
-          <h2 class="view-title" id="earnTitle" data-i18n="earnTitle">Earn Mishcoins</h2>
-          <p class="subtitle" id="earnSubtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
+          <div class="earn-head">
+            <div class="earn-head-text">
+              <h2 class="view-title" id="earnTitle" data-i18n="earnTitle">More Mishcoins</h2>
+              <p class="subtitle" id="earnSubtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
+            </div>
+            <button class="btn btn-accent earn-create-btn hidden" id="earnCreateBtn" type="button" data-i18n="earnCreate">Create request</button>
+          </div>
+          <div class="earn-tabs hidden" id="earnTabs">
+            <button class="earn-tab on" id="earnTabPending" type="button" data-tab="pending" data-i18n="earnTabPending">Review</button>
+            <button class="earn-tab" id="earnTabHistory" type="button" data-tab="history" data-i18n="earnTabHistory">Request history</button>
+          </div>
           <div class="card" id="earnList"></div>
           <div class="admin-claim-actions hidden" id="earnInboxActions">
             <button class="btn btn-accent btn-sm" id="earnApproveBtn" type="button" data-i18n="adminApproveClaims">Approve</button>
             <button class="btn btn-ghost btn-sm" id="earnRejectBtn" type="button" data-i18n="adminRejectClaims">Reject</button>
           </div>
           <p class="admin-flash hidden" id="earnClaimsStatus"></p>
-          <button class="btn btn-accent" id="earnCreateBtn" type="button" data-i18n="earnCreate">Create request</button>
         </section>
         <section id="guideView" class="hidden">
           <h2 class="view-title" data-i18n="guideTitle">Reward guide</h2>
@@ -1151,7 +1178,10 @@
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
         guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Еще мишкоинов». Папа согласует — и звёзды придут на баланс.",
-        earnTitle: "Еще мишкоинов",
+        earnTitle: "Заработать Мишкоины",
+        earnTabPending: "Согласование",
+        earnTabHistory: "История заявок",
+        earnPapaHistoryEmpty: "Пока нет согласованных или отклонённых заявок.",
         earnSubtitle: "Подай заявку за график. Папа согласует или отклонит.",
         earnCreate: "Создать заявку",
         earnEmpty: "Пока нет заявок. Нажми «Создать заявку» и выбери награду.",
@@ -1333,7 +1363,10 @@
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
         guideEarn: "For morning, daytime, and evening schedules, send a request in More Mishcoins. Dad approves it, and the stars go to the balance.",
-        earnTitle: "More Mishcoins",
+        earnTitle: "Earn Mishcoins",
+        earnTabPending: "Review",
+        earnTabHistory: "Request history",
+        earnPapaHistoryEmpty: "No approved or rejected requests yet.",
         earnSubtitle: "Send a schedule request. Dad will approve or reject it.",
         earnCreate: "Create request",
         earnEmpty: "No requests yet. Tap Create request and choose a reward.",
@@ -1417,6 +1450,7 @@
     let familyClaimsPushing = false;
     let familyClaimsPushQueued = false;
     let editingClaimId = null;
+    let earnPapaTab = "pending";
     let adminEditingPrizeId = null;
     let catalogPushing = false;
     let catalogPushQueued = false;
@@ -3825,22 +3859,32 @@
       const profile = PROFILES.find((p) => p.id === claim.profileId);
       return profile ? profileLabel(profile) : (claim.profileId || "");
     }
-    function inboxClaims() {
-      return (familyClaims || []).slice().sort((a, b) => {
-        if (a.status === "new" && b.status !== "new") return -1;
-        if (b.status === "new" && a.status !== "new") return 1;
-        return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+    function sortClaimsByStatus(list) {
+      const rank = { new: 0, approved: 1, rejected: 2 };
+      return (list || []).slice().sort((a, b) => {
+        const byStatus = (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
+        if (byStatus) return byStatus;
+        return (Date.parse(b.decidedAt || b.createdAt) || 0) - (Date.parse(a.decidedAt || a.createdAt) || 0);
       });
     }
-    function inboxRowHtml(claim) {
-      return `<label class="admin-claim-row">
-        <input class="claim-pick" type="checkbox" data-id="${escapeHtml(claim.id)}"${claim.status === "new" ? "" : " disabled"} />
+    function inboxClaims(tab = "all") {
+      const list = familyClaims || [];
+      const filtered = tab === "pending"
+        ? list.filter((claim) => claim.status === "new")
+        : tab === "history"
+          ? list.filter((claim) => claim.status === "approved" || claim.status === "rejected")
+          : list;
+      return sortClaimsByStatus(filtered);
+    }
+    function inboxRowHtml(claim, withPick) {
+      return `<${withPick ? "label" : "div"} class="admin-claim-row${withPick ? "" : " plain"}">
+        ${withPick ? `<input class="claim-pick" type="checkbox" data-id="${escapeHtml(claim.id)}" />` : ""}
         <div>
           <div class="claim-title">${escapeHtml(claimOwnerName(claim))} · ${escapeHtml(claimTitle(claim.kind))}</div>
-          <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
+          <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}</div>
         </div>
         <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
-      </label>`;
+      </${withPick ? "label" : "div"}>`;
     }
     function renderEarn() {
       const box = document.getElementById("earnList");
@@ -3849,25 +3893,31 @@
       const createBtn = document.getElementById("earnCreateBtn");
       const actions = document.getElementById("earnInboxActions");
       const flash = document.getElementById("earnClaimsStatus");
+      const tabs = document.getElementById("earnTabs");
       if (!box) return;
       if (isPapa()) {
         if (title) title.textContent = t("earnPapaTitle");
-        if (subtitle) subtitle.textContent = t("earnPapaSubtitle");
+        if (subtitle) subtitle.textContent = earnPapaTab === "history" ? t("earnTabHistory") : t("earnPapaSubtitle");
         createBtn?.classList.add("hidden");
-        actions?.classList.remove("hidden");
-        flash?.classList.remove("hidden");
-        const claims = inboxClaims();
+        tabs?.classList.remove("hidden");
+        document.getElementById("earnTabPending")?.classList.toggle("on", earnPapaTab !== "history");
+        document.getElementById("earnTabHistory")?.classList.toggle("on", earnPapaTab === "history");
+        const pending = earnPapaTab !== "history";
+        actions?.classList.toggle("hidden", !pending);
+        flash?.classList.toggle("hidden", !pending);
+        const claims = inboxClaims(pending ? "pending" : "history");
         box.innerHTML = claims.length
-          ? `<div class="admin-claim-list">${claims.map(inboxRowHtml).join("")}</div>`
-          : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnPapaEmpty")}</p></div>`;
+          ? `<div class="admin-claim-list">${claims.map((claim) => inboxRowHtml(claim, pending)).join("")}</div>`
+          : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t(pending ? "earnPapaEmpty" : "earnPapaHistoryEmpty")}</p></div>`;
         return;
       }
       if (title) title.textContent = t("earnTitle");
       if (subtitle) subtitle.textContent = t("earnSubtitle");
       createBtn?.classList.remove("hidden");
+      tabs?.classList.add("hidden");
       actions?.classList.add("hidden");
       flash?.classList.add("hidden");
-      const claims = myClaims();
+      const claims = sortClaimsByStatus(myClaims());
       if (!claims.length) {
         box.innerHTML = `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnEmpty")}</p></div>`;
         return;
@@ -3957,12 +4007,12 @@
     function renderAdminClaims() {
       const box = document.getElementById("adminClaimsList");
       if (!box) return;
-      const claims = inboxClaims();
+      const claims = inboxClaims("pending");
       if (!claims.length) {
         box.innerHTML = `<p class="note">${t("adminClaimsEmpty")}</p>`;
         return;
       }
-      box.innerHTML = claims.map(inboxRowHtml).join("");
+      box.innerHTML = claims.map((claim) => inboxRowHtml(claim, true)).join("");
     }
     async function decideSelectedClaims(status, scope, flashId) {
       const ids = new Set(selectedClaimIds(scope));
@@ -4715,6 +4765,8 @@
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
     document.getElementById("earnCreateBtn").addEventListener("click", () => openClaimModal());
+    document.getElementById("earnTabPending").addEventListener("click", () => { earnPapaTab = "pending"; renderEarn(); });
+    document.getElementById("earnTabHistory").addEventListener("click", () => { earnPapaTab = "history"; renderEarn(); });
     document.getElementById("claimCloseBtn").addEventListener("click", closeClaimModal);
     document.getElementById("claimModal").addEventListener("click", (e) => { if (e.target === document.getElementById("claimModal")) closeClaimModal(); });
     document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved", "#adminClaimsList", "adminClaimsStatus"));
