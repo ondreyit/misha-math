@@ -814,7 +814,7 @@
     const BAL_KEY_BASE = "misha-bal-v2";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
-    const POOL_VERSION = 5;
+    const POOL_VERSION = 6;
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -1329,7 +1329,7 @@
     function weightedShuffle(list, weightOf) {
       return list
         .map((item) => ({ item, key: Math.pow(Math.random(), 1 / Math.max(0.001, Number(weightOf(item)) || 0.001)) }))
-        .sort((x, y) => y.key - x.key)
+        .sort((x, y) => x.key - y.key)
         .map((row) => row.item);
     }
     function setHero(text) { heroText.textContent = text; }
@@ -2544,15 +2544,19 @@
     function activeTables(dayState) {
       return dayState?.tables?.length ? dayState.tables : tablesForDate(dayState?.date || todayKey());
     }
+    function stageMax(tables, dateKey) {
+      const fromTables = Array.isArray(tables) && tables.length ? Math.max(...tables.map(Number)) : 0;
+      return Math.max(fromTables, progressiveMax(dateKey || todayKey()));
+    }
     function makeProblem(tables, dateKey) {
       const pool = buildPool(tables);
-      const maxN = progressiveMax(dateKey || todayKey());
+      const maxN = stageMax(tables, dateKey);
       const item = pickWeighted(pool, (p) => problemWeight(p, maxN)) || pool[0];
       return { id: uid(), a: item.a, b: item.b, answer: item.answer };
     }
     function makeQueue(count, tables, dateKey) {
       const pool = buildPool(tables);
-      const maxN = progressiveMax(dateKey || todayKey());
+      const maxN = stageMax(tables, dateKey);
       const weightOf = (item) => problemWeight(item, maxN);
       const shuffled = weightedShuffle(pool, weightOf);
       const queue = [];
@@ -2600,7 +2604,18 @@
       const expected = tablesForDate(date).join(",");
       const current = Array.isArray(day.tables) ? day.tables.join(",") : "";
       const poolStale = day.poolVersion !== POOL_VERSION;
-      if (!day.completed && !day.answered && (expected !== current || poolStale)) {
+      if (!day.completed && poolStale) {
+        const tables = tablesForDate(date);
+        if (!day.answered) {
+          store[date] = createDayState(date);
+        } else {
+          const remaining = (day.queue || []).length || Math.max(0, (day.startCount || questionCount()) - (day.answered || 0));
+          day.tables = tables;
+          day.poolVersion = POOL_VERSION;
+          if (remaining > 0) day.queue = makeQueue(remaining, tables, date);
+        }
+        saveStore(store, { quiet: true });
+      } else if (!day.completed && !day.answered && expected !== current) {
         store[date] = createDayState(date);
         saveStore(store, { quiet: true });
       } else if (!day.tables) {
