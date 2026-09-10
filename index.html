@@ -1021,6 +1021,7 @@
         doneFails: (n) => `Готово. Было ${n} фейлов — из‑за них примеров стало больше.`,
         closedToday: "Урок выполнен. Можно пройти ещё раз!",
         closedDay: (d) => `Задание за ${d} уже выполнено. Можно повторить.`,
+        trainCatchUp: (d) => `Догоняем задание за ${d}`,
         badgeFuture: "Ещё нет", badgeDone: "Сделано", badgeLate: "С опозданием",
         badgeProgress: "В процессе", badgeUnfinished: "Не закончено", badgeToday: "Сегодня", badgeMiss: "Пропущено",
         metaFuture: (n) => `${n} примеров · откроется в этот день`,
@@ -1166,6 +1167,7 @@
         doneFails: (n) => `Done. There were ${n} fails — that added more examples.`,
         closedToday: "Lesson done. You can play it again!",
         closedDay: (d) => `Mission for ${d} is done. You can repeat it.`,
+        trainCatchUp: (d) => `Catching up: ${d}`,
         badgeFuture: "Not yet", badgeDone: "Done", badgeLate: "Late",
         badgeProgress: "In progress", badgeUnfinished: "Unfinished", badgeToday: "Today", badgeMiss: "Missed",
         metaFuture: (n) => `${n} examples · opens that day`,
@@ -3135,7 +3137,7 @@
         cell.innerHTML = `<span>${day}</span>${icon ? `<span class="mark">${icon}</span>` : ""}`;
         if (key >= PROGRAM_START && key <= today) {
           cell.classList.add("clickable");
-          cell.addEventListener("click", () => openDayMissionModal(key));
+          cell.addEventListener("click", () => playDayLesson(key));
         }
         grid.appendChild(cell);
       }
@@ -3492,8 +3494,9 @@
       `;
       const openBtn = document.getElementById("dayMissionOpenBtn");
       const repeatBtn = document.getElementById("dayMissionRepeatBtn");
-      if (dayState.sessionDone) {
-        openBtn.textContent = t("seeResult");
+      if (status.kind === "done" || dayState.sessionDone) {
+        openBtn.textContent = t("repeat");
+        repeatBtn.textContent = t("seeResult");
         repeatBtn.classList.remove("hidden");
       } else if (answered > 0) {
         openBtn.textContent = t("continue");
@@ -3576,6 +3579,31 @@
         playRewardToBalance(state.coinsAwarded);
       }
     }
+    function playDayLesson(dateKey) {
+      beginLesson(dateKey, { ifDone: "repeat" });
+    }
+    function beginLesson(dateKey, options = {}) {
+      fillDaysFromHistory();
+      const today = todayKey();
+      const key = dateKey || today;
+      if (key > today || key < PROGRAM_START) return;
+      closeDayMissionModal();
+      state = getDayState(key);
+      if (!state) return;
+      if (!state.sessionDone && (state.answered || 0) > 0) {
+        openAssignmentDay(key);
+        return;
+      }
+      if (state.sessionDone || state.completed || dayReallyDone(key)) {
+        if (options.ifDone === "result") {
+          openAssignmentDay(key);
+          return;
+        }
+        startRepeatLesson(key);
+        return;
+      }
+      openAssignmentDay(key);
+    }
     function openAssignmentDay(date) {
       const today = todayKey();
       if (date > today || date < PROGRAM_START) return;
@@ -3590,8 +3618,9 @@
       show("train");
       showCurrentProblem();
     }
-    function startRepeatLesson() {
-      if (!state) state = getDayState(todayKey());
+    function startRepeatLesson(dateKey) {
+      const key = dateKey || state?.date || todayKey();
+      state = getDayState(key);
       if (!state) return;
       resetSession(state);
       persist();
@@ -3641,7 +3670,9 @@
       document.getElementById("progressFill").style.width = `${Math.min(100, doneShare)}%`;
       document.getElementById("remainText").textContent = t("remain", remain);
       document.getElementById("scoreText").textContent = t("scoreLine", state.correct, state.fails);
-      document.getElementById("trainDateLabel").textContent = formatDateLong(state.date);
+      document.getElementById("trainDateLabel").textContent = state.date === todayKey()
+        ? formatDateLong(state.date)
+        : t("trainCatchUp", formatDateLong(state.date));
     }
     function showCurrentProblem() {
       updateTrainChrome();
@@ -3665,7 +3696,7 @@
       state.coinsAwarded = reward.total;
       state.totalCoins = (state.totalCoins || 0) + reward.total;
       const historyEntry = {
-        id: uid(), at: new Date().toISOString(), dateKey: state.date,
+        id: uid(), at: new Date().toISOString(), dateKey: state.date || todayKey(),
         amount: reward.total,
         parts: reward.parts.filter((p) => p.amount > 0),
       };
@@ -3674,7 +3705,7 @@
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
-    function startTraining() { openAssignmentDay(todayKey()); }
+    function startTraining() { beginLesson(todayKey(), { ifDone: "result" }); }
     function submitAnswer() {
       if (busy || !state || state.sessionDone) return;
       const problem = state.queue[0];
@@ -3941,15 +3972,12 @@
     toastModal.addEventListener("click", (e) => { if (e.target === toastModal) closeToast(); });
     document.getElementById("dayMissionOpenBtn").addEventListener("click", () => {
       const key = dayMissionKey;
-      closeDayMissionModal();
-      if (key) openAssignmentDay(key);
+      if (key) playDayLesson(key);
     });
     document.getElementById("dayMissionRepeatBtn").addEventListener("click", () => {
       const key = dayMissionKey;
       closeDayMissionModal();
-      if (!key) return;
-      state = getDayState(key);
-      startRepeatLesson();
+      if (key) openAssignmentDay(key);
     });
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
@@ -3957,8 +3985,8 @@
     document.getElementById("calPrev").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
     document.getElementById("calNext").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
     document.getElementById("startBtn").addEventListener("click", startTraining);
-    document.getElementById("repeatBtn").addEventListener("click", startRepeatLesson);
-    document.getElementById("repeatHomeBtn").addEventListener("click", () => { state = getDayState(todayKey()); startRepeatLesson(); });
+    document.getElementById("repeatBtn").addEventListener("click", () => startRepeatLesson(state?.date || todayKey()));
+    document.getElementById("repeatHomeBtn").addEventListener("click", () => startRepeatLesson(todayKey()));
     document.getElementById("submitBtn").addEventListener("click", submitAnswer);
     document.getElementById("exitBtn").addEventListener("click", () => { updateHome(); show("home"); });
     document.getElementById("backHomeBtn").addEventListener("click", () => { updateHome(); show("home"); });
