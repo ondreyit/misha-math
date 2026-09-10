@@ -793,7 +793,7 @@
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
         <button class="nav-btn" data-view="pythagoras" type="button"><span class="nav-icon">✖️</span><span data-i18n="navPythagoras">Pythagoras table</span></button>
         <button class="nav-btn" data-view="redeem" type="button"><span class="nav-icon">🎁</span><span data-i18n="navRedeem">Redeem</span></button>
-        <button class="nav-btn" data-view="earn" type="button"><span class="nav-icon">☀️</span><span data-i18n="navEarn">Earn Mishcoins</span></button>
+        <button class="nav-btn" data-view="earn" type="button"><span class="nav-icon">☀️</span><span id="navEarnLabel" data-i18n="navEarn">More Mishcoins</span></button>
         <button class="nav-btn" data-view="guide" type="button"><span class="nav-icon">📖</span><span data-i18n="navGuide">Reward guide</span></button>
         <button class="nav-btn" data-view="history" type="button"><span class="nav-icon">★</span><span data-i18n="navHistory">History</span></button>
       </nav>
@@ -1038,7 +1038,8 @@
         navTables: "Таблицы",
         navPythagoras: "Таблица Пифагора",
         navRedeem: "Обмен",
-        navEarn: "Заработать Мишкоины",
+        navEarn: "Еще мишкоинов",
+        navEarnPapa: "Согласование заявок",
         navGuide: "Справочник наград",
         navHistory: "История",
         todayMission: "Задание дня",
@@ -1149,8 +1150,8 @@
         guideRepeat: "Урок можно повторять в тот же день — Мишкоины начисляются снова.",
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
-        guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Заработать Мишкоины». Папа согласует — и звёзды придут на баланс.",
-        earnTitle: "Заработать Мишкоины",
+        guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Еще мишкоинов». Папа согласует — и звёзды придут на баланс.",
+        earnTitle: "Еще мишкоинов",
         earnSubtitle: "Подай заявку за график. Папа согласует или отклонит.",
         earnCreate: "Создать заявку",
         earnEmpty: "Пока нет заявок. Нажми «Создать заявку» и выбери награду.",
@@ -1220,7 +1221,8 @@
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
-        navEarn: "Earn Mishcoins",
+        navEarn: "More Mishcoins",
+        navEarnPapa: "Approve requests",
         navGuide: "Reward guide",
         navHistory: "History",
         todayMission: "Today's mission",
@@ -1330,8 +1332,8 @@
         guideRepeat: "You can repeat the lesson the same day and earn Mishcoins again.",
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
-        guideEarn: "For morning, daytime, and evening schedules, send a request in Earn Mishcoins. Dad approves it, and the stars go to the balance.",
-        earnTitle: "Earn Mishcoins",
+        guideEarn: "For morning, daytime, and evening schedules, send a request in More Mishcoins. Dad approves it, and the stars go to the balance.",
+        earnTitle: "More Mishcoins",
         earnSubtitle: "Send a schedule request. Dad will approve or reject it.",
         earnCreate: "Create request",
         earnEmpty: "No requests yet. Tap Create request and choose a reward.",
@@ -3523,6 +3525,11 @@
       avatar.title = t("photoTitle");
       document.getElementById("profileChipName").textContent = profileLabel(p);
       document.getElementById("profileChip").title = t("profileSwitch");
+      updateEarnNav();
+    }
+    function updateEarnNav() {
+      const el = document.getElementById("navEarnLabel");
+      if (el) el.textContent = t(isPapa() ? "navEarnPapa" : "navEarn");
     }
     function renderProfilePicker() {
       const box = document.getElementById("profileGrid");
@@ -3603,6 +3610,7 @@
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
       coinsBadge.title = t("mishcoins");
+      updateEarnNav();
       updateProfileChrome();
       if (!profileModal.classList.contains("hidden")) renderProfilePicker();
       if (currentView === "pythagoras") {
