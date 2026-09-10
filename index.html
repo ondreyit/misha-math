@@ -400,9 +400,9 @@
       font-size: 16px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--ink);
     }
     .pyth-hint.muted { color: var(--muted); }
-    .pyth-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 320px; }
+    .pyth-table { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 480px; }
     .pyth-table th, .pyth-table td {
-      text-align: center; padding: 8px 6px; border-radius: 10px; font-weight: 800; font-size: 14px;
+      text-align: center; padding: 6px 4px; border-radius: 8px; font-weight: 800; font-size: 13px;
       transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
       cursor: default;
     }
@@ -807,7 +807,7 @@
           <div class="card">
             <span class="label" data-i18n="tablesFloorLabel">Unlocked by progress</span>
             <p class="note" id="tablesFloorNote"></p>
-            <span class="label" style="margin-top:14px;" data-i18n="tablesSelectLabel">Active tables (1–9)</span>
+            <span class="label" style="margin-top:14px;" data-i18n="tablesSelectLabel">Active tables (1–12)</span>
             <div class="tables" id="tablesSettingsChips"></div>
             <p class="note" style="margin-top:10px;" id="tablesSettingsNote"></p>
           </div>
@@ -926,7 +926,9 @@
     const BAL_KEY_BASE = "misha-bal-v2";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
-    const POOL_VERSION = 6;
+    const TABLE_MAX = 12;
+    const FACTOR_MAX = 12;
+    const POOL_VERSION = 8;
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -1077,7 +1079,7 @@
         tablesSettingsHint: "Можно добавить таблицы выше минимума и вернуть назад до него.",
         tablesFloorLabel: "Открыто прогрессом",
         tablesFloorNote: (floor, max) => `Сейчас открыто: 1–${max}. Минимум: 1–${floor}.`,
-        tablesSelectLabel: "Активные таблицы (1–9)",
+        tablesSelectLabel: "Активные таблицы (1–12)",
         tablesSettingsSaved: "Таблицы обновлены!",
         pythagorasTitle: "Таблица Пифагора",
         pythagorasSubtitle: "Полная таблица умножения — наведи на клетку",
@@ -1223,7 +1225,7 @@
         tablesSettingsHint: "You can add tables above the minimum and lower them back to it.",
         tablesFloorLabel: "Unlocked by progress",
         tablesFloorNote: (floor, max) => `Open now: 1–${max}. Minimum: 1–${floor}.`,
-        tablesSelectLabel: "Active tables (1–9)",
+        tablesSelectLabel: "Active tables (1–12)",
         tablesSettingsSaved: "Tables updated!",
         pythagorasTitle: "Pythagoras table",
         pythagorasSubtitle: "Full multiplication grid — hover a cell",
@@ -1415,12 +1417,12 @@
     function progressiveMax(dateKey) {
       const idx = dayIndex(dateKey);
       const shifted = idx >= 7 ? idx + 1 : idx;
-      return Math.min(9, 3 + Math.floor(shifted / 2));
+      return Math.min(TABLE_MAX, 3 + Math.floor(shifted / 2));
     }
     function effectiveTablesMax(dateKey) {
       const floor = progressiveMax(dateKey);
       const boost = Number(settings.tablesMax) || 0;
-      return Math.min(9, Math.max(floor, boost));
+      return Math.min(TABLE_MAX, Math.max(floor, boost));
     }
     function tablesForDate(dateKey) {
       const maxN = effectiveTablesMax(dateKey);
@@ -1430,7 +1432,7 @@
     }
     function daysUntilNextTable(dateKey) {
       const current = progressiveMax(dateKey);
-      if (current >= 9) return 0;
+      if (current >= TABLE_MAX) return 0;
       for (let i = 1; i <= 4; i += 1) {
         const next = todayKey(dayOffset(parseKey(dateKey), i));
         if (progressiveMax(next) > current) return i;
@@ -1494,7 +1496,7 @@
       const tablesMax = Number(raw.tablesMax) || 0;
       return {
         questionCount: count >= 5 && count <= 200 ? count : 20,
-        tablesMax: tablesMax >= 0 && tablesMax <= 9 ? tablesMax : 0,
+        tablesMax: tablesMax >= 0 && tablesMax <= TABLE_MAX ? tablesMax : 0,
         wishlist: [],
       };
     }
@@ -2827,7 +2829,7 @@
     function buildPool(tables) {
       const pool = [];
       tables.forEach((a) => {
-        for (let b = 1; b <= 9; b += 1) pool.push({ a, b, answer: a * b });
+        for (let b = 1; b <= FACTOR_MAX; b += 1) pool.push({ a, b, answer: a * b });
       });
       return pool;
     }
@@ -3204,7 +3206,7 @@
       document.getElementById("tablesFloorNote").textContent = t("tablesFloorNote", floor, maxN);
       const box = document.getElementById("tablesSettingsChips");
       box.innerHTML = "";
-      for (let n = 1; n <= 9; n += 1) {
+      for (let n = 1; n <= TABLE_MAX; n += 1) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "table-chip";
@@ -3276,7 +3278,7 @@
       }
     }
     function renderPythagoras() {
-      const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const nums = Array.from({ length: FACTOR_MAX }, (_, i) => i + 1);
       const box = document.getElementById("pythagorasGrid");
       const hint = document.getElementById("pythHint");
       hint.textContent = t("pythHintIdle");
