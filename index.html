@@ -10,10 +10,16 @@
   <script>
     (function () {
       try {
-        var hour = Number(new Intl.DateTimeFormat("en-US", {
-          timeZone: "America/New_York", hour: "numeric", hourCycle: "h23"
-        }).formatToParts(new Date()).find(function (p) { return p.type === "hour"; }).value);
-        var dark = hour < 7 || hour >= 19;
+        var pref = localStorage.getItem("misha-theme-pref-v1") || "auto";
+        var dark;
+        if (pref === "dark") dark = true;
+        else if (pref === "light") dark = false;
+        else {
+          var hour = Number(new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York", hour: "numeric", hourCycle: "h23"
+          }).formatToParts(new Date()).find(function (p) { return p.type === "hour"; }).value);
+          dark = hour < 7 || hour >= 19;
+        }
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
         document.documentElement.style.colorScheme = dark ? "dark" : "light";
       } catch (e) { /* keep light */ }
@@ -162,6 +168,7 @@
     .lang-switch button.on {
       background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
     }
+    .theme-switch button { padding: 0 8px; }
     .coins {
       display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
       padding: 5px 12px 5px 7px; border-radius: 999px;
@@ -657,6 +664,7 @@
       .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
       .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
       .sidebar-controls { flex: 1; justify-content: flex-end; }
+      .theme-switch button { padding: 0 7px; font-size: 11px; }
       .hero-bubble { padding: 8px 10px; min-height: 64px; }
       .hero-text { font-size: 12px; min-height: calc(1.35em * 2); -webkit-line-clamp: 2; }
       .sidebar-nav {
@@ -811,6 +819,11 @@
           <div class="lang-switch" role="group" aria-label="Language">
             <button type="button" id="langRuBtn">RU</button>
             <button type="button" id="langEnBtn">EN</button>
+          </div>
+          <div class="lang-switch theme-switch" role="group" aria-label="Theme">
+            <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
+            <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
+            <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
           </div>
           <div class="coins" id="coinsBadge" title="Mishcoin">
             <span class="coin">★</span>
@@ -1032,6 +1045,7 @@
     const CATALOG_PENDING_KEY = "misha-catalog-pending-v1";
     const FAMILY_CLAIMS_KEY = "misha-family-claims-v1";
     const LANG_KEY = "misha-lang-v1";
+    const THEME_KEY = "misha-theme-pref-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
     const PENDING_KEY_BASE = "misha-pending-v1";
@@ -1087,6 +1101,9 @@
         navEarnPapa: "Согласование заявок",
         navGuide: "Справочник наград",
         navHistory: "История",
+        themeDay: "День",
+        themeAuto: "Авто",
+        themeNight: "Ночь",
         todayMission: "Задание дня",
         rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
         left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
@@ -1279,6 +1296,9 @@
         navEarnPapa: "Approve requests",
         navGuide: "Reward guide",
         navHistory: "History",
+        themeDay: "Day",
+        themeAuto: "Auto",
+        themeNight: "Night",
         todayMission: "Today's mission",
         rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
         left: "left", correct: "correct", fails: "fails", answers: "answers",
@@ -1457,6 +1477,7 @@
     };
 
     let lang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ru";
+    let themePref = readThemePref();
     let profileId = null;
     let settings = { questionCount: 20, tablesMax: 0, wishlist: [] };
     let catalog = { updatedAt: 0, prizes: [] };
@@ -1598,13 +1619,36 @@
       const hour = estHour(now);
       return (hour >= 7 && hour < 19) ? "light" : "dark";
     }
+    function readThemePref() {
+      try {
+        const raw = localStorage.getItem(THEME_KEY);
+        return raw === "light" || raw === "dark" ? raw : "auto";
+      } catch {
+        return "auto";
+      }
+    }
+    function resolvedTheme() {
+      return (themePref === "light" || themePref === "dark") ? themePref : desiredEstTheme();
+    }
+    function updateThemeSwitch() {
+      const pref = themePref === "light" || themePref === "dark" ? themePref : "auto";
+      document.getElementById("themeDayBtn")?.classList.toggle("on", pref === "light");
+      document.getElementById("themeAutoBtn")?.classList.toggle("on", pref === "auto");
+      document.getElementById("themeNightBtn")?.classList.toggle("on", pref === "dark");
+    }
     function applyEstTheme() {
-      const theme = desiredEstTheme();
+      const theme = resolvedTheme();
       const root = document.documentElement;
       root.setAttribute("data-theme", theme);
       root.style.colorScheme = theme;
       const meta = document.querySelector("meta[name='theme-color']");
       if (meta) meta.content = theme === "dark" ? "#12182e" : "#2f6fed";
+      updateThemeSwitch();
+    }
+    function setThemePref(next) {
+      themePref = (next === "light" || next === "dark") ? next : "auto";
+      try { localStorage.setItem(THEME_KEY, themePref); } catch { /* ignore */ }
+      applyEstTheme();
     }
     function questionCount() { return Number(settings.questionCount) || 20; }
     function clampFailExtra(n) {
@@ -4757,6 +4801,9 @@
 
     document.getElementById("langRuBtn").addEventListener("click", () => setLang("ru"));
     document.getElementById("langEnBtn").addEventListener("click", () => setLang("en"));
+    document.getElementById("themeDayBtn").addEventListener("click", () => setThemePref("light"));
+    document.getElementById("themeAutoBtn").addEventListener("click", () => setThemePref("auto"));
+    document.getElementById("themeNightBtn").addEventListener("click", () => setThemePref("dark"));
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
     document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
     document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
