@@ -879,7 +879,12 @@
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
-    const RECOVERED_DONE = { misha: ["2026-09-04", "2026-09-05", "2026-09-06"] };
+    const RECOVERED_LESSONS = {
+      misha: {
+        "2026-09-05": { correct: 21, fails: 1, answered: 22, coinsAwarded: 4, totalCoins: 4, runsCompleted: 1, completedAt: "2026-09-05T23:00:00.000Z" },
+        "2026-09-06": { correct: 20, fails: 0, answered: 20, coinsAwarded: 4, totalCoins: 8, runsCompleted: 2, completedAt: "2026-09-06T23:00:00.000Z" },
+      },
+    };
     const FAIL_EXTRA_DEFAULT = 2;
     const FAIL_EXTRA_KEY = "misha-fail-extra-v1";
     const ADMIN_PIN = "2018";
@@ -945,6 +950,8 @@
         dayMissionEmpty: "Ещё не начинали этот день",
         dayMissionReady: "Можно начать миссию",
         dayMissionHappy: "Ура, миссия выполнена!",
+        dayMissionNoStats: "Урок засчитан, но подробные ответы не сохранились.",
+        historyLessonDay: (day) => `урок за ${day}`,
         dayMissionThink: "Ещё думаем… продолжим?",
 
         start: "Вперёд к примерам!", continue: "Продолжить приключение", seeResult: "Смотреть результат",
@@ -1089,6 +1096,8 @@
         dayMissionEmpty: "This day hasn't been started yet",
         dayMissionReady: "Ready to start the mission",
         dayMissionHappy: "Yay, mission complete!",
+        dayMissionNoStats: "The lesson counts, but the answer details were not saved.",
+        historyLessonDay: (day) => `lesson for ${day}`,
         dayMissionThink: "Still thinking… continue?",
 
         start: "Let's go!", continue: "Continue adventure", seeResult: "See result",
@@ -1751,7 +1760,7 @@
     }
     function historyFromDays(days) {
       return (days || [])
-        .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
+        .filter((d) => d && d.completed && dayHasLessonWork(d) && (Number(d.totalCoins) || Number(d.coinsAwarded)))
         .map((d) => {
           const amount = Number(d.totalCoins || d.coinsAwarded) || 0;
           const reward = calcRewards(d);
@@ -1771,7 +1780,14 @@
     function dedupeHistory(list) {
       const items = Array.isArray(list) ? list : [];
       const realDays = new Set(items.filter((e) => e.amount > 0 && !isSyntheticHistory(e)).map((e) => e.dateKey));
-      return items.filter((e) => !(e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)));
+      const filtered = items.filter((e) => !(e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)));
+      const map = new Map();
+      filtered.forEach((entry) => {
+        const stamp = `${toUnix(entry.at)}|${Number(entry.amount) || 0}`;
+        const prev = map.get(stamp);
+        if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(stamp, entry);
+      });
+      return [...map.values()];
     }
     function fillHistoryFromDays() {
       const existing = coins.history || [];
@@ -1828,7 +1844,6 @@
       (coins.history || []).forEach((entry) => {
         if ((entry.amount || 0) <= 0) return;
         addCompletedOffset(offsets, entry.dateKey);
-        addCompletedOffset(offsets, trainedKeyFromAt(entry.at));
       });
       return [...offsets].sort((a, b) => a - b);
     }
@@ -1883,26 +1898,51 @@
       });
       return changed;
     }
-    function dayWasEarned(key) {
-      return (coins.history || []).some((entry) => {
-        if ((entry.amount || 0) <= 0) return false;
-        return entry.dateKey === key || trainedKeyFromAt(entry.at) === key;
-      });
+    function historyEarnsForDay(key) {
+      return (coins.history || []).filter((entry) => entry.dateKey === key && (entry.amount || 0) > 0);
+    }
+    function dayHasLessonWork(day) {
+      if (!day) return false;
+      return (Number(day.answered) || 0) > 0 || (Number(day.correct) || 0) > 0 || (Number(day.fails) || 0) > 0;
+    }
+    function dayReallyDone(key, store = dayStore) {
+      const day = store?.[key];
+      if (day?.completed && dayHasLessonWork(day)) return true;
+      return historyEarnsForDay(key).length > 0;
+    }
+    function recoveredLesson(key) {
+      return RECOVERED_LESSONS[profileId]?.[key] || null;
     }
     function fillDaysFromHistory() {
       const store = loadStore();
       let changed = false;
-      (RECOVERED_DONE[profileId] || []).forEach((key) => {
-        if (markDayCompleted(store, key)) changed = true;
+      Object.entries(RECOVERED_LESSONS[profileId] || {}).forEach(([key, extra]) => {
+        if (markDayCompleted(store, key, extra)) changed = true;
+        else if (store[key] && !dayHasLessonWork(store[key])) {
+          store[key] = { ...store[key], ...stubCompletedDay(key, extra) };
+          changed = true;
+        }
       });
       (coins.history || []).forEach((entry) => {
-        if ((entry.amount || 0) <= 0) return;
-        const extra = { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
-        if (entry.dateKey && markDayCompleted(store, entry.dateKey, extra)) changed = true;
-        const trained = trainedKeyFromAt(entry.at);
-        if (trained && markDayCompleted(store, trained, extra)) changed = true;
+        if ((entry.amount || 0) <= 0 || !entry.dateKey) return;
+        const extra = recoveredLesson(entry.dateKey) || { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
+        if (markDayCompleted(store, entry.dateKey, extra)) changed = true;
       });
+      if (scrubFakeCompletions(store)) changed = true;
       if (changed) saveStore(store, { quiet: true });
+      return changed;
+    }
+    function scrubFakeCompletions(store = dayStore) {
+      let changed = false;
+      Object.keys(store || {}).forEach((key) => {
+        const day = store[key];
+        if (!day?.completed) return;
+        if (dayHasLessonWork(day)) return;
+        if (historyEarnsForDay(key).length) return;
+        if (recoveredLesson(key)) return;
+        delete store[key];
+        changed = true;
+      });
       return changed;
     }
     function compactDays(store) {
@@ -2815,13 +2855,17 @@
       if (date < PROGRAM_START) return null;
       const store = loadStore();
       if (!store[date]) {
-        store[date] = dayWasEarned(date) ? stubCompletedDay(date) : createDayState(date);
+        store[date] = dayReallyDone(date, store) ? stubCompletedDay(date, recoveredLesson(date) || {}) : createDayState(date);
         saveStore(store, { quiet: true });
         return store[date];
       }
-      if (dayWasEarned(date) && !store[date].completed) {
-        markDayCompleted(store, date);
+      if (dayReallyDone(date, store) && !store[date].completed) {
+        markDayCompleted(store, date, recoveredLesson(date) || {});
         saveStore(store, { quiet: true });
+      } else if (store[date].completed && !dayHasLessonWork(store[date]) && !historyEarnsForDay(date).length && !recoveredLesson(date)) {
+        store[date] = createDayState(date);
+        saveStore(store, { quiet: true });
+        return store[date];
       }
       const day = store[date];
       if (day.sessionDone == null) day.sessionDone = !!day.completed;
@@ -2866,7 +2910,7 @@
       if (key < PROGRAM_START) return "before";
       if (key > today) return "future";
       const dayState = store[key];
-      if (dayState?.completed || dayWasEarned(key)) return "done";
+      if (dayReallyDone(key, store)) return "done";
       if (dayState && dayState.answered > 0) return key < today ? "bad" : "progress";
       if (key < today) return "bad";
       return "today";
@@ -2937,7 +2981,8 @@
           writePendingSnapshot();
         }
         coins.history = dedupeHistory(coins.history);
-        if (fillDaysFromHistory() || (!remote?.completedOffsets && completedOffsetList().length)) {
+        fillDaysFromHistory();
+        if (String(remote?.completedOffsets || "") !== completedOffsetList().join(",")) {
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
           writePendingSnapshot();
@@ -3286,7 +3331,7 @@
       if ((item.amount || 0) < 0) return stored.length ? stored : [{ k: "prize", label: item.parts?.[0]?.label || "", amount: item.amount }];
       if ((item.amount || 0) <= 0) return stored;
       const day = historyDayFor(item);
-      if (day && (day.completed || day.answered)) {
+      if (day && dayHasLessonWork(day)) {
         const reward = calcRewards(day);
         const last = Number(day.coinsAwarded) || reward.total;
         if (Number(item.amount) === last || Number(item.amount) === reward.total) {
@@ -3310,7 +3355,7 @@
           const partsHtml = inferredHistoryParts(item).map((p) => `<li>${escapeHtml(partLabel(p))}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>`).join("");
           return `<div class="history-item${neg ? " spend" : ""}">
             <div class="history-top">
-              <span class="history-date">${formatHistoryDate(item.at)}</span>
+              <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
               <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
             </div>
             ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
@@ -3364,8 +3409,15 @@
       const isToday = key === today;
       if (key < PROGRAM_START) return { kind: "future", badge: "—", meta: "—", action: false };
       if (key > today) return { kind: "future", badge: t("badgeFuture"), meta: t("metaFuture", count), action: false };
-      if (dayState?.completed || dayWasEarned(key)) {
+      if (dayReallyDone(key, store)) {
         const coinText = dayState?.coinsAwarded ? ` · +${dayState.coinsAwarded} ${COIN_SYMBOL}` : "";
+        if (!dayHasLessonWork(dayState)) {
+          const earned = historyEarnsForDay(key).reduce((sum, entry) => sum + (entry.amount || 0), 0);
+          const coinsText = (dayState?.totalCoins || dayState?.coinsAwarded || earned)
+            ? `+${dayState?.totalCoins || dayState?.coinsAwarded || earned} ${COIN_SYMBOL}`
+            : t("dayMissionNoStats");
+          return { kind: "done", badge: t("badgeDone"), meta: coinsText, action: true };
+        }
         const correct = dayState?.correct || 0;
         const fails = dayState?.fails || 0;
         return { kind: "done", badge: t("badgeDone"), meta: t("metaStats", correct, fails, coinText), action: true };
@@ -3399,6 +3451,7 @@
       }
     }
     function openDayMissionModal(dateKey) {
+      fillDaysFromHistory();
       const today = todayKey();
       if (dateKey > today || dateKey < PROGRAM_START) return;
       dayMissionKey = dateKey;
@@ -3414,8 +3467,9 @@
       const runs = dayState.runsCompleted || 0;
       const coinsAwarded = dayState.totalCoins || dayState.coinsAwarded || 0;
       const emoji = status.kind === "done" ? "🎉" : status.kind === "progress" ? "🤔" : status.kind === "miss" || status.kind === "late" ? "😡" : "🚀";
+      const hasWork = dayHasLessonWork(dayState);
       const mood = status.kind === "done"
-        ? t("dayMissionHappy")
+        ? (hasWork ? t("dayMissionHappy") : t("dayMissionNoStats"))
         : status.kind === "progress"
           ? t("dayMissionThink")
           : answered
@@ -3428,9 +3482,9 @@
         <p class="note" style="margin-top:10px;font-weight:800;color:var(--ink);">${mood}</p>
         <div class="day-mission-meta">
           <div class="row"><span>${t("dayMissionTables")}</span><strong>${tables.join(", ")}</strong></div>
-          <div class="row"><span>${t("dayMissionProgress")}</span><strong>${t("scoreLine", correct, fails)} · ${t("remain", remain)}</strong></div>
+          ${hasWork || status.kind !== "done" ? `<div class="row"><span>${t("dayMissionProgress")}</span><strong>${t("scoreLine", correct, fails)} · ${t("remain", remain)}</strong></div>
           <div class="row"><span>${t("answers")}</span><strong>${answered}</strong></div>
-          <div class="row"><span>${t("dayMissionRuns")}</span><strong>${runs}</strong></div>
+          <div class="row"><span>${t("dayMissionRuns")}</span><strong>${runs}</strong></div>` : ""}
           <div class="row"><span>${t("dayMissionCoins")}</span><strong>${coinsAwarded} ${COIN_SYMBOL}</strong></div>
         </div>
         <div class="day-tables">${tables.map((n) => `<span>${n}</span>`).join("")}</div>
@@ -3617,13 +3671,6 @@
       };
       if (reward.total) addCoins(reward.total, historyEntry);
       persist();
-      const trainedKey = todayKey();
-      if (trainedKey !== state.date) {
-        const store = loadStore();
-        if (markDayCompleted(store, trainedKey, { completedAt: historyEntry.at, coinsAwarded: 0 })) {
-          saveStore(store, { quiet: true });
-        }
-      }
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
