@@ -467,6 +467,37 @@
     .prize-item .btn-sm, .prize-item .plan-badge { align-self: center; }
     .prize-meta { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 4px; }
     .redeem-block { margin-bottom: 14px; }
+    .claim-list { display: grid; gap: 10px; }
+    .claim-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start;
+      padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface);
+    }
+    .claim-row.new { border-color: #ffb703; background: var(--hint-bg); }
+    .claim-row.approved { background: var(--ok-bg); border-color: #7de0b8; }
+    .claim-row.rejected { background: var(--bad-bg); border-color: #ffb0c0; }
+    .claim-title { font-size: 16px; font-weight: 800; line-height: 1.35; }
+    .claim-meta { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 4px; }
+    .claim-badge { font-size: 12px; font-weight: 800; text-transform: uppercase; white-space: nowrap; align-self: center; }
+    .claim-badge.new { color: #c67a00; }
+    .claim-badge.approved { color: var(--ok-ink); }
+    .claim-badge.rejected { color: var(--bad); }
+    .claim-kind-list { display: grid; gap: 10px; }
+    .claim-kind {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center;
+      width: 100%; padding: 14px; border: 2px solid var(--line-strong); border-radius: 16px;
+      background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+    }
+    .claim-kind:hover { border-color: var(--sky); }
+    .claim-kind strong { font-size: 16px; font-weight: 800; }
+    .claim-kind span { font-size: 18px; font-weight: 900; color: var(--gold-ink); white-space: nowrap; }
+    .admin-claim-list { display: grid; gap: 8px; margin: 10px 0; }
+    .admin-claim-row {
+      display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+      padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface);
+    }
+    .admin-claim-row input { width: 20px; height: 20px; accent-color: #2f6fed; }
+    .admin-claim-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .admin-claim-actions .btn { margin-top: 0; }
     .redeem-block > .label { display: block; margin-bottom: 10px; }
     .sync-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -701,6 +732,16 @@
       <button class="btn btn-ghost hidden" id="dayMissionRepeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
     </div>
   </div>
+  <div class="modal hidden" id="claimModal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2 data-i18n="earnCreate">Create request</h2>
+        <button class="modal-close" id="claimCloseBtn" type="button" aria-label="Close">&times;</button>
+      </div>
+      <p class="note" data-i18n="earnPickHint">Choose one reward. The request will go to Dad for approval.</p>
+      <div class="claim-kind-list" id="claimKindList"></div>
+    </div>
+  </div>
   <div class="modal toast-modal hidden" id="toastModal">
     <div class="modal-card">
       <div class="toast-emoji" id="toastEmoji">🪙</div>
@@ -749,6 +790,7 @@
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
         <button class="nav-btn" data-view="pythagoras" type="button"><span class="nav-icon">✖️</span><span data-i18n="navPythagoras">Pythagoras table</span></button>
         <button class="nav-btn" data-view="redeem" type="button"><span class="nav-icon">🎁</span><span data-i18n="navRedeem">Redeem</span></button>
+        <button class="nav-btn" data-view="earn" type="button"><span class="nav-icon">☀️</span><span data-i18n="navEarn">Earn Mishcoins</span></button>
         <button class="nav-btn" data-view="guide" type="button"><span class="nav-icon">📖</span><span data-i18n="navGuide">Reward guide</span></button>
         <button class="nav-btn" data-view="history" type="button"><span class="nav-icon">★</span><span data-i18n="navHistory">History</span></button>
       </nav>
@@ -825,6 +867,12 @@
           <p class="subtitle" data-i18n="redeemSubtitle">Spend Mishcoins on wishes!</p>
           <div id="redeemContent"></div>
         </section>
+        <section id="earnView" class="hidden">
+          <h2 class="view-title" data-i18n="earnTitle">Earn Mishcoins</h2>
+          <p class="subtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
+          <div class="card" id="earnList"></div>
+          <button class="btn btn-accent" id="earnCreateBtn" type="button" data-i18n="earnCreate">Create request</button>
+        </section>
         <section id="guideView" class="hidden">
           <h2 class="view-title" data-i18n="guideTitle">Reward guide</h2>
           <p class="subtitle" data-i18n="guideSubtitle">What earns Mishcoins, and how many</p>
@@ -896,6 +944,16 @@
             <p class="admin-flash" id="adminCatalogStatus"></p>
             <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
           </div>
+          <div class="card">
+            <span class="label" data-i18n="adminClaimsTitle">Mishcoin requests</span>
+            <p class="note" data-i18n="adminClaimsHint">Requests of the current profile. Check the new ones, then approve or reject.</p>
+            <div class="admin-claim-list" id="adminClaimsList"></div>
+            <div class="admin-claim-actions">
+              <button class="btn btn-accent btn-sm" id="adminApproveClaimsBtn" type="button" data-i18n="adminApproveClaims">Approve</button>
+              <button class="btn btn-ghost btn-sm" id="adminRejectClaimsBtn" type="button" data-i18n="adminRejectClaims">Reject</button>
+            </div>
+            <p class="admin-flash" id="adminClaimsStatus"></p>
+          </div>
           <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
           <button class="btn btn-ghost" id="adminBackBtn" type="button" data-i18n="back">Back</button>
         </section>
@@ -929,6 +987,15 @@
     const TABLE_MAX = 12;
     const FACTOR_MAX = 12;
     const POOL_VERSION = 8;
+    const CLAIM_KINDS = [
+      { id: "morning", amount: 4 },
+      { id: "morningOnTime", amount: 6 },
+      { id: "day", amount: 4 },
+      { id: "dayOnTime", amount: 6 },
+      { id: "evening", amount: 4 },
+      { id: "eveningOnTime", amount: 6 },
+    ];
+    const MAIN_NAV = ["home", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -962,6 +1029,7 @@
         navTables: "Таблицы",
         navPythagoras: "Таблица Пифагора",
         navRedeem: "Обмен",
+        navEarn: "Заработать Мишкоины",
         navGuide: "Справочник наград",
         navHistory: "История",
         todayMission: "Задание дня",
@@ -1030,6 +1098,7 @@
         heroCoins: (n) => `Ура! +${n} Мишкоинов!`,
         heroClosed: "Тренировка закрыта. Ты молодец!",
         heroRedeem: "Потрать Мишкоины на мечты!",
+        heroEarn: "Попроси Мишкоины за график!",
         heroGuide: "За что дают Мишкоины — и сколько.",
         heroHistory: "Смотри, откуда взялись Мишкоины!",
         photoTitle: "Сменить фото",
@@ -1071,6 +1140,31 @@
         guideRepeat: "Урок можно повторять в тот же день — Мишкоины начисляются снова.",
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
+        guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Заработать Мишкоины». Папа согласует — и звёзды придут на баланс.",
+        earnTitle: "Заработать Мишкоины",
+        earnSubtitle: "Подай заявку за график. Папа согласует или отклонит.",
+        earnCreate: "Создать заявку",
+        earnEmpty: "Пока нет заявок. Нажми «Создать заявку» и выбери награду.",
+        earnPickHint: "Выбери одну награду. Заявка уйдёт папе на согласование.",
+        earnSent: "Заявка отправлена",
+        earnSentHint: "Папа увидит её в админке и сможет согласовать.",
+        claimStatus_new: "Новый",
+        claimStatus_approved: "Согласовано",
+        claimStatus_rejected: "Отклонено",
+        claimKind_morning: "Утренний график",
+        claimKind_morningOnTime: "Утренний график вовремя",
+        claimKind_day: "Дневной график",
+        claimKind_dayOnTime: "Дневной график вовремя",
+        claimKind_evening: "Вечерний график",
+        claimKind_eveningOnTime: "Вечерний график вовремя",
+        adminClaimsTitle: "Заявки на Мишкоины",
+        adminClaimsHint: "Заявки текущего профиля. Отметь новые и согласуй или отклони.",
+        adminApproveClaims: "Согласовать",
+        adminRejectClaims: "Отклонить",
+        adminClaimsEmpty: "Заявок пока нет.",
+        adminClaimsNoneSelected: "Отметь хотя бы одну новую заявку.",
+        adminClaimsApproved: (n, coins) => `Согласовано: ${n}. На баланс: +${coins} ★`,
+        adminClaimsRejected: (n) => `Отклонено заявок: ${n}`,
         coinHistoryTitle: "История Мишкоинов",
         coinHistoryEmpty: "Пока нет записей. Пройди урок и заработай Мишкоины!",
         coinHistoryBalance: (n) => `Баланс: ${n} Мишкоинов`,
@@ -1108,7 +1202,8 @@
         pythHintIdle: "Hover a number to see the example",
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
-        navTables: "Table settings", navPythagoras: "Pythagoras table", navRedeem: "Redeem",
+        navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
+        navEarn: "Earn Mishcoins",
         navGuide: "Reward guide",
         navHistory: "History",
         todayMission: "Today's mission",
@@ -1176,6 +1271,7 @@
         heroCoins: (n) => `Yay! +${n} Mishcoins!`,
         heroClosed: "Training closed. Great job!",
         heroRedeem: "Spend Mishcoins on wishes!",
+        heroEarn: "Ask for Mishcoins for your schedule!",
         heroGuide: "What earns Mishcoins, and how many.",
         heroHistory: "See where your Mishcoins came from!",
         photoTitle: "Change photo",
@@ -1217,6 +1313,31 @@
         guideRepeat: "You can repeat the lesson the same day and earn Mishcoins again.",
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
+        guideEarn: "For morning, daytime, and evening schedules, send a request in Earn Mishcoins. Dad approves it, and the stars go to the balance.",
+        earnTitle: "Earn Mishcoins",
+        earnSubtitle: "Send a schedule request. Dad will approve or reject it.",
+        earnCreate: "Create request",
+        earnEmpty: "No requests yet. Tap Create request and choose a reward.",
+        earnPickHint: "Choose one reward. The request will go to Dad for approval.",
+        earnSent: "Request sent",
+        earnSentHint: "Dad will see it in admin and can approve it.",
+        claimStatus_new: "New",
+        claimStatus_approved: "Approved",
+        claimStatus_rejected: "Rejected",
+        claimKind_morning: "Morning schedule",
+        claimKind_morningOnTime: "Morning schedule on time",
+        claimKind_day: "Daytime schedule",
+        claimKind_dayOnTime: "Daytime schedule on time",
+        claimKind_evening: "Evening schedule",
+        claimKind_eveningOnTime: "Evening schedule on time",
+        adminClaimsTitle: "Mishcoin requests",
+        adminClaimsHint: "Requests of the current profile. Check the new ones, then approve or reject.",
+        adminApproveClaims: "Approve",
+        adminRejectClaims: "Reject",
+        adminClaimsEmpty: "No requests yet.",
+        adminClaimsNoneSelected: "Check at least one new request.",
+        adminClaimsApproved: (n, coins) => `Approved: ${n}. Added to balance: +${coins} ★`,
+        adminClaimsRejected: (n) => `Rejected requests: ${n}`,
         coinHistoryTitle: "Mishcoin history",
         coinHistoryEmpty: "No entries yet. Complete a lesson to earn Mishcoins!",
         coinHistoryBalance: (n) => `Balance: ${n} Mishcoins`,
@@ -1252,7 +1373,7 @@
     let catalog = { updatedAt: 0, prizes: [] };
     let state = null;
     let busy = false;
-    let coins = { balance: 0, history: [], purchases: [] };
+    let coins = { balance: 0, history: [], purchases: [], claims: [] };
     let dayStore = {};
     let cloudMeta = { updatedAt: 0 };
     let profileDirty = false;
@@ -1286,6 +1407,7 @@
     function cloudHistKey() { return `h_${profileId}`; }
     function cloudDaysKey() { return `d_${profileId}`; }
     function cloudBuyKey() { return `y_${profileId}`; }
+    function cloudClaimKey() { return `r_${profileId}`; }
     function cloudBalKey() { return `b_${profileId}`; }
     function rememberedBalKey(id = profileId) { return `${BAL_KEY_BASE}:${id}`; }
     function readRememberedBalance(id = profileId) {
@@ -1317,6 +1439,7 @@
       tables: document.getElementById("tablesView"),
       pythagoras: document.getElementById("pythagorasView"),
       redeem: document.getElementById("redeemView"),
+      earn: document.getElementById("earnView"),
       guide: document.getElementById("guideView"),
       history: document.getElementById("historyView"),
       train: document.getElementById("trainView"),
@@ -1489,7 +1612,7 @@
     function uid() { return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`; }
 
     function emptySettings() { return { questionCount: 20, tablesMax: 0, wishlist: [] }; }
-    function emptyCoins() { return { balance: 0, history: [], purchases: [] }; }
+    function emptyCoins() { return { balance: 0, history: [], purchases: [], claims: [] }; }
     function parseSettings(raw) {
       if (!raw || typeof raw !== "object") return emptySettings();
       const count = Number(raw.questionCount);
@@ -1506,6 +1629,7 @@
         balance: Number(raw.balance) || 0,
         history: Array.isArray(raw.history) ? raw.history : [],
         purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
+        claims: expandClaims(raw.claims),
       };
     }
     function parseStore(raw) {
@@ -1574,6 +1698,7 @@
         balance: Math.max(coins.balance, legacy.coins.balance),
         history: mergeHistory(coins.history, legacy.coins.history),
         purchases: mergePurchases(coins.purchases, legacy.coins.purchases),
+        claims: mergeClaims(coins.claims, legacy.coins.claims),
       };
       settings = parseSettings(legacy.settings);
       Object.keys(legacy.store || {}).forEach((key) => {
@@ -1682,6 +1807,7 @@
         b: coins.balance,
         h: coins.history || [],
         y: coins.purchases || [],
+        r: coins.claims || [],
         d: compactDays(dayStore),
         c: completedOffsetList(dayStore).join(","),
         q: settings.questionCount,
@@ -1705,6 +1831,7 @@
         coins.balance = Math.max(Number(coins.balance) || 0, Number(pending.b) || 0);
         coins.history = mergeHistory(coins.history, pending.h || []);
         coins.purchases = mergePurchases(coins.purchases, pending.y || []);
+        coins.claims = mergeClaims(coins.claims, pending.r || pending.claims || []);
         if (pending.q) settings.questionCount = Number(pending.q) || settings.questionCount;
         if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
         if (pending.d) mergeRemoteDays(expandDays(pending.d));
@@ -1714,6 +1841,7 @@
       } finally {
         suppressCloudPush = false;
       }
+      creditApprovedClaims();
     }
     function markProfileDirty() {
       if (suppressCloudPush) return;
@@ -1813,6 +1941,10 @@
       const filtered = items.filter((e) => !(e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)));
       const map = new Map();
       filtered.forEach((entry) => {
+        if (isClaimHistory(entry) && entry.id) {
+          map.set(entry.id, entry);
+          return;
+        }
         const stamp = `${toUnix(entry.at)}|${Number(entry.amount) || 0}`;
         const prev = map.get(stamp);
         if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(stamp, entry);
@@ -1850,6 +1982,107 @@
         .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
         .slice(0, 40);
     }
+    function claimKindById(id) {
+      return CLAIM_KINDS.find((item) => item.id === id) || null;
+    }
+    function claimTitle(kind) {
+      return t(`claimKind_${kind}`) || kind;
+    }
+    function normalizeClaim(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const kind = claimKindById(raw.kind) || CLAIM_KINDS[Number(raw.kind)] || null;
+      if (!kind) return null;
+      const status = ["new", "approved", "rejected"].includes(raw.status) ? raw.status : "new";
+      return {
+        id: raw.id || uid(),
+        kind: kind.id,
+        amount: kind.amount,
+        status,
+        createdAt: raw.createdAt || new Date().toISOString(),
+        decidedAt: raw.decidedAt || null,
+        paid: !!raw.paid,
+      };
+    }
+    function compactClaims(list) {
+      const statusIdx = { new: 0, approved: 1, rejected: 2 };
+      return (list || []).slice(0, 20).map((c) => ([
+        c.id,
+        Math.max(0, CLAIM_KINDS.findIndex((k) => k.id === c.kind)),
+        statusIdx[c.status] ?? 0,
+        toUnix(c.createdAt),
+        toUnix(c.decidedAt),
+        c.paid ? 1 : 0,
+      ]));
+    }
+    function expandClaim(row) {
+      if (!row) return null;
+      if (!Array.isArray(row)) return normalizeClaim(row);
+      const kind = CLAIM_KINDS[row[1]] || CLAIM_KINDS[0];
+      return normalizeClaim({
+        id: row[0],
+        kind: kind.id,
+        status: ["new", "approved", "rejected"][row[2]] || "new",
+        createdAt: fromUnix(row[3]),
+        decidedAt: fromUnix(row[4]) || null,
+        paid: !!row[5],
+      });
+    }
+    function expandClaims(list) {
+      return (Array.isArray(list) ? list : []).map(expandClaim).filter(Boolean);
+    }
+    function mergeClaim(a, b) {
+      if (!a) return b;
+      if (!b) return a;
+      const rank = { new: 0, rejected: 1, approved: 2 };
+      const next = (rank[b.status] || 0) !== (rank[a.status] || 0)
+        ? ((rank[b.status] || 0) > (rank[a.status] || 0) ? b : a)
+        : ((Date.parse(b.decidedAt || b.createdAt) || 0) >= (Date.parse(a.decidedAt || a.createdAt) || 0) ? b : a);
+      next.paid = !!(a.paid || b.paid || next.paid);
+      return next;
+    }
+    function mergeClaims(local, remote) {
+      const map = new Map();
+      [...expandClaims(remote), ...expandClaims(local)].forEach((item) => {
+        if (!item?.id) return;
+        map.set(item.id, mergeClaim(map.get(item.id), item));
+      });
+      return [...map.values()]
+        .sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
+        .slice(0, 40);
+    }
+    function isClaimHistory(entry) {
+      return String(entry?.id || "").startsWith("claim-")
+        || (entry?.parts || []).some((part) => part && part.k === "claim");
+    }
+    function creditClaim(claim) {
+      if (!claim || claim.status !== "approved") return false;
+      const histId = `claim-${claim.id}`;
+      if (claim.paid || (coins.history || []).some((item) => item.id === histId || historyKey(item) === histId)) {
+        claim.paid = true;
+        return false;
+      }
+      addCoins(claim.amount, {
+        id: histId,
+        at: claim.decidedAt || new Date().toISOString(),
+        dateKey: "",
+        amount: claim.amount,
+        parts: [{
+          k: "claim",
+          r: I18N.ru[`claimKind_${claim.kind}`] || claim.kind,
+          e: I18N.en[`claimKind_${claim.kind}`] || claim.kind,
+          amount: claim.amount,
+        }],
+      });
+      claim.paid = true;
+      return true;
+    }
+    function creditApprovedClaims() {
+      let added = 0;
+      (coins.claims || []).forEach((claim) => {
+        if (creditClaim(claim)) added += claim.amount;
+      });
+      return added;
+    }
     function dayHasProgress(day) {
       if (!day) return false;
       return !!(day.completed || day.answered || day.runsCompleted || day.coinsAwarded);
@@ -1872,7 +2105,7 @@
         if (store[key]?.completed) addCompletedOffset(offsets, key);
       });
       (coins.history || []).forEach((entry) => {
-        if ((entry.amount || 0) <= 0) return;
+        if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return;
         addCompletedOffset(offsets, entry.dateKey);
       });
       return [...offsets].sort((a, b) => a - b);
@@ -1929,7 +2162,7 @@
       return changed;
     }
     function historyEarnsForDay(key) {
-      return (coins.history || []).filter((entry) => entry.dateKey === key && (entry.amount || 0) > 0);
+      return (coins.history || []).filter((entry) => entry.dateKey === key && (entry.amount || 0) > 0 && !isClaimHistory(entry));
     }
     function dayHasLessonWork(day) {
       if (!day) return false;
@@ -1954,7 +2187,7 @@
         }
       });
       (coins.history || []).forEach((entry) => {
-        if ((entry.amount || 0) <= 0 || !entry.dateKey) return;
+        if ((entry.amount || 0) <= 0 || !entry.dateKey || isClaimHistory(entry)) return;
         const extra = recoveredLesson(entry.dateKey) || { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
         if (markDayCompleted(store, entry.dateKey, extra)) changed = true;
       });
@@ -2090,6 +2323,7 @@
           balance: coins.balance,
           history: coins.history || [],
           purchases: coins.purchases || [],
+          claims: coins.claims || [],
         },
         settings: {
           questionCount: settings.questionCount,
@@ -2114,6 +2348,7 @@
           balance: compact.b ?? compact.coins?.balance,
           history: expandHistory(compact.h || compact.coins?.history || []),
           purchases: expandPurchases(compact.y || compact.coins?.purchases || []),
+          claims: expandClaims(compact.r || compact.coins?.claims || []),
         },
         settings: {
           questionCount: compact.q ?? compact.settings?.questionCount,
@@ -2132,6 +2367,7 @@
             balance: Number(raw.coins.balance) || 0,
             history: expandHistory(raw.coins.history),
             purchases: expandPurchases(raw.coins.purchases),
+            claims: expandClaims(raw.coins.claims),
           },
           settings: raw.settings || null,
           days: expandDays(raw.days),
@@ -2144,6 +2380,7 @@
             balance: Number(raw.balance) || 0,
             history: expandHistory(raw.history),
             purchases: expandPurchases(raw.purchases),
+            claims: expandClaims(raw.claims),
           },
           settings: raw.settings || null,
           days: expandDays(raw.days || raw.store),
@@ -2155,6 +2392,7 @@
       if (!remote) return coins.balance > 0 || completedDayCount(expandDays(compactDays(loadStore()))) > 0;
       if (coins.balance > remote.coins.balance) return true;
       if ((coins.history || []).length > (remote.coins.history || []).length) return true;
+      if ((coins.claims || []).length > (remote.coins.claims || []).length) return true;
       if (completedDayCount(expandDays(compactDays(loadStore()))) > completedDayCount(remote.days)) return true;
       return false;
     }
@@ -2166,6 +2404,7 @@
           balance: Number(remote.coins?.balance) || 0,
           history: mergeHistory(coins.history, remote.coins?.history),
           purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
+          claims: mergeClaims(coins.claims, remote.coins?.claims),
         };
         if (remote.settings) settings = parseSettings(remote.settings);
         mergeRemoteDays(remote.days || []);
@@ -2177,6 +2416,7 @@
         return true;
       } finally {
         suppressCloudPush = false;
+        creditApprovedClaims();
       }
     }
     function cloudHexBudget(key) {
@@ -2386,11 +2626,12 @@
       return await fetchBalanceCloud();
     }
     async function fetchProfileCloud() {
-      const [coreRaw, histRaw, daysRaw, buyRaw] = await Promise.all([
+      const [coreRaw, histRaw, daysRaw, buyRaw, claimRaw] = await Promise.all([
         fetchKvRaw(cloudKvKey()),
         fetchKvRaw(cloudHistKey()),
         fetchKvRaw(cloudDaysKey()),
         fetchKvRaw(cloudBuyKey()),
+        fetchKvRaw(cloudClaimKey()),
       ]);
       let payload = normalizeCloudPayload(coreRaw);
       if (!payload && profileId === "misha") {
@@ -2413,6 +2654,10 @@
         payload.coins.purchases = mergePurchases(payload.coins.purchases, expandPurchases(buyRaw.y || buyRaw.purchases));
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(buyRaw.u || buyRaw.updatedAt) || 0);
       }
+      if (claimRaw && (Array.isArray(claimRaw.r) || Array.isArray(claimRaw.claims))) {
+        payload.coins.claims = mergeClaims(payload.coins.claims, expandClaims(claimRaw.r || claimRaw.claims));
+        payload.updatedAt = Math.max(payload.updatedAt || 0, Number(claimRaw.u || claimRaw.updatedAt) || 0);
+      }
       return payload;
     }
     function mergeDayLists(local, remote) {
@@ -2433,7 +2678,8 @@
       if (currentView === "redeem") renderRedeem();
       if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
-      if (currentView === "admin") renderAdminWishlist();
+      if (currentView === "earn") renderEarn();
+      if (currentView === "admin") { renderAdminWishlist(); renderAdminClaims(); }
     }
     async function fetchCatalogCloud() {
       const remote = await fetchKvRaw("catalog");
@@ -2591,6 +2837,14 @@
         if (currentView === "guide") renderRewardGuide();
         return;
       }
+      if (data.k === "claim") {
+        if (data.id && profileId && data.id !== profileId) return;
+        await pullCloudSync();
+        if (currentView === "earn") renderEarn();
+        if (currentView === "admin") renderAdminClaims();
+        if (currentView === "history") renderCoinHistory();
+        return;
+      }
     }
     function listenCloudNotify() {
       if (cloudNotify || typeof EventSource !== "function") return;
@@ -2674,12 +2928,18 @@
         u: updatedAt,
         y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
       };
+      const claims = {
+        u: updatedAt,
+        r: compactClaims(payload.coins.claims || coins.claims || []),
+      };
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; }, cloudHistKey());
       const daysHex = encodeDaysHex(updatedAt);
       const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; }, cloudBuyKey());
+      const claimHex = encodeJsonHex(claims, (obj) => { if (obj.r && obj.r.length) { obj.r.pop(); return true; } return false; }, cloudClaimKey());
       await putKvRaw(cloudHistKey(), histHex);
       await putKvRaw(cloudDaysKey(), daysHex);
       await putKvRaw(cloudBuyKey(), buyHex);
+      await putKvRaw(cloudClaimKey(), claimHex);
     }
     async function pushCloudSync() {
       if (!profileId) return false;
@@ -2983,7 +3243,7 @@
       });
       document.querySelectorAll(".nav-btn").forEach((btn) => {
         const v = btn.getAttribute("data-view");
-        btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem","guide","history"].includes(view));
+        btn.classList.toggle("on", v === view && MAIN_NAV.includes(view));
       });
       updateBackButton();
     }
@@ -3011,6 +3271,7 @@
       if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables", options); return; }
       if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras", options); return; }
       if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem", options); return; }
+      if (view === "earn") { renderEarn(); setHero(t("heroEarn")); show("earn", options); return; }
       if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide", options); return; }
       if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history", options); return; }
     }
@@ -3105,6 +3366,7 @@
       updateHome();
       renderCoins();
       if (currentView === "history") renderCoinHistory();
+      if (currentView === "earn") renderEarn();
       if (currentView === "guide") renderRewardGuide();
       if (!appStarted) {
         appStarted = true;
@@ -3149,6 +3411,8 @@
         const hint = document.getElementById("pythHint");
         if (hint && hint.classList.contains("muted")) hint.textContent = t("pythHintIdle");
       }
+      if (currentView === "earn") renderEarn();
+      if (currentView === "admin") renderAdminClaims();
       renderWeekdays();
     }
 
@@ -3348,6 +3612,113 @@
       });
     }
 
+    function claimStatusLabel(status) {
+      return t(`claimStatus_${status}`) || status;
+    }
+    function renderEarn() {
+      const box = document.getElementById("earnList");
+      if (!box) return;
+      const claims = coins.claims || [];
+      if (!claims.length) {
+        box.innerHTML = `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t("earnEmpty")}</p></div>`;
+        return;
+      }
+      box.innerHTML = `<div class="claim-list">${claims.map((claim) => `
+        <div class="claim-row ${claim.status}">
+          <div>
+            <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
+            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
+          </div>
+          <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
+        </div>`).join("")}</div>`;
+    }
+    function openClaimModal() {
+      const list = document.getElementById("claimKindList");
+      list.innerHTML = CLAIM_KINDS.map((kind) => `
+        <button class="claim-kind" type="button" data-kind="${kind.id}">
+          <strong>${escapeHtml(claimTitle(kind.id))}</strong>
+          <span>+${kind.amount} ${COIN_SYMBOL}</span>
+        </button>`).join("");
+      list.querySelectorAll(".claim-kind").forEach((btn) => {
+        btn.addEventListener("click", () => createClaim(btn.getAttribute("data-kind")));
+      });
+      document.getElementById("claimModal").classList.remove("hidden");
+    }
+    function closeClaimModal() {
+      document.getElementById("claimModal").classList.add("hidden");
+    }
+    function createClaim(kindId) {
+      const kind = claimKindById(kindId);
+      if (!kind) return;
+      if (!coins.claims) coins.claims = [];
+      coins.claims.unshift({
+        id: uid(),
+        kind: kind.id,
+        amount: kind.amount,
+        status: "new",
+        createdAt: new Date().toISOString(),
+        decidedAt: null,
+      });
+      if (coins.claims.length > 40) coins.claims.length = 40;
+      saveCoins();
+      notifyCloud("claim", { id: profileId });
+      closeClaimModal();
+      renderEarn();
+      showToast("ok", t("earnSent"), t("earnSentHint"), "☀️");
+    }
+    function selectedAdminClaimIds() {
+      return [...document.querySelectorAll("#adminClaimsList input[type=checkbox]:checked")]
+        .map((el) => el.getAttribute("data-id"))
+        .filter(Boolean);
+    }
+    function renderAdminClaims() {
+      const box = document.getElementById("adminClaimsList");
+      if (!box) return;
+      const claims = coins.claims || [];
+      if (!claims.length) {
+        box.innerHTML = `<p class="note">${t("adminClaimsEmpty")}</p>`;
+        return;
+      }
+      box.innerHTML = claims.map((claim) => `
+        <label class="admin-claim-row">
+          <input type="checkbox" data-id="${escapeHtml(claim.id)}"${claim.status === "new" ? "" : " disabled"} />
+          <div>
+            <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
+            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
+          </div>
+          <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
+        </label>`).join("");
+    }
+    function decideSelectedClaims(status) {
+      const ids = new Set(selectedAdminClaimIds());
+      if (!ids.size) {
+        setAdminFlash("adminClaimsStatus", t("adminClaimsNoneSelected"), false);
+        return;
+      }
+      const now = new Date().toISOString();
+      let count = 0;
+      let coinsAdded = 0;
+      (coins.claims || []).forEach((claim) => {
+        if (!ids.has(claim.id) || claim.status !== "new") return;
+        claim.status = status;
+        claim.decidedAt = now;
+        count += 1;
+        if (status === "approved") coinsAdded += claim.amount;
+      });
+      if (!count) {
+        setAdminFlash("adminClaimsStatus", t("adminClaimsNoneSelected"), false);
+        return;
+      }
+      creditApprovedClaims();
+      saveCoins();
+      notifyCloud("claim", { id: profileId });
+      renderAdminClaims();
+      renderEarn();
+      renderCoinHistory();
+      const detail = status === "approved" ? t("adminClaimsApproved", count, coinsAdded) : t("adminClaimsRejected", count);
+      notifyAdminSave("adminClaimsStatus", t(status === "approved" ? "adminApproveClaims" : "adminRejectClaims"), detail);
+    }
+
     function buyPrize(id) {
       const prize = (catalog.prizes || []).find((p) => p.id === id);
       if (!prize) return;
@@ -3384,6 +3755,7 @@
     }
     function inferredHistoryParts(item) {
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
+      if (isClaimHistory(item)) return stored.length ? stored : [{ k: "claim", r: item.parts?.[0]?.r || "", e: item.parts?.[0]?.e || "", amount: item.amount }];
       const lumped = stored.length === 1 && stored[0].k === "onTime" && Number(stored[0].amount) === Number(item.amount) && Number(item.amount) > 1;
       if (stored.length && !lumped) return stored;
       if ((item.amount || 0) < 0) return stored.length ? stored : [{ k: "prize", label: item.parts?.[0]?.label || "", amount: item.amount }];
@@ -3437,7 +3809,8 @@
         </div>
         <p class="note" style="margin-top:14px;">${t("guideRepeat")}</p>
         <p class="note">${t("guideFailExtra", extra)}</p>
-        <p class="note">${t("guideSpend")}</p>`;
+        <p class="note">${t("guideSpend")}</p>
+        <p class="note">${t("guideEarn")}</p>`;
     }
     function renderCoinHistory() {
       const page = document.getElementById("historyPage");
@@ -3598,6 +3971,7 @@
       if (part.k === "high") return t("rewardHigh", part.r || "");
       if (part.k === "lesson") return t("rewardLesson");
       if (part.k === "prize") return t("redeemSpend", lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || ""));
+      if (part.k === "claim") return lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || "");
       return part.label || "";
     }
     function calcRewards(dayState) {
@@ -3811,9 +4185,11 @@
       if (currentView === "redeem") renderRedeem();
       if (currentView === "guide") renderRewardGuide();
       if (currentView === "history") renderCoinHistory();
+      if (currentView === "earn") renderEarn();
       if (currentView === "done" && state) renderReward(state);
       if (currentView === "admin") {
         renderAdminWishlist();
+        renderAdminClaims();
         syncPrizeFormChrome();
       }
     }
@@ -3833,6 +4209,8 @@
       setAdminFlash("adminCatalogStatus", "");
       closePrizeForm();
       renderAdminWishlist();
+      renderAdminClaims();
+      setAdminFlash("adminClaimsStatus", "");
       setHero(t("adminTitle"));
       show("admin", options);
     }
@@ -4043,6 +4421,11 @@
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
+    document.getElementById("earnCreateBtn").addEventListener("click", openClaimModal);
+    document.getElementById("claimCloseBtn").addEventListener("click", closeClaimModal);
+    document.getElementById("claimModal").addEventListener("click", (e) => { if (e.target === document.getElementById("claimModal")) closeClaimModal(); });
+    document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved"));
+    document.getElementById("adminRejectClaimsBtn").addEventListener("click", () => decideSelectedClaims("rejected"));
     document.getElementById("calPrev").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
     document.getElementById("calNext").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
     document.getElementById("startBtn").addEventListener("click", startTraining);
