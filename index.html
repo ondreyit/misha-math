@@ -213,6 +213,15 @@
     .main-inner { max-width: 520px; margin: 0 auto; }
     .subtitle { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
     .view-title { margin: 0 0 4px; font-size: 24px; font-weight: 900; letter-spacing: -0.03em; }
+    .page-back {
+      display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px;
+      min-height: 40px; padding: 0 14px 0 10px; border: 2px solid var(--line); border-radius: 12px;
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; font-weight: 800;
+      cursor: pointer; box-shadow: var(--shadow);
+    }
+    .page-back:hover { border-color: var(--sky); }
+    .page-back[hidden] { display: none !important; }
+    .page-back-arrow { font-size: 22px; line-height: 1; margin-top: -2px; }
     .card {
       background: var(--card); border: 2px solid var(--line); border-radius: 20px;
       padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow);
@@ -738,6 +747,10 @@
     </aside>
     <main class="main" id="mainContent">
       <div class="main-inner">
+        <button class="page-back" id="pageBackBtn" type="button" hidden>
+          <span class="page-back-arrow" aria-hidden="true">‹</span>
+          <span data-i18n="back">Назад</span>
+        </button>
         <section id="homeView">
           <p class="subtitle" id="dateLabel">Today</p>
           <div class="card">
@@ -1232,6 +1245,7 @@
     let calMonth = monthStart(new Date());
     let titleTaps = [];
     let currentView = "home";
+    let viewStack = [];
     let pendingHistoryEntry = null;
     let cloudPushTimer = null;
     let catalogPushTimer = null;
@@ -2939,7 +2953,16 @@
       return streak;
     }
 
-    function show(view) {
+    function updateBackButton() {
+      const btn = document.getElementById("pageBackBtn");
+      if (!btn) return;
+      btn.hidden = viewStack.length === 0;
+    }
+    function show(view, options = {}) {
+      if (!options.back && !options.replace && currentView && currentView !== view) {
+        viewStack.push(currentView);
+        if (viewStack.length > 24) viewStack.shift();
+      }
       currentView = view;
       Object.keys(views).forEach((key) => {
         views[key].classList.toggle("hidden", key !== view);
@@ -2948,16 +2971,34 @@
         const v = btn.getAttribute("data-view");
         btn.classList.toggle("on", v === view && ["home","calendar","plan","tables","pythagoras","redeem","guide","history"].includes(view));
       });
+      updateBackButton();
     }
-    function navigate(view) {
-      if (view === "home") { updateHome(); setHero(t("heroHello")); show("home"); return; }
-      if (view === "calendar") { renderCalendar(); setHero(t("heroCalendar")); show("calendar"); return; }
-      if (view === "plan") { renderPlanList(); setHero(t("heroPlan")); show("plan"); return; }
-      if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables"); return; }
-      if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras"); return; }
-      if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem"); return; }
-      if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide"); return; }
-      if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history"); return; }
+    function goBack() {
+      while (viewStack.length) {
+        const prev = viewStack.pop();
+        if (!prev || prev === "train" || prev === "done") continue;
+        if (prev === "admin") {
+          openAdmin({ back: true });
+          return;
+        }
+        navigate(prev, { back: true });
+        return;
+      }
+      navigate("home", { back: true });
+    }
+    function navigate(view, options = {}) {
+      if (view === "home" && !options.back) {
+        viewStack = [];
+        options = { ...options, replace: true };
+      }
+      if (view === "home") { updateHome(); setHero(t("heroHello")); show("home", options); return; }
+      if (view === "calendar") { renderCalendar(); setHero(t("heroCalendar")); show("calendar", options); return; }
+      if (view === "plan") { renderPlanList(); setHero(t("heroPlan")); show("plan", options); return; }
+      if (view === "tables") { renderTablesSettings(); setHero(t("heroTables")); show("tables", options); return; }
+      if (view === "pythagoras") { renderPythagoras(); setHero(t("heroPythagoras")); show("pythagoras", options); return; }
+      if (view === "redeem") { renderRedeem(); setHero(t("heroRedeem")); show("redeem", options); return; }
+      if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide", options); return; }
+      if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history", options); return; }
     }
 
     async function hydrateProfileFromCloud() {
@@ -3043,7 +3084,8 @@
       updateProfileChrome();
       applyI18n();
       renderCoins();
-      show("home");
+      viewStack = [];
+      show("home", { replace: true });
       await hydrateProfileFromCloud();
       updateProfileChrome();
       updateHome();
@@ -3137,7 +3179,7 @@
         cell.innerHTML = `<span>${day}</span>${icon ? `<span class="mark">${icon}</span>` : ""}`;
         if (key >= PROGRAM_START && key <= today) {
           cell.classList.add("clickable");
-          cell.addEventListener("click", () => playDayLesson(key));
+          cell.addEventListener("click", () => openDayMissionModal(key));
         }
         grid.appendChild(cell);
       }
@@ -3577,7 +3619,7 @@
       document.getElementById("doneSubtitle").textContent = `${subtitle}${runs ? ` ${t("runsToday", runs)}` : ""}`;
       renderReward(state);
       setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
-      show("done");
+      show("done", { replace: true });
       if (animateReward && state.coinsAwarded > 0) {
         playRewardToBalance(state.coinsAwarded);
       }
@@ -3767,7 +3809,7 @@
       input.value = ""; input.focus();
     }
     function closePinModal() { pinModal.classList.add("hidden"); }
-    function openAdmin() {
+    function openAdmin(options = {}) {
       sessionStorage.setItem(ADMIN_KEY, "1");
       document.getElementById("adminCountInput").value = String(questionCount());
       document.getElementById("adminFailExtraInput").value = String(failExtra());
@@ -3776,7 +3818,7 @@
       closePrizeForm();
       renderAdminWishlist();
       setHero(t("adminTitle"));
-      show("admin");
+      show("admin", options);
     }
     function setAdminFlash(id, text, ok = true) {
       const el = document.getElementById(id);
@@ -3991,8 +4033,9 @@
     document.getElementById("repeatBtn").addEventListener("click", () => startRepeatLesson(state?.date || todayKey()));
     document.getElementById("repeatHomeBtn").addEventListener("click", () => startRepeatLesson(todayKey()));
     document.getElementById("submitBtn").addEventListener("click", submitAnswer);
-    document.getElementById("exitBtn").addEventListener("click", () => { updateHome(); show("home"); });
-    document.getElementById("backHomeBtn").addEventListener("click", () => { updateHome(); show("home"); });
+    document.getElementById("pageBackBtn").addEventListener("click", goBack);
+    document.getElementById("exitBtn").addEventListener("click", goBack);
+    document.getElementById("backHomeBtn").addEventListener("click", goBack);
     document.getElementById("pinOkBtn").addEventListener("click", () => {
       const value = document.getElementById("pinInput").value.trim();
       if (value === ADMIN_PIN) { closePinModal(); openAdmin(); }
@@ -4020,7 +4063,7 @@
     document.getElementById("prizeModal").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closePrizeForm();
     });
-    document.getElementById("adminBackBtn").addEventListener("click", () => { updateHome(); show("home"); });
+    document.getElementById("adminBackBtn").addEventListener("click", goBack);
     document.getElementById("profileChip").addEventListener("click", openProfilePicker);
     answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
 
@@ -4035,7 +4078,7 @@
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     restorePhotoCache();
     applyPendingCatalog();
-    show("home");
+    show("home", { replace: true });
     openProfilePicker();
     listenCloudNotify();
     loadAllProfilePhotos();
