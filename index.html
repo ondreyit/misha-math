@@ -552,6 +552,11 @@
       padding: 0 12px; font-size: 18px; font-weight: 800; margin: 6px 0;
     }
     .modal-card input[type="text"] { text-align: left; font-size: 16px; font-weight: 700; }
+    .modal-card textarea {
+      width: 100%; min-height: 90px; border: 2px solid var(--line-strong); border-radius: 14px;
+      background: var(--input-bg); color: var(--ink); padding: 10px 12px; font: inherit; font-size: 16px;
+      font-weight: 700; margin: 6px 0; resize: vertical;
+    }
     .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .modal-head h2 { margin: 0; font-size: 20px; font-weight: 900; }
     .modal-close {
@@ -762,6 +767,19 @@
       </div>
       <p class="note" data-i18n="earnPickHint">Choose one reward. The request will go to Dad for approval.</p>
       <div class="claim-kind-list" id="claimKindList"></div>
+    </div>
+  </div>
+  <div class="modal hidden" id="rejectModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 data-i18n="rejectReasonTitle">Reject reason</h2>
+        <button class="modal-close" id="rejectCloseBtn" type="button" aria-label="Close">&times;</button>
+      </div>
+      <p class="note" data-i18n="rejectReasonHint">Write why this request is rejected.</p>
+      <textarea id="rejectReasonInput" maxlength="80" data-i18n-placeholder="rejectReasonPh"></textarea>
+      <p class="note" id="rejectReasonError" style="color:var(--bad);min-height:18px;"></p>
+      <button class="btn btn-accent" id="rejectConfirmBtn" type="button" data-i18n="rejectConfirm">Reject</button>
+      <button class="btn btn-ghost" id="rejectCancelBtn" type="button" data-i18n="cancel">Cancel</button>
     </div>
   </div>
   <div class="modal toast-modal hidden" id="toastModal">
@@ -1209,6 +1227,12 @@
         earnSentHint: "Папа увидит её у себя и сможет согласовать.",
         adminApproveClaims: "Согласовать",
         adminRejectClaims: "Отклонить",
+        rejectReasonTitle: "Причина отклонения",
+        rejectReasonHint: "Напиши, почему заявка отклонена.",
+        rejectReasonPh: "Причина",
+        rejectReasonNeed: "Укажи причину",
+        rejectConfirm: "Отклонить",
+        claimReason: (r) => `Причина: ${r}`,
         adminClaimsEmpty: "Заявок пока нет.",
         adminClaimsNoneSelected: "Отметь хотя бы одну новую заявку.",
         adminClaimsApproved: (n, coins) => `Согласовано: ${n}. На баланс: +${coins} ★`,
@@ -1393,6 +1417,12 @@
         adminClaimsHint: "Requests from every profile. Check the new ones, then approve or reject.",
         adminApproveClaims: "Approve",
         adminRejectClaims: "Reject",
+        rejectReasonTitle: "Reject reason",
+        rejectReasonHint: "Write why this request is rejected.",
+        rejectReasonPh: "Reason",
+        rejectReasonNeed: "Please enter a reason",
+        rejectConfirm: "Reject",
+        claimReason: (r) => `Reason: ${r}`,
         adminClaimsEmpty: "No requests yet.",
         adminClaimsNoneSelected: "Check at least one new request.",
         adminClaimsApproved: (n, coins) => `Approved: ${n}. Added to balance: +${coins} ★`,
@@ -1451,6 +1481,7 @@
     let familyClaimsPushQueued = false;
     let editingClaimId = null;
     let earnPapaTab = "pending";
+    let pendingReject = null;
     let adminEditingPrizeId = null;
     let catalogPushing = false;
     let catalogPushQueued = false;
@@ -2071,6 +2102,7 @@
         createdAt: raw.createdAt || new Date().toISOString(),
         decidedAt: raw.decidedAt || null,
         paid: !!raw.paid,
+        reason: String(raw.reason || "").trim().slice(0, 80),
       };
     }
     function compactClaims(list) {
@@ -2083,6 +2115,7 @@
         toUnix(c.createdAt),
         toUnix(c.decidedAt),
         c.paid ? 1 : 0,
+        String(c.reason || "").slice(0, 80),
       ]));
     }
     function expandClaim(row, fallbackProfile = "") {
@@ -2101,6 +2134,7 @@
           createdAt: fromUnix(row[4]),
           decidedAt: fromUnix(row[5]) || null,
           paid: !!row[6],
+          reason: row[7] || "",
         });
       }
       const kind = CLAIM_KINDS[row[1]] || CLAIM_KINDS[0];
@@ -2126,6 +2160,7 @@
         : ((Date.parse(b.decidedAt || b.createdAt) || 0) >= (Date.parse(a.decidedAt || a.createdAt) || 0) ? b : a);
       next.paid = !!(a.paid || b.paid || next.paid);
       next.profileId = next.profileId || a.profileId || b.profileId || "";
+      next.reason = next.reason || a.reason || b.reason || "";
       return next;
     }
     function mergeClaims(local, remote, fallbackProfile = "") {
@@ -3876,12 +3911,15 @@
           : list;
       return sortClaimsByStatus(filtered);
     }
+    function claimReasonLine(claim) {
+      return claim.status === "rejected" && claim.reason ? ` · ${t("claimReason", claim.reason)}` : "";
+    }
     function inboxRowHtml(claim, withPick) {
       return `<${withPick ? "label" : "div"} class="admin-claim-row${withPick ? "" : " plain"}">
         ${withPick ? `<input class="claim-pick" type="checkbox" data-id="${escapeHtml(claim.id)}" />` : ""}
         <div>
           <div class="claim-title">${escapeHtml(claimOwnerName(claim))} · ${escapeHtml(claimTitle(claim.kind))}</div>
-          <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}</div>
+          <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
         </div>
         <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
       </${withPick ? "label" : "div"}>`;
@@ -3926,7 +3964,7 @@
         <div class="claim-row ${claim.status}">
           <div>
             <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
-            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}</div>
+            <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
           </div>
           <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
           ${claim.status === "new" ? `<div class="claim-row-actions">
@@ -4014,7 +4052,36 @@
       }
       box.innerHTML = claims.map((claim) => inboxRowHtml(claim, true)).join("");
     }
-    async function decideSelectedClaims(status, scope, flashId) {
+    function openRejectModal(scope, flashId) {
+      const ids = selectedClaimIds(scope);
+      if (!ids.length) {
+        setAdminFlash(flashId, t("adminClaimsNoneSelected"), false);
+        return;
+      }
+      pendingReject = { scope, flashId };
+      const input = document.getElementById("rejectReasonInput");
+      const err = document.getElementById("rejectReasonError");
+      input.value = "";
+      err.textContent = "";
+      document.getElementById("rejectModal").classList.remove("hidden");
+      input.focus();
+    }
+    function closeRejectModal() {
+      pendingReject = null;
+      document.getElementById("rejectModal").classList.add("hidden");
+    }
+    function confirmRejectReason() {
+      const reason = document.getElementById("rejectReasonInput").value.trim();
+      const err = document.getElementById("rejectReasonError");
+      if (!reason) {
+        err.textContent = t("rejectReasonNeed");
+        return;
+      }
+      const ctx = pendingReject;
+      closeRejectModal();
+      if (ctx) decideSelectedClaims("rejected", ctx.scope, ctx.flashId, reason);
+    }
+    async function decideSelectedClaims(status, scope, flashId, reason = "") {
       const ids = new Set(selectedClaimIds(scope));
       if (!ids.size) {
         setAdminFlash(flashId, t("adminClaimsNoneSelected"), false);
@@ -4026,6 +4093,7 @@
         if (!ids.has(claim.id) || claim.status !== "new") return;
         claim.status = status;
         claim.decidedAt = now;
+        claim.reason = status === "rejected" ? String(reason || "").trim().slice(0, 80) : "";
         chosen.push(claim);
       });
       if (!chosen.length) {
@@ -4038,6 +4106,7 @@
           if (await grantRemoteClaim(claim)) coinsAdded += claim.amount;
         }
       }
+      if (status === "rejected") earnPapaTab = "history";
       saveFamilyClaims();
       markProfileDirty();
       renderAdminClaims();
@@ -4770,9 +4839,13 @@
     document.getElementById("claimCloseBtn").addEventListener("click", closeClaimModal);
     document.getElementById("claimModal").addEventListener("click", (e) => { if (e.target === document.getElementById("claimModal")) closeClaimModal(); });
     document.getElementById("adminApproveClaimsBtn").addEventListener("click", () => decideSelectedClaims("approved", "#adminClaimsList", "adminClaimsStatus"));
-    document.getElementById("adminRejectClaimsBtn").addEventListener("click", () => decideSelectedClaims("rejected", "#adminClaimsList", "adminClaimsStatus"));
+    document.getElementById("adminRejectClaimsBtn").addEventListener("click", () => openRejectModal("#adminClaimsList", "adminClaimsStatus"));
     document.getElementById("earnApproveBtn").addEventListener("click", () => decideSelectedClaims("approved", "#earnList", "earnClaimsStatus"));
-    document.getElementById("earnRejectBtn").addEventListener("click", () => decideSelectedClaims("rejected", "#earnList", "earnClaimsStatus"));
+    document.getElementById("earnRejectBtn").addEventListener("click", () => openRejectModal("#earnList", "earnClaimsStatus"));
+    document.getElementById("rejectConfirmBtn").addEventListener("click", confirmRejectReason);
+    document.getElementById("rejectCancelBtn").addEventListener("click", closeRejectModal);
+    document.getElementById("rejectCloseBtn").addEventListener("click", closeRejectModal);
+    document.getElementById("rejectModal").addEventListener("click", (e) => { if (e.target === document.getElementById("rejectModal")) closeRejectModal(); });
     document.getElementById("calPrev").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
     document.getElementById("calNext").addEventListener("click", () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
     document.getElementById("startBtn").addEventListener("click", startTraining);
