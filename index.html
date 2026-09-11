@@ -604,6 +604,8 @@
       margin: 8px 0 0; font-size: 14px; font-weight: 800; color: #0f9f6e; min-height: 1.3em;
     }
     .admin-flash.err { color: var(--bad); }
+    #adminView { padding-bottom: 56px; }
+    .admin-pane .earn-head { margin-bottom: 12px; }
     .admin-prize-list {
       display: grid; gap: 0;
       border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
@@ -631,7 +633,7 @@
       text-decoration: underline; white-space: nowrap;
     }
     .admin-link.danger { color: var(--bad); }
-    #adminAddPrizeBtn, #adminAddKindBtn { margin-top: 12px; }
+    #adminAddPrizeBtn { margin-top: 12px; }
     #adminSaveBtn { margin-top: 8px; }
     .prize-form-actions { display: grid; gap: 8px; margin-top: 8px; }
     .prize-form-actions .btn + .btn { margin-top: 0; }
@@ -1047,11 +1049,15 @@
             <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
           </div>
           <div class="card admin-pane hidden" id="adminPaneKinds" data-pane="kinds">
-            <span class="label" data-i18n="adminKindsTitle">Типы заявок</span>
-            <p class="note" data-i18n="adminKindsHint">Справочник типов заявок из «Еще мишкоинов».</p>
+            <div class="earn-head">
+              <div class="earn-head-text">
+                <span class="label" data-i18n="adminKindsTitle">Типы заявок</span>
+                <p class="note" data-i18n="adminKindsHint">Папа задаёт типы один раз — подать заявку может любой профиль.</p>
+              </div>
+              <button class="btn btn-accent btn-sm earn-create-btn" id="adminAddKindBtn" type="button" data-i18n="adminAddKindBtn">Добавить</button>
+            </div>
             <div class="admin-prize-list" id="adminKindsList"></div>
             <p class="admin-flash" id="adminKindsStatus"></p>
-            <button class="btn btn-accent btn-sm" id="adminAddKindBtn" type="button" data-i18n="adminAddKindBtn">Добавить</button>
           </div>
           <div class="card admin-pane hidden" id="adminPaneClaims" data-pane="claims">
             <span class="label" data-i18n="adminClaimsTitle">Mishcoin requests</span>
@@ -1185,7 +1191,7 @@
         adminTabKinds: "Типы заявок",
         adminTabClaims: "Заявки на мишкоины",
         adminKindsTitle: "Типы заявок",
-        adminKindsHint: "Справочник типов заявок из раздела «Еще мишкоинов». За эти награды дети подают заявки.",
+        adminKindsHint: "Папа задаёт типы один раз — подать заявку может любой профиль.",
         adminQuestions: "Вопросов в незавершённых тестах",
         adminQuestionsHint: "Меняет только тесты, которые ещё не завершены. Пройденные дни не трогаем.",
         adminFailExtra: "Вопросов за ошибку",
@@ -1403,7 +1409,7 @@
         adminTabKinds: "Request types",
         adminTabClaims: "Mishcoin requests",
         adminKindsTitle: "Request types",
-        adminKindsHint: "Reference of request types from More Mishcoins. Kids send requests for these rewards.",
+        adminKindsHint: "Dad sets request types once — any profile can send them.",
         adminQuestions: "Questions in unfinished tests",
         adminQuestionsHint: "Changes only tests that are not completed yet. Finished days stay the same.",
         adminFailExtra: "Extra questions after a fail",
