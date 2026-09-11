@@ -1129,6 +1129,7 @@
     const BAL_KEY_BASE = "misha-bal-v2";
     const DAYS_KEY_BASE = "misha-days-v2";
     const HIST_KEY_BASE = "misha-hist-v2";
+    const BUY_KEY_BASE = "misha-buy-v1";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
     const TABLE_MAX = 12;
@@ -1680,6 +1681,7 @@
     }
     function rememberedDaysKey(id = profileId) { return `${DAYS_KEY_BASE}:${id}`; }
     function rememberedHistKey(id = profileId) { return `${HIST_KEY_BASE}:${id}`; }
+    function rememberedBuyKey(id = profileId) { return `${BUY_KEY_BASE}:${id}`; }
     function parseOffsetString(raw) {
       return String(raw || "").split(",").map((part) => part.trim()).filter((part) => /^\d+$/.test(part)).map(Number)
         .filter((n) => n >= 0 && n < 400);
@@ -1726,6 +1728,26 @@
       const merged = mergeHistory(readRememberedHistory(id), list);
       try { localStorage.setItem(rememberedHistKey(id), JSON.stringify(compactRememberedHistory(merged))); } catch { /* ignore quota */ }
     }
+    function readRememberedPurchases(id = profileId) {
+      if (!id) return [];
+      try { return expandPurchases(JSON.parse(localStorage.getItem(rememberedBuyKey(id)) || "null")); }
+      catch { return []; }
+    }
+    function writeRememberedPurchases(list = coins.purchases, id = profileId) {
+      if (!id) return;
+      const merged = mergePurchases(readRememberedPurchases(id), list);
+      try { localStorage.setItem(rememberedBuyKey(id), JSON.stringify(compactRememberedPurchases(merged))); } catch { /* ignore quota */ }
+    }
+    function compactRememberedPurchases(list) {
+      return listPurchases(list).slice(0, 40).map((p) => ([
+        p.id || "",
+        p.prizeId || "",
+        Number(p.cost) || 0,
+        toUnix(p.at),
+        String(p.titleRu || "").slice(0, 40),
+        String(p.titleEn || "").slice(0, 40),
+      ]));
+    }
     function compactRememberedHistory(list) {
       return (list || []).slice(0, 80).map((entry) => ([
         entry.id || "",
@@ -1739,6 +1761,7 @@
       if (!profileId) return;
       writeRememberedDays();
       writeRememberedHistory();
+      writeRememberedPurchases();
     }
     function applyRememberedLocalProfile() {
       if (!profileId) return;
@@ -1747,6 +1770,8 @@
       if (snap.c) applyCompletedOffsets(snap.c);
       const hist = readRememberedHistory();
       if (hist.length) coins.history = mergeHistory(coins.history, hist);
+      const buys = readRememberedPurchases();
+      if (buys.length) coins.purchases = mergePurchases(coins.purchases, buys);
     }
     function cloudPhotoKey(id = profileId) { return `a_${id}`; }
     function pendingKey(id = profileId) { return `${PENDING_KEY_BASE}:${id}`; }
@@ -2094,7 +2119,7 @@
     function clearDeviceProfileData() {
       const keys = [CATALOG_KEY, KINDS_KEY, KINDS_PENDING_KEY, PROFILE_KEY, STORAGE_KEY_BASE, SETTINGS_KEY_BASE, COINS_KEY_BASE, CLOUD_META_KEY_BASE];
       PROFILES.forEach((p) => {
-        keys.push(`${STORAGE_KEY_BASE}:${p.id}`, `${SETTINGS_KEY_BASE}:${p.id}`, `${COINS_KEY_BASE}:${p.id}`, `${CLOUD_META_KEY_BASE}:${p.id}`);
+        keys.push(`${STORAGE_KEY_BASE}:${p.id}`, `${SETTINGS_KEY_BASE}:${p.id}`, `${COINS_KEY_BASE}:${p.id}`, `${CLOUD_META_KEY_BASE}:${p.id}`, `${DAYS_KEY_BASE}:${p.id}`, `${HIST_KEY_BASE}:${p.id}`, `${BUY_KEY_BASE}:${p.id}`);
       });
       keys.forEach((key) => localStorage.removeItem(key));
     }
@@ -2243,29 +2268,107 @@
     function compactPurchase(p) {
       return { i: p.id, z: p.prizeId, r: p.titleRu, e: p.titleEn, c: p.cost, a: p.at };
     }
+    function prizeById(id) {
+      if (!id) return null;
+      return (catalog.prizes || []).find((prize) => prize.id === id) || null;
+    }
+    function isHistoryShaped(item) {
+      if (!item) return false;
+      if (isClaimHistory(item)) return true;
+      const hasEarn = typeof item.amount === "number" && Number.isFinite(item.amount);
+      const hasPrize = !!(item.prizeId || item.z || item.titleRu || item.titleEn || item.r || item.e);
+      const hasCost = item.cost != null || item.c != null;
+      return hasEarn && !hasPrize && !hasCost;
+    }
+    function isPurchaseRecord(item) {
+      if (!item || typeof item !== "object") return false;
+      if (item.id === "__cloud_spend__") return false;
+      if (isHistoryShaped(item)) return false;
+      const cost = Number(item.cost ?? item.c);
+      if (!(cost > 0)) return false;
+      return !!(item.prizeId || item.z || item.titleRu || item.titleEn || item.id || item.i);
+    }
+    function purchaseKey(item) {
+      if (!item) return "";
+      const stamp = `${item.prizeId || ""}|${toUnix(item.at)}|${Number(item.cost) || 0}`;
+      if (item.prizeId && item.at) return stamp;
+      return String(item.id || stamp);
+    }
+    function purchaseRicher(a, b) {
+      const score = (p) => {
+        if (!p) return -1;
+        let n = 0;
+        if (p.prizeId && p.prizeId !== p.id) n += 4;
+        if (p.titleRu || p.titleEn) n += 4;
+        if (Number(p.cost) > 0) n += 1;
+        if (p.at) n += 1;
+        if (isHistoryShaped(p)) n -= 8;
+        return n;
+      };
+      return score(a) >= score(b) ? a : b;
+    }
     function expandPurchase(p) {
-      if (Array.isArray(p) && p[0]) {
+      if (Array.isArray(p)) {
+        if (typeof p[0] === "number") return null;
+        if (p.length >= 7) return null;
+        if (p.length >= 6 && (typeof p[4] === "string" || typeof p[5] === "string")) {
+          const named = prizeById(p[1]);
+          return {
+            id: p[0] || `y-${p[1] || "p"}-${p[3] || 0}`,
+            prizeId: p[1] || named?.id || "",
+            titleRu: p[4] || named?.titleRu || "",
+            titleEn: p[5] || named?.titleEn || "",
+            cost: Number(p[2]) || 0,
+            at: fromUnix(p[3]),
+          };
+        }
+        const first = String(p[0] || "");
+        if (!first && !p[3]) return null;
+        const named = prizeById(first);
+        const cost = Number(p[1]) || 0;
+        const at = fromUnix(p[2]);
+        const idTail = p[3] != null ? String(p[3]) : "";
         return {
-          id: p[0],
-          prizeId: p[0],
-          titleRu: "",
-          titleEn: "",
-          cost: Number(p[1]) || 1,
-          at: fromUnix(p[2]),
+          id: named ? (idTail ? (idTail.includes("-") ? idTail : `y-${first}-${idTail}`) : `y-${first}-${p[2] || 0}`) : first,
+          prizeId: named?.id || (p.length >= 4 ? first : ""),
+          titleRu: named?.titleRu || "",
+          titleEn: named?.titleEn || "",
+          cost,
+          at,
         };
       }
-      if (!p || typeof p !== "object") return null;
+      if (!p || typeof p !== "object" || isHistoryShaped(p)) return null;
+      const prizeId = p.prizeId || p.z || "";
+      const named = prizeById(prizeId);
       return {
-        id: p.id || p.i,
-        prizeId: p.prizeId || p.z,
-        titleRu: p.titleRu || p.r || "",
-        titleEn: p.titleEn || p.e || "",
-        cost: Number(p.cost ?? p.c) || 1,
+        id: p.id || p.i || "",
+        prizeId,
+        titleRu: p.titleRu || p.r || named?.titleRu || "",
+        titleEn: p.titleEn || p.e || named?.titleEn || "",
+        cost: Number(p.cost ?? p.c) || 0,
         at: p.at || p.a,
       };
     }
     function expandPurchases(list) {
-      return (Array.isArray(list) ? list : []).map(expandPurchase).filter(Boolean);
+      return (Array.isArray(list) ? list : []).map(expandPurchase).filter(isPurchaseRecord);
+    }
+    function listPurchases(list = coins.purchases) {
+      return expandPurchases(list);
+    }
+    function compactPurchasesCloud(list) {
+      return listPurchases(list).slice(0, 6).map((p) => ([
+        p.prizeId || "",
+        Number(p.cost) || 0,
+        toUnix(p.at),
+        String(p.id || "").slice(-10),
+      ]));
+    }
+    function purchaseTitle(item) {
+      const prize = prizeById(item?.prizeId);
+      const ru = item?.titleRu || prize?.titleRu || "";
+      const en = item?.titleEn || prize?.titleEn || "";
+      const titled = lang === "en" ? (en || ru) : (ru || en);
+      return titled || "";
     }
     function writePendingSnapshot() {
       if (!profileId) return;
@@ -2304,7 +2407,7 @@
         );
         if (pendingB < coins.balance) forceRememberedBalance(coins.balance);
         coins.history = mergeHistory(coins.history, pending.h || []);
-        coins.purchases = mergePurchases(coins.purchases, pending.y || []);
+        coins.purchases = mergePurchases(coins.purchases, expandPurchases(pending.y || pending.purchases || []));
         adoptClaims(pending.r || pending.claims || [], profileId);
         if (pending.q) settings.questionCount = Number(pending.q) || settings.questionCount;
         if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
@@ -2459,24 +2562,31 @@
     }
     function mergePurchases(local, remote) {
       const map = new Map();
-      [...(remote || []), ...(local || [])].forEach((item) => {
-        if (!item) return;
-        const key = item.id || `${item.at}|${item.prizeId}|${item.cost}`;
-        if (!map.has(key)) map.set(key, item);
+      [...expandPurchases(remote), ...expandPurchases(local)].forEach((item) => {
+        const key = purchaseKey(item);
+        if (!key) return;
+        map.set(key, purchaseRicher(map.get(key), item));
       });
       return [...map.values()]
         .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
         .slice(0, 40);
     }
     function purchaseSpend(list) {
-      return (list || []).reduce((sum, item) => sum + Math.max(0, Number(item.cost) || 0), 0);
+      return expandPurchases(list || []).reduce((sum, item) => sum + Math.max(0, Number(item.cost) || 0), 0);
     }
     function mergeBalance(localB, remoteB, localPurchases, remotePurchases) {
       const localSpend = purchaseSpend(localPurchases);
       const remoteSpend = purchaseSpend(remotePurchases);
       const unionSpend = purchaseSpend(mergePurchases(localPurchases, remotePurchases));
-      const gross = Math.max(Number(localB) || 0, Number(remoteB) || 0) + Math.min(localSpend, remoteSpend);
-      return Math.max(0, gross - unionSpend);
+      const localN = Math.max(0, Number(localB) || 0);
+      const remoteN = Math.max(0, Number(remoteB) || 0);
+      const low = Math.min(localN, remoteN);
+      const high = Math.max(localN, remoteN);
+      const sharedSpend = Math.min(localSpend, remoteSpend);
+      const extraSpend = unionSpend - sharedSpend;
+      if (extraSpend > 0 && high === low + extraSpend) return low;
+      if (unionSpend > 0 && high === low + unionSpend) return low;
+      return Math.max(0, high + sharedSpend - unionSpend);
     }
     function parseBalanceCloud(raw) {
       if (typeof raw === "number" && Number.isFinite(raw)) return { b: raw, s: 0 };
@@ -2499,12 +2609,11 @@
       if (hint <= 0) return [];
       const covered = [];
       let acc = 0;
-      for (const item of (list || [])) {
+      for (const item of expandPurchases(list || [])) {
         if (acc >= hint) break;
         covered.push(item);
         acc += Math.max(0, Number(item.cost) || 0);
       }
-      if (acc < hint) covered.push({ id: "__cloud_spend__", cost: hint - acc });
       return covered;
     }
     function mergeDedicatedBalance(localB, remoteB, localPurchases, remoteSpendHint) {
@@ -3141,6 +3250,7 @@
       if (!remote) return coins.balance > 0 || completedDayCount(expandDays(compactDays(loadStore()))) > 0;
       if (coins.balance > remote.coins.balance) return true;
       if ((coins.history || []).length > (remote.coins.history || []).length) return true;
+      if ((coins.purchases || []).length > (remote.coins.purchases || []).length) return true;
       if ((coins.claims || []).length > (remote.coins.claims || []).length) return true;
       if (completedDayCount(expandDays(compactDays(loadStore()))) > completedDayCount(remote.days)) return true;
       return false;
@@ -3222,6 +3332,8 @@
         hex = bytesToHex(json);
       }
       if (hex.length > limit) {
+        const keyName = String(key || "");
+        if (/^[yhrd]_/.test(keyName) || keyName === "claims") return "";
         hex = bytesToHex(JSON.stringify({
           u: current.u || Date.now(),
           b: Number(current.b) || 0,
@@ -3904,21 +4016,26 @@
       return hex;
     }
     async function pushHistoryAndDays(payload, updatedAt) {
-      const [histRaw, daysRaw] = await Promise.all([
+      const [histRaw, daysRaw, buyRaw, claimRaw] = await Promise.all([
         fetchKvRaw(cloudHistKey()),
         fetchKvRaw(cloudDaysKey()),
+        fetchKvRaw(cloudBuyKey()),
+        fetchKvRaw(cloudClaimKey()),
       ]);
       const mergedHist = mergeHistory(payload.coins.history, expandHistory(histRaw?.h || histRaw?.history || []));
       if (daysRaw?.d || daysRaw?.days) mergeRemoteDays(expandDays(daysRaw.d || daysRaw.days));
       if (daysRaw?.c || daysRaw?.completed) applyCompletedOffsets(daysRaw.c || daysRaw.completed);
+      const mergedBuys = mergePurchases(payload.coins.purchases, buyRaw?.y || buyRaw?.purchases || []);
+      coins.purchases = mergePurchases(coins.purchases, mergedBuys);
+      const mergedClaims = mergeClaims(payload.coins.claims || coins.claims || [], claimRaw?.r || claimRaw?.claims || [], profileId);
       const hist = { u: updatedAt, h: compactMiniHistory(mergedHist) };
       const buys = {
         u: updatedAt,
-        y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
+        y: compactPurchasesCloud(mergedBuys),
       };
       const claims = {
         u: updatedAt,
-        r: compactClaims(payload.coins.claims || coins.claims || []),
+        r: compactClaims(mergedClaims),
       };
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; }, cloudHistKey());
       const daysHex = encodeDaysHex(updatedAt, daysRaw?.c || daysRaw?.completed || "");
@@ -4617,7 +4734,7 @@
     function renderRedeem() {
       const box = document.getElementById("redeemContent");
       const shop = catalog.prizes || [];
-      const bought = coins.purchases || [];
+      const bought = listPurchases();
       const shopHtml = shop.length
         ? `<div class="prize-list">${shop.map((prize) => `
             <div class="prize-item">
@@ -4632,7 +4749,7 @@
         ? `<div class="prize-list">${bought.map((item) => `
             <div class="prize-item purchased">
               <div class="prize-info">
-                <div class="prize-title">${escapeHtml(prizeTitle(item))}</div>
+                <div class="prize-title">${escapeHtml(purchaseTitle(item) || t("redeemPurchased"))}</div>
                 <div class="prize-meta">${item.cost} ${COIN_SYMBOL} · ${formatHistoryDate(item.at)}</div>
               </div>
               <span class="plan-badge">${t("redeemPurchased")}</span>
