@@ -95,10 +95,17 @@ create table if not exists photos (
   data_url text default ''
 );
 
+create table if not exists sessions (
+  profile_id text primary key,
+  device_id text not null default '',
+  updated_at timestamp not null default timezone('America/New_York', now())
+);
+
 create index if not exists days_profile_idx on days (profile_id);
 create index if not exists history_profile_idx on history (profile_id);
 create index if not exists purchases_profile_idx on purchases (profile_id);
 create index if not exists claims_profile_idx on claims (profile_id);
+create index if not exists sessions_device_idx on sessions (device_id);
 
 alter table profiles enable row level security;
 alter table balances enable row level security;
@@ -110,6 +117,7 @@ alter table claim_kinds enable row level security;
 alter table catalog enable row level security;
 alter table config enable row level security;
 alter table photos enable row level security;
+alter table sessions enable row level security;
 
 drop policy if exists family_all on profiles;
 drop policy if exists family_all on balances;
@@ -121,6 +129,7 @@ drop policy if exists family_all on claim_kinds;
 drop policy if exists family_all on catalog;
 drop policy if exists family_all on config;
 drop policy if exists family_all on photos;
+drop policy if exists family_all on sessions;
 
 create policy family_all on profiles for all to anon, authenticated using (true) with check (true);
 create policy family_all on balances for all to anon, authenticated using (true) with check (true);
@@ -132,3 +141,4 @@ create policy family_all on claim_kinds for all to anon, authenticated using (tr
 create policy family_all on catalog for all to anon, authenticated using (true) with check (true);
 create policy family_all on config for all to anon, authenticated using (true) with check (true);
 create policy family_all on photos for all to anon, authenticated using (true) with check (true);
+create policy family_all on sessions for all to anon, authenticated using (true) with check (true);

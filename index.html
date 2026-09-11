@@ -204,6 +204,24 @@
       border: 2px solid #fff1a0; font-size: 13px;
     }
     .coins.pop { animation: coinPop 0.55s ease; }
+    #coinsValue { min-width: 1.5em; display: inline-grid; place-items: center; }
+    .coins-spin {
+      width: 18px; height: 18px; display: block; position: relative;
+    }
+    .coins-spin::before, .coins-spin::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid transparent;
+    }
+    .coins-spin::before {
+      border-top-color: #5a3b00;
+      animation: coinsSpin 0.7s linear infinite;
+    }
+    .coins-spin::after {
+      inset: 4px;
+      border-bottom-color: #8a5a00;
+      animation: coinsSpin 1.05s linear infinite reverse;
+    }
+    @keyframes coinsSpin { to { transform: rotate(360deg); } }
     .hero-bubble {
       position: relative; background: var(--hero-bg); border-radius: 16px; padding: 10px 12px;
       box-shadow: var(--shadow); border: 2px solid var(--line); width: 100%;
@@ -866,6 +884,17 @@
       <button class="btn btn-ink" id="toastOkBtn" type="button">OK</button>
     </div>
   </div>
+  <div class="modal hidden" id="sessionBusyModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 data-i18n="sessionBusyTitle">Already open on another device</h2>
+      </div>
+      <p class="note" data-i18n="sessionBusyHint">Close it there? Data on that device will not be saved.</p>
+      <button class="btn btn-accent" id="sessionBusyCloseBtn" type="button" data-i18n="sessionBusyClose">Close there</button>
+      <button class="btn btn-ink" id="sessionBusyRetryBtn" type="button" data-i18n="sessionBusyRetry">Try again</button>
+      <button class="btn btn-ghost" id="sessionBusyCancelBtn" type="button" data-i18n="sessionBusyCancel">Cancel</button>
+    </div>
+  </div>
   <div class="modal" id="profileModal">
     <div class="modal-card wide">
       <div class="label" data-i18n="profileTitle">Who is playing?</div>
@@ -888,9 +917,9 @@
             <button type="button" id="langRuBtn">RU</button>
             <button type="button" id="langEnBtn">EN</button>
           </div>
-          <div class="coins" id="coinsBadge" title="Mishcoin">
+          <div class="coins loading" id="coinsBadge" title="Mishcoin">
             <span class="coin">★</span>
-            <span id="coinsValue">0</span>
+            <span id="coinsValue"><span class="coins-spin" aria-hidden="true"></span></span>
             <span class="sync-dot" id="syncDot" title="sync"></span>
           </div>
         </div>
@@ -1147,6 +1176,8 @@
     const THEME_KEY = "misha-theme-pref-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
+    const DEVICE_KEY = "misha-device-id-v1";
+    const SESSION_TTL_MS = 90000;
     const PENDING_KEY_BASE = "misha-pending-v1";
     const BAL_KEY_BASE = "misha-bal-v2";
     const DAYS_KEY_BASE = "misha-days-v2";
@@ -1392,6 +1423,13 @@
         mishcoin: "Мишкоин", mishcoins: "Мишкоины",
         hardReload: "Обновить",
         hardReloadHint: "Сбросить кэш этого телефона и загрузить сайт заново",
+        sessionBusyTitle: "Уже открыто на другом устройстве",
+        sessionBusyHint: "Закрыть там? Данные там не сохранятся.",
+        sessionBusyClose: "Закрыть там",
+        sessionBusyRetry: "Попробовать ещё раз",
+        sessionBusyCancel: "Отмена",
+        sessionKicked: "Сессия закрыта на этом устройстве",
+        sessionKickedHint: "Профиль открыли на другом устройстве.",
         tablesSettingsTitle: "Настройки таблиц",
         tablesSettingsHint: "Можно добавить таблицы выше минимума и вернуть назад до него.",
         tablesFloorLabel: "Открыто прогрессом",
@@ -1613,6 +1651,13 @@
         mishcoin: "Mishcoin", mishcoins: "Mishcoins",
         hardReload: "Reload",
         hardReloadHint: "Clear this phone’s cache and reload the site",
+        sessionBusyTitle: "Already open on another device",
+        sessionBusyHint: "Close it there? Data on that device will not be saved.",
+        sessionBusyClose: "Close there",
+        sessionBusyRetry: "Try again",
+        sessionBusyCancel: "Cancel",
+        sessionKicked: "Session closed on this device",
+        sessionKickedHint: "This profile was opened on another device.",
         tablesSettingsTitle: "Table settings",
         tablesSettingsHint: "You can add tables above the minimum and lower them back to it.",
         tablesFloorLabel: "Unlocked by progress",
@@ -1641,6 +1686,9 @@
     let lang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "ru";
     let themePref = readThemePref();
     let profileId = null;
+    let balanceReady = false;
+    let pendingSessionProfile = null;
+    let sessionHeartbeatTimer = null;
     let settings = { questionCount: 20, tablesMax: 0, wishlist: [] };
     let catalog = { updatedAt: 0, prizes: [] };
     let claimKinds = { updatedAt: 0, kinds: DEFAULT_CLAIM_KINDS.map((k) => ({ ...k })), archive: [] };
@@ -4696,7 +4744,21 @@
       toastModal.classList.remove("hidden");
     }
     function closeToast() { toastModal.classList.add("hidden"); }
-    function renderCoins() { document.getElementById("coinsValue").textContent = String(coins.balance); }
+    function setBalanceReady(ready) {
+      balanceReady = !!ready;
+      renderCoins();
+    }
+    function renderCoins() {
+      const badge = document.getElementById("coinsBadge");
+      const el = document.getElementById("coinsValue");
+      if (!badge || !el) return;
+      badge.classList.toggle("loading", !balanceReady);
+      if (!balanceReady) {
+        el.innerHTML = '<span class="coins-spin" aria-hidden="true"></span>';
+        return;
+      }
+      el.textContent = String(coins.balance);
+    }
     function bumpCoinsDisplay() {
       coinsBadge.classList.remove("pop");
       void coinsBadge.offsetWidth;
@@ -4964,6 +5026,7 @@
     }
 
     async function hydrateProfileFromCloud() {
+      setBalanceReady(false);
       setSyncState("busy");
       try {
         applyRememberedLocalProfile();
@@ -4981,6 +5044,7 @@
         fillHistoryLedger();
         applyLedgerBalance();
         forceRememberedBalance(coins.balance);
+        setBalanceReady(true);
         const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         persistRememberedProgress();
@@ -4995,6 +5059,9 @@
         if (profileDirty) await pushCloudSync();
         setSyncState(profileDirty ? "busy" : "ok");
       } catch {
+        fillHistoryLedger();
+        applyLedgerBalance();
+        setBalanceReady(true);
         setSyncState("err");
       }
     }
@@ -5030,16 +5097,119 @@
       renderProfilePicker();
       profileModal.classList.remove("hidden");
     }
+    function deviceId() {
+      let id = "";
+      try { id = localStorage.getItem(DEVICE_KEY) || ""; } catch { /* ignore */ }
+      if (!id) {
+        id = uid();
+        try { localStorage.setItem(DEVICE_KEY, id); } catch { /* ignore */ }
+      }
+      return id;
+    }
+    function sessionBusyModal() { return document.getElementById("sessionBusyModal"); }
+    function openSessionBusyModal() {
+      const modal = sessionBusyModal();
+      if (modal) modal.classList.remove("hidden");
+    }
+    function closeSessionBusyModal() {
+      const modal = sessionBusyModal();
+      if (modal) modal.classList.add("hidden");
+    }
+    function isForeignLiveLock(row) {
+      if (!row || !row.device_id || row.device_id === deviceId()) return false;
+      const at = stampMs(row.updated_at);
+      if (!at) return false;
+      return (Date.now() - at) < SESSION_TTL_MS;
+    }
+    async function fetchSessionRow(id) {
+      if (!id || !cloudUsesSupabase()) return null;
+      const rows = await sbSelect("sessions", `profile_id=eq.${encodeURIComponent(id)}&select=*`);
+      return rows[0] || null;
+    }
+    async function claimSessionLock(id) {
+      if (!id || !cloudUsesSupabase()) return true;
+      return sbUpsert("sessions", [{
+        profile_id: id,
+        device_id: deviceId(),
+        updated_at: estNowIso(),
+      }]);
+    }
+    async function releaseSessionLock(id) {
+      if (!id || !cloudUsesSupabase()) return;
+      const mine = encodeURIComponent(deviceId());
+      await sbRest(`sessions?profile_id=eq.${encodeURIComponent(id)}&device_id=eq.${mine}`, {
+        method: "DELETE",
+        prefer: "return=minimal",
+        body: undefined,
+      });
+    }
+    function stopSessionHeartbeat() {
+      if (sessionHeartbeatTimer) {
+        clearInterval(sessionHeartbeatTimer);
+        sessionHeartbeatTimer = null;
+      }
+    }
+    function startSessionHeartbeat() {
+      stopSessionHeartbeat();
+      sessionHeartbeatTimer = window.setInterval(() => { refreshSessionLock(); }, 20000);
+      refreshSessionLock();
+    }
+    async function refreshSessionLock() {
+      if (!profileId || document.visibilityState === "hidden") return;
+      const row = await fetchSessionRow(profileId);
+      if (isForeignLiveLock(row)) {
+        await onSessionStolen();
+        return;
+      }
+      await claimSessionLock(profileId);
+    }
+    async function onSessionStolen() {
+      stopSessionHeartbeat();
+      profileDirty = false;
+      profileId = null;
+      pendingSessionProfile = null;
+      setBalanceReady(false);
+      resetProfileMemory();
+      closeSessionBusyModal();
+      openProfilePicker();
+      showToast("bad", t("sessionKicked"), t("sessionKickedHint"), "📵");
+    }
+    async function tryEnterProfile(id, options = {}) {
+      const force = !!options.force;
+      if (!PROFILES.some((p) => p.id === id)) return false;
+      const row = await fetchSessionRow(id);
+      if (!force && isForeignLiveLock(row)) {
+        pendingSessionProfile = id;
+        openSessionBusyModal();
+        return false;
+      }
+      const prev = profileId;
+      if (prev && prev !== id) await releaseSessionLock(prev);
+      const claimed = await claimSessionLock(id);
+      if (!claimed) {
+        if (prev) await claimSessionLock(prev);
+        pendingSessionProfile = id;
+        openSessionBusyModal();
+        return false;
+      }
+      closeSessionBusyModal();
+      pendingSessionProfile = null;
+      await selectProfile(id);
+      startSessionHeartbeat();
+      return true;
+    }
     function requestProfile(id) {
       if (!PROFILES.some((p) => p.id === id)) return;
       if (id === "papa" && profileId !== "papa") {
+        pendingSessionProfile = id;
         openPinModal("papa");
         return;
       }
-      selectProfile(id);
+      tryEnterProfile(id);
     }
     async function selectProfile(id) {
       if (!PROFILES.some((p) => p.id === id)) return;
+      setBalanceReady(false);
       if (profileId && profileDirty) await pushCloudSync();
       profileId = id;
       resetProfileMemory();
@@ -5062,7 +5232,10 @@
         appStarted = true;
         listenCloudNotify();
         document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible" && profileId) pullBalanceOnly();
+          if (document.visibilityState === "visible" && profileId) {
+            refreshSessionLock();
+            pullBalanceOnly();
+          }
         });
         window.addEventListener("pagehide", () => {
           if (!profileId) return;
@@ -6070,7 +6243,7 @@
       }
       const purpose = pinPurpose;
       closePinModal();
-      if (purpose === "papa") selectProfile("papa");
+      if (purpose === "papa") tryEnterProfile("papa");
       else openAdmin();
     }
     function openAdmin(options = {}) {
@@ -6340,7 +6513,7 @@
       return changed;
     }
     function hardReloadApp() {
-      const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY]);
+      const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY, DEVICE_KEY]);
       try {
         const keys = [];
         for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
@@ -6384,6 +6557,18 @@
     document.getElementById("themeAutoBtn").addEventListener("click", () => setThemePref("auto"));
     document.getElementById("themeNightBtn").addEventListener("click", () => setThemePref("dark"));
     document.getElementById("hardReloadBtn").addEventListener("click", hardReloadApp);
+    document.getElementById("sessionBusyCloseBtn").addEventListener("click", () => {
+      if (pendingSessionProfile) tryEnterProfile(pendingSessionProfile, { force: true });
+    });
+    document.getElementById("sessionBusyRetryBtn").addEventListener("click", () => {
+      if (pendingSessionProfile) tryEnterProfile(pendingSessionProfile);
+      else closeSessionBusyModal();
+    });
+    document.getElementById("sessionBusyCancelBtn").addEventListener("click", () => {
+      pendingSessionProfile = null;
+      closeSessionBusyModal();
+      openProfilePicker();
+    });
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
     document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
     document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
