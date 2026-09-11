@@ -3345,20 +3345,7 @@
       Object.entries(RECOVERED_LESSONS[profileId] || {}).forEach(([key, extra]) => {
         if (markDayCompleted(store, key, extra)) changed = true;
         else if (store[key] && !dayHasLessonWork(store[key])) {
-          const stub = stubCompletedDay(key, extra);
-          const cur = store[key];
-          store[key] = {
-            ...stub,
-            ...cur,
-            completed: true,
-            sessionDone: true,
-            correct: Math.max(Number(cur.correct) || 0, Number(stub.correct) || 0),
-            fails: Math.max(Number(cur.fails) || 0, Number(stub.fails) || 0),
-            answered: Math.max(Number(cur.answered) || 0, Number(stub.answered) || 0),
-            totalCoins: Math.max(Number(cur.totalCoins) || 0, Number(stub.totalCoins) || 0),
-            coinsAwarded: Math.max(Number(cur.coinsAwarded) || 0, Number(stub.coinsAwarded) || 0),
-            runsCompleted: Math.max(Number(cur.runsCompleted) || 0, Number(stub.runsCompleted) || 1),
-          };
+          store[key] = mergeDayState(store[key], stubCompletedDay(key, extra));
           changed = true;
         }
       });
@@ -3445,28 +3432,29 @@
       if (remoteBuys > localBuys && remoteB < localB) return remoteB;
       return Math.max(Number(localB) || 0, Number(remoteB) || 0);
     }
+    function dayWorkScore(day) {
+      if (!day) return 0;
+      return (Number(day.answered) || 0) + (Number(day.correct) || 0) + (Number(day.fails) || 0);
+    }
     function mergeDayState(local, remote) {
       if (!remote) return local;
       if (!local) return remote;
-      const richer = (a, b) => {
-        const score = (d) => (Number(d.answered) || 0) * 4 + (Number(d.correct) || 0) * 3
-          + (Number(d.fails) || 0) + (Number(d.runsCompleted) || 0);
-        return score(b) > score(a) ? b : a;
-      };
-      const pick = richer(local, remote);
-      const other = pick === remote ? local : remote;
+      const completed = !!(local.completed || remote.completed);
+      const richer = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
+      const other = richer === local ? remote : local;
       return {
         ...other,
-        ...pick,
-        queue: (pick.queue && pick.queue.length) ? pick.queue : (other.queue || []),
-        completed: !!(local.completed || remote.completed),
-        sessionDone: !!(local.sessionDone || remote.sessionDone),
+        ...richer,
+        completed,
+        sessionDone: !!(local.sessionDone || remote.sessionDone || completed),
         correct: Math.max(Number(local.correct) || 0, Number(remote.correct) || 0),
         fails: Math.max(Number(local.fails) || 0, Number(remote.fails) || 0),
         answered: Math.max(Number(local.answered) || 0, Number(remote.answered) || 0),
-        totalCoins: Math.max(Number(local.totalCoins) || 0, Number(remote.totalCoins) || 0),
-        coinsAwarded: Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
         runsCompleted: Math.max(Number(local.runsCompleted) || 0, Number(remote.runsCompleted) || 0),
+        coinsAwarded: Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
+        totalCoins: Math.max(Number(local.totalCoins) || 0, Number(remote.totalCoins) || 0),
+        completedAt: local.completedAt || remote.completedAt,
+        queue: completed ? [] : (richer.queue || other.queue || []),
       };
     }
     function mergeRemoteDays(remoteDays) {
@@ -3479,7 +3467,8 @@
         const prev = store[remote.date];
         const same = prev && prev.completed === next.completed && prev.answered === next.answered
           && prev.correct === next.correct && prev.fails === next.fails
-          && prev.runsCompleted === next.runsCompleted && prev.coinsAwarded === next.coinsAwarded;
+          && prev.runsCompleted === next.runsCompleted && prev.coinsAwarded === next.coinsAwarded
+          && prev.totalCoins === next.totalCoins;
         if (!same) {
           store[remote.date] = next;
           changed = true;
