@@ -3626,21 +3626,19 @@
     async function fetchCatalogCloud() {
       const remote = await fetchKvRaw("catalog");
       const fromP = normalizeCatalogPrizes(remote?.p || remote?.prizes);
+      if (fromP.length) {
+        return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), prizes: fromP };
+      }
       const declared = Number(remote?.n) || 0;
-      const scan = Math.max(declared, 8);
-      const rows = await Promise.all(Array.from({ length: scan }, (_, i) => fetchKvRaw(`c${i}`)));
+      if (!declared) return null;
+      const rows = await Promise.all(Array.from({ length: Math.min(declared, 12) }, (_, i) => fetchKvRaw(`c${i}`)));
       const chunked = rows.map((row) => {
         if (row == null) return null;
         const list = Array.isArray(row) ? [row] : (row.p || [row]);
         return normalizeCatalogPrizes(list)[0] || null;
       }).filter(Boolean);
-      const map = new Map();
-      [...chunked, ...fromP].forEach((prize) => {
-        if (prize?.id && !map.has(prize.id)) map.set(prize.id, prize);
-      });
-      const prizes = [...map.values()];
-      if (!prizes.length) return remote ? { updatedAt: Number(remote.u || remote.updatedAt) || 0, prizes: [] } : null;
-      return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), prizes };
+      if (!chunked.length) return null;
+      return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), prizes: chunked };
     }
     function refreshCatalogViews() {
       if (currentView === "redeem") renderRedeem();
@@ -3654,19 +3652,24 @@
         return;
       }
       const remote = await fetchCatalogCloud();
-      if (!remote) {
+      if (!remote || !(remote.prizes || []).length) {
         if ((catalog.prizes || []).length) {
           catalogDirty = true;
           scheduleCatalogPush();
         }
         return;
       }
-      if ((catalog.updatedAt || 0) > remote.updatedAt) {
+      const map = new Map();
+      [...(catalog.prizes || []), ...remote.prizes].forEach((prize) => {
+        if (prize?.id) map.set(prize.id, prize);
+      });
+      const prizes = [...map.values()];
+      if ((catalog.updatedAt || 0) > remote.updatedAt && (catalog.prizes || []).length >= prizes.length) {
         catalogDirty = true;
         scheduleCatalogPush();
         return;
       }
-      catalog = { updatedAt: remote.updatedAt || Date.now(), prizes: remote.prizes };
+      catalog = { updatedAt: Math.max(catalog.updatedAt || 0, remote.updatedAt || 0, Date.now()), prizes };
       clearPendingCatalog();
       refreshCatalogViews();
     }
@@ -3740,6 +3743,9 @@
       const remote = await fetchKvRaw("kinds");
       const fromK = normalizeClaimKinds(remote?.k || remote?.kinds || remote?.p);
       const fromX = normalizeClaimKinds(remote?.x || remote?.archive || remote?.a);
+      if (fromK.length || fromX.length) {
+        return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), kinds: fromK, archive: fromX };
+      }
       const declared = Number(remote?.n);
       const archivedN = Number(remote?.xn);
       const scan = Number.isFinite(declared) && declared >= 0 ? declared : (fromK.length || 8);

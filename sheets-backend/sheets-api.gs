@@ -311,12 +311,7 @@ function seedIfEmpty() {
     { id: "eveningOnTime", title_ru: "Вечерний график вовремя", title_en: "Evening schedule on time", coins: 6, archived: 0, updated_at: now },
     { id: "1789087011732-835f58", title_ru: "Домашнее по математике без ошибок", title_en: "Math homework with no errors", coins: 4, archived: 0, updated_at: now },
   ]);
-  writeAllRows("catalog", [
-    { id: "1788663954626-368e69", title_ru: "Minecraft PC", title_en: "Minecraft PC", cost: 80, updated_at: now },
-    { id: "1788925667104-3926d6", title_ru: "Пицца в любое время", title_en: "Pizza at any time", cost: 50, updated_at: now },
-    { id: "1788926206112-1800a8", title_ru: "Без лимита в любое время (30)", title_en: "No limit at any time (30 min)", cost: 30, updated_at: now },
-    { id: "1789090061026-a462d4", title_ru: "нет лимита в любое время (5 мин)", title_en: "No limit at any time (5 min)", cost: 5, updated_at: now },
-  ]);
+  writeAllRows("catalog", seedCatalogRows_(now));
   writeAllRows("config", [
     { key: "fail_extra", value: "1" },
     { key: "family_token", value: "kaa-mishcoin-2026" },
@@ -341,6 +336,19 @@ function dayRow(profileId, date, status, ok, bad, ans, coins, total, runs, at) {
     completed_at: at,
     payload: "",
   };
+}
+
+function seedCatalogRows_(now) {
+  now = now || new Date().toISOString();
+  return [
+    { id: "1788663954626-368e69", title_ru: "Minecraft PC", title_en: "Minecraft PC", cost: 80, updated_at: now },
+    { id: "1788925667104-3926d6", title_ru: "Пицца в любое время", title_en: "Pizza at any time", cost: 50, updated_at: now },
+    { id: "1788926206112-1800a8", title_ru: "Без лимита в любое время (30)", title_en: "No limit at any time (30 min)", cost: 30, updated_at: now },
+    { id: "1789090061026-a462d4", title_ru: "нет лимита в любое время (5 мин)", title_en: "No limit at any time (5 min)", cost: 5, updated_at: now },
+  ];
+}
+function seedCatalog_() {
+  writeAllRows("catalog", seedCatalogRows_());
 }
 
 function histRow(id, profileId, at, delta, kind, note, dateKey) {
@@ -453,11 +461,16 @@ function archiveKinds_() {
   return readTable("claim_kinds").filter(function (r) { return String(r.archived) === "1" && r.id; });
 }
 function catalogKv() {
-  var rows = readTable("catalog");
+  var rows = readTable("catalog").filter(function (r) { return r.id; });
+  if (!rows.length) {
+    seedCatalog_();
+    rows = readTable("catalog").filter(function (r) { return r.id; });
+  }
+  var updated = rows.reduce(function (max, r) { return Math.max(max, Date.parse(r.updated_at) || 0); }, 0);
   return {
-    u: Date.now(),
+    u: updated || Date.now(),
     n: rows.length,
-    p: rows.map(function (r) { return [r.id, r.title_ru, r.title_en, num(r.cost)]; }),
+    p: rows.map(function (r) { return [r.id, r.title_ru || r.titleRu, r.title_en || r.titleEn, num(r.cost)]; }),
   };
 }
 function catalogItem(i) {
@@ -594,6 +607,7 @@ function kvPut(key, value, hex) {
   }
   if (key === "catalog") {
     var prizes = (value && (value.p || value.prizes)) || [];
+    if (!prizes.length) return;
     writeAllRows("catalog", prizes.map(function (p) {
       if (Object.prototype.toString.call(p) === "[object Array]") {
         return { id: p[0], title_ru: p[1], title_en: p[2], cost: num(p[3]), updated_at: now };
@@ -808,10 +822,6 @@ function jpegHexToDataUrl_(hex) {
 function kvPull(id) {
   var keys = {};
   ["cfg", "catalog", "kinds", "claims"].forEach(function (k) { keys[k] = kvGet(k); });
-  var cat = keys.catalog;
-  for (var i = 0; i < ((cat && cat.n) || 0); i++) keys["c" + i] = kvGet("c" + i);
-  var kinds = keys.kinds;
-  for (var j = 0; j < ((kinds && kinds.n) || 0); j++) keys["k" + j] = kvGet("k" + j);
   var ids = id ? [id] : PROFILES;
   ids.forEach(function (pid) {
     ["b", "p", "h", "d", "y", "r"].forEach(function (p) { keys[p + "_" + pid] = kvGet(p + "_" + pid); });
