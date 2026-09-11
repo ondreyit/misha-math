@@ -143,3 +143,53 @@ create policy family_all on catalog for all to anon, authenticated using (true) 
 create policy family_all on config for all to anon, authenticated using (true) with check (true);
 create policy family_all on photos for all to anon, authenticated using (true) with check (true);
 create policy family_all on sessions for all to anon, authenticated using (true) with check (true);
+
+create or replace function claim_profile_session(
+  p_id text,
+  p_device text,
+  p_force boolean default false,
+  p_ttl_ms bigint default 120000
+) returns json
+language plpgsql
+security invoker
+set search_path = public
+as $claim$
+declare
+  r sessions%rowtype;
+  now_ms bigint;
+  stale boolean;
+begin
+  if p_id is null or p_id = '' or p_device is null or p_device = '' then
+    return json_build_object('ok', false);
+  end if;
+  now_ms := (extract(epoch from clock_timestamp()) * 1000)::bigint;
+  select * into r from sessions where profile_id = p_id for update;
+  if not found then
+    insert into sessions (profile_id, device_id, updated_ms, updated_at)
+    values (
+      p_id,
+      p_device,
+      now_ms,
+      timezone('America/New_York', clock_timestamp())::timestamp
+    );
+    return json_build_object('ok', true);
+  end if;
+  stale := r.device_id is null
+        or r.device_id = ''
+        or r.updated_ms is null
+        or r.updated_ms = 0
+        or (now_ms - r.updated_ms) >= p_ttl_ms;
+  if p_force or r.device_id = p_device or stale then
+    update sessions
+       set device_id = p_device,
+           updated_ms = now_ms,
+           updated_at = timezone('America/New_York', clock_timestamp())::timestamp
+     where profile_id = p_id;
+    return json_build_object('ok', true);
+  end if;
+  return json_build_object('ok', false);
+end;
+$claim$;
+
+revoke all on function claim_profile_session(text, text, boolean, bigint) from public;
+grant execute on function claim_profile_session(text, text, boolean, bigint) to anon, authenticated;

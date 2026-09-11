@@ -476,6 +476,7 @@
       cursor: pointer; text-align: left; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
     }
     .profile-btn:hover { transform: translateY(-2px); border-color: #a8c8ff; box-shadow: 0 8px 18px rgba(36,72,140,0.12); }
+    .profile-btn:disabled { opacity: 0.55; pointer-events: none; transform: none; }
     .profile-btn.on {
       border-color: transparent;
       background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
@@ -603,6 +604,7 @@
     }
     .modal.toast-modal { z-index: 110; }
     .modal.pin-modal { z-index: 100; }
+    .modal.session-modal { z-index: 125; }
     .modal-card {
       width: min(420px, 100%); max-height: min(85vh, 640px); overflow-y: auto;
       background: var(--card); border-radius: 20px; padding: 18px;
@@ -884,7 +886,14 @@
       <button class="btn btn-ink" id="toastOkBtn" type="button">OK</button>
     </div>
   </div>
-  <div class="modal hidden" id="sessionBusyModal">
+  <div class="modal" id="profileModal">
+    <div class="modal-card wide">
+      <div class="label" data-i18n="profileTitle">Who is playing?</div>
+      <p class="note" data-i18n="profileHint">Choose your profile. Balance, history, calendar, and prizes live in the cloud — the same on every device.</p>
+      <div class="profile-grid" id="profileGrid"></div>
+    </div>
+  </div>
+  <div class="modal session-modal hidden" id="sessionBusyModal">
     <div class="modal-card">
       <div class="modal-head">
         <h2 data-i18n="sessionBusyTitle">Already open on another device</h2>
@@ -893,13 +902,6 @@
       <button class="btn btn-accent" id="sessionBusyCloseBtn" type="button" data-i18n="sessionBusyClose">Close there</button>
       <button class="btn btn-ink" id="sessionBusyRetryBtn" type="button" data-i18n="sessionBusyRetry">Try again</button>
       <button class="btn btn-ghost" id="sessionBusyCancelBtn" type="button" data-i18n="sessionBusyCancel">Cancel</button>
-    </div>
-  </div>
-  <div class="modal" id="profileModal">
-    <div class="modal-card wide">
-      <div class="label" data-i18n="profileTitle">Who is playing?</div>
-      <p class="note" data-i18n="profileHint">Choose your profile. Balance, history, calendar, and prizes live in the cloud — the same on every device.</p>
-      <div class="profile-grid" id="profileGrid"></div>
     </div>
   </div>
   <div class="app">
@@ -1689,6 +1691,7 @@
     let balanceReady = false;
     let pendingSessionProfile = null;
     let sessionHeartbeatTimer = null;
+    let sessionEnterBusy = false;
     let settings = { questionCount: 20, tablesMax: 0, wishlist: [] };
     let catalog = { updatedAt: 0, prizes: [] };
     let claimKinds = { updatedAt: 0, kinds: DEFAULT_CLAIM_KINDS.map((k) => ({ ...k })), archive: [] };
@@ -5157,9 +5160,15 @@
       return id;
     }
     function sessionBusyModal() { return document.getElementById("sessionBusyModal"); }
+    function setPickerBusy(busy) {
+      document.querySelectorAll("#profileGrid .profile-btn").forEach((btn) => {
+        btn.disabled = !!busy;
+      });
+    }
     function openSessionBusyModal() {
       const modal = sessionBusyModal();
       if (modal) modal.classList.remove("hidden");
+      profileModal.classList.add("hidden");
     }
     function closeSessionBusyModal() {
       const modal = sessionBusyModal();
@@ -5173,26 +5182,63 @@
     }
     async function fetchSessionRow(id) {
       if (!id || !cloudUsesSupabase()) return { ok: false, row: null };
-      const res = await fetch(
-        `${CLOUD_SUPABASE_URL}/rest/v1/sessions?profile_id=eq.${encodeURIComponent(id)}&select=*`,
-        {
-          cache: "no-store",
-          headers: {
-            apikey: CLOUD_SUPABASE_ANON,
-            Authorization: `Bearer ${CLOUD_SUPABASE_ANON}`,
-          },
-        }
-      );
-      if (!res.ok) return { ok: false, row: null };
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 8000);
       try {
+        const res = await fetch(
+          `${CLOUD_SUPABASE_URL}/rest/v1/sessions?profile_id=eq.${encodeURIComponent(id)}&select=*`,
+          {
+            cache: "no-store",
+            signal: ac.signal,
+            headers: {
+              apikey: CLOUD_SUPABASE_ANON,
+              Authorization: `Bearer ${CLOUD_SUPABASE_ANON}`,
+            },
+          }
+        );
+        if (!res.ok) return { ok: false, row: null };
         const rows = await res.json();
         return { ok: true, row: Array.isArray(rows) && rows[0] ? rows[0] : null };
       } catch {
         return { ok: false, row: null };
+      } finally {
+        clearTimeout(timer);
       }
     }
-    async function claimSessionLock(id) {
+    async function claimSessionLock(id, force = false) {
       if (!id || !cloudUsesSupabase()) return false;
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 8000);
+      try {
+        const res = await fetch(`${CLOUD_SUPABASE_URL}/rest/v1/rpc/claim_profile_session`, {
+          method: "POST",
+          cache: "no-store",
+          signal: ac.signal,
+          headers: {
+            apikey: CLOUD_SUPABASE_ANON,
+            Authorization: `Bearer ${CLOUD_SUPABASE_ANON}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            p_id: id,
+            p_device: deviceId(),
+            p_force: !!force,
+            p_ttl_ms: SESSION_TTL_MS,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return !!(data && data.ok);
+        }
+        if (res.status !== 404) return false;
+      } catch {
+        return false;
+      } finally {
+        clearTimeout(timer);
+      }
+      const got = await fetchSessionRow(id);
+      if (!got.ok) return false;
+      if (!force && isForeignLiveLock(got.row)) return false;
       const out = await sbUpsert("sessions", [{
         profile_id: id,
         device_id: deviceId(),
@@ -5200,8 +5246,8 @@
         updated_at: estNowIso(),
       }]);
       if (!out) return false;
-      const got = await fetchSessionRow(id);
-      return !!(got.ok && got.row && got.row.device_id === deviceId());
+      const again = await fetchSessionRow(id);
+      return !!(again.ok && again.row && again.row.device_id === deviceId());
     }
     async function releaseSessionLock(id) {
       if (!id || !cloudUsesSupabase()) return;
@@ -5231,7 +5277,7 @@
         await onSessionStolen();
         return;
       }
-      await claimSessionLock(profileId);
+      await claimSessionLock(profileId, false);
     }
     async function onSessionStolen() {
       stopSessionHeartbeat();
@@ -5247,33 +5293,46 @@
     async function tryEnterProfile(id, options = {}) {
       const force = !!options.force;
       if (!PROFILES.some((p) => p.id === id)) return false;
-      const got = await fetchSessionRow(id);
-      if (!got.ok && !force) {
+      if (sessionEnterBusy) return false;
+      sessionEnterBusy = true;
+      setPickerBusy(true);
+      try {
+        const got = await fetchSessionRow(id);
+        if (!got.ok && !force) {
+          pendingSessionProfile = id;
+          openSessionBusyModal();
+          return false;
+        }
+        if (!force && isForeignLiveLock(got.row)) {
+          pendingSessionProfile = id;
+          openSessionBusyModal();
+          return false;
+        }
+        const prev = profileId;
+        if (prev && prev !== id) await releaseSessionLock(prev);
+        const claimed = await claimSessionLock(id, force);
+        if (!claimed) {
+          if (prev && prev !== id) await claimSessionLock(prev, true);
+          pendingSessionProfile = id;
+          openSessionBusyModal();
+          return false;
+        }
+        closeSessionBusyModal();
+        pendingSessionProfile = null;
+        await selectProfile(id);
+        startSessionHeartbeat();
+        return true;
+      } catch {
         pendingSessionProfile = id;
         openSessionBusyModal();
         return false;
+      } finally {
+        sessionEnterBusy = false;
+        setPickerBusy(false);
       }
-      if (!force && isForeignLiveLock(got.row)) {
-        pendingSessionProfile = id;
-        openSessionBusyModal();
-        return false;
-      }
-      const prev = profileId;
-      if (prev && prev !== id) await releaseSessionLock(prev);
-      const claimed = await claimSessionLock(id);
-      if (!claimed) {
-        if (prev) await claimSessionLock(prev);
-        pendingSessionProfile = id;
-        openSessionBusyModal();
-        return false;
-      }
-      closeSessionBusyModal();
-      pendingSessionProfile = null;
-      await selectProfile(id);
-      startSessionHeartbeat();
-      return true;
     }
     function requestProfile(id) {
+      if (sessionEnterBusy) return;
       if (!PROFILES.some((p) => p.id === id)) return;
       if (id === "papa" && profileId !== "papa") {
         pendingSessionProfile = id;
