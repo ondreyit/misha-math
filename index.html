@@ -63,7 +63,9 @@
       --modal-dim: rgba(20,30,70,0.45);
       --hint-bg: linear-gradient(135deg, #eef5ff, #fff7e8);
       --history-bg: linear-gradient(180deg, #f7fbff, #fff);
-      --history-spend: linear-gradient(180deg, #fff0f3, #fff);
+      --history-spend: linear-gradient(180deg, #fff6e8, #fff);
+      --history-in: #0f9f6e;
+      --history-out: #e67a12;
       --theme-bar: #2f6fed;
       --focus-ring: rgba(47,111,237,0.25);
       --status-glow: rgba(255,255,255,0.7);
@@ -100,7 +102,9 @@
       --modal-dim: rgba(4, 8, 20, 0.66);
       --hint-bg: linear-gradient(135deg, #243056, #2a2848);
       --history-bg: linear-gradient(180deg, #1e2748, #1b2344);
-      --history-spend: linear-gradient(180deg, #3a1a28, #1b2344);
+      --history-spend: linear-gradient(180deg, #3a2a14, #1b2344);
+      --history-in: #3ee0a4;
+      --history-out: #ff9f3d;
       --theme-bar: #12182e;
       --focus-ring: rgba(120, 160, 255, 0.35);
       --status-glow: rgba(0, 0, 0, 0.35);
@@ -613,12 +617,14 @@
       background: var(--history-bg);
       animation: fadeUp 0.3s ease;
     }
-    .history-item.spend { background: var(--history-spend); border-color: #ffc2cf; }
+    .history-item.spend { background: var(--history-spend); border-color: #ffd19a; }
     .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .history-amount { font-size: 18px; font-weight: 900; color: var(--gold-ink); flex-shrink: 0; }
-    .history-amount.neg { color: var(--bad); }
+    .history-amount { font-size: 18px; font-weight: 900; color: var(--history-in); flex-shrink: 0; }
+    .history-amount.neg { color: var(--history-out); }
     .history-parts { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted); }
+    .history-parts .amt-in { color: var(--history-in); font-weight: 800; }
+    .history-parts .amt-out { color: var(--history-out); font-weight: 800; }
     .admin-row { display: grid; gap: 6px; margin-bottom: 14px; }
     .admin-flash {
       margin: 8px 0 0; font-size: 14px; font-weight: 800; color: #0f9f6e; min-height: 1.3em;
@@ -5561,7 +5567,9 @@
           const neg = item.amount < 0;
           const partsHtml = inferredHistoryParts(item).map((p) => {
             const label = escapeHtml(partLabel(p));
-            return p.amount ? `<li>${label}: ${p.amount > 0 ? "+" : ""}${p.amount}</li>` : `<li>${label}</li>`;
+            if (!p.amount) return `<li>${label}</li>`;
+            const cls = p.amount < 0 ? "amt-out" : "amt-in";
+            return `<li>${label}: <span class="${cls}">${p.amount > 0 ? "+" : ""}${p.amount}</span></li>`;
           }).join("");
           return `<div class="history-item${neg ? " spend" : ""}">
             <div class="history-top">
