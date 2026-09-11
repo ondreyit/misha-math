@@ -1150,6 +1150,8 @@
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
     const CLOUD_SHEETS_URL = "https://script.google.com/macros/s/AKfycbxplXT57c9vgEIWdJ6DZH2-gUBnDDlOaq-X8kpGgw-ij7Hk-udqYg7zH7eyr_ePs_nd/exec";
     const CLOUD_SHEETS_TOKEN = "kaa-mishcoin-2026";
+    const CLOUD_SUPABASE_URL = "https://hueljsdmgucikcngbhwa.supabase.co";
+    const CLOUD_SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1ZWxqc2RtZ3VjaWtjbmdiaHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwOTQ1MjksImV4cCI6MjEwNDY3MDUyOX0.JRFOnh0wYKRq8xKcawdWBIX-cHv2f_i_7mbXNFcmj7M";
     const CLOUD_NOTIFY_URL = "https://ntfy.sh/misha-math-live-f7c3a91e";
     const CLIENT_ID = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 8)}`;
     const PHOTO_CACHE_KEY = "misha-photos-v1";
@@ -3294,7 +3296,402 @@
     function cloudHexBudget(key) {
       return CLOUD_SHEETS_URL ? 40000 : Math.max(32, 260 - `/api/KeyVal/UpdateValue/${CLOUD_KV_APP}/${key}/`.length);
     }
+    function cloudUsesSupabase() {
+      return Boolean(CLOUD_SUPABASE_URL && CLOUD_SUPABASE_ANON);
+    }
+    async function sbRest(path, opts = {}) {
+      const res = await fetch(`${CLOUD_SUPABASE_URL}/rest/v1/${path}`, {
+        method: opts.method || "GET",
+        cache: "no-store",
+        headers: {
+          apikey: CLOUD_SUPABASE_ANON,
+          Authorization: `Bearer ${CLOUD_SUPABASE_ANON}`,
+          "Content-Type": "application/json",
+          Prefer: opts.prefer || "return=representation",
+        },
+        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      });
+      if (!res.ok) return null;
+      const text = await res.text();
+      if (!text) return [];
+      try { return JSON.parse(text); } catch { return null; }
+    }
+    async function sbSelect(table, query = "") {
+      const rows = await sbRest(`${table}${query ? `?${query}` : ""}`);
+      return Array.isArray(rows) ? rows : [];
+    }
+    async function sbUpsert(table, rows) {
+      if (!rows || !rows.length) return true;
+      const out = await sbRest(table, {
+        method: "POST",
+        prefer: "resolution=merge-duplicates,return=minimal",
+        body: rows,
+      });
+      return out !== null;
+    }
+    async function sbReplace(table, query, rows) {
+      await sbRest(`${table}?${query}`, { method: "DELETE", prefer: "return=minimal", body: undefined });
+      if (rows && rows.length) return sbUpsert(table, rows);
+      return true;
+    }
+    function sbUnix(value) {
+      if (!value) return 0;
+      if (typeof value === "number") return value > 1e12 ? Math.floor(value / 1000) : value;
+      const n = Date.parse(value);
+      return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
+    }
+    function sbIso(value) {
+      if (!value) return null;
+      if (typeof value === "number") return new Date((value > 1e12 ? value : value * 1000)).toISOString();
+      const n = Date.parse(value);
+      return Number.isFinite(n) ? new Date(n).toISOString() : null;
+    }
+    async function sbGetKey(key) {
+      if (key === "cfg") {
+        const rows = await sbSelect("config", "key=eq.fail_extra");
+        return { u: Date.now(), f: Number(rows[0]?.value) || 1 };
+      }
+      if (key === "catalog") {
+        const rows = await sbSelect("catalog", "select=*&order=cost.desc");
+        return {
+          u: Date.now(),
+          n: rows.length,
+          p: rows.map((r) => [r.id, r.title_ru, r.title_en, Number(r.cost) || 0]),
+        };
+      }
+      if (/^c\d+$/.test(key)) {
+        const rows = await sbSelect("catalog", "select=*&order=cost.desc");
+        const row = rows[Number(key.slice(1))];
+        return row ? [row.id, row.title_ru, row.title_en, Number(row.cost) || 0] : null;
+      }
+      if (key === "kinds") {
+        const rows = await sbSelect("claim_kinds", "select=*&order=archived.asc,coins.asc");
+        const live = rows.filter((r) => !r.archived);
+        const archive = rows.filter((r) => r.archived);
+        return {
+          u: Date.now(),
+          n: live.length,
+          xn: archive.length,
+          k: live.map((r) => [r.id, r.title_ru, r.title_en, Number(r.coins) || 0]),
+          x: archive.map((r) => [r.id, r.title_ru, r.title_en, Number(r.coins) || 0]),
+        };
+      }
+      if (key === "claims") {
+        const rows = await sbSelect("claims", "select=*&order=at.desc");
+        return { u: Date.now(), r: rows.map(sbClaimRow) };
+      }
+      const m = String(key || "").match(/^([bphdyr])_(.+)$/);
+      if (!m) return null;
+      const id = m[2];
+      if (m[1] === "b") {
+        const rows = await sbSelect("balances", `profile_id=eq.${id}`);
+        if (!rows.length) return null;
+        return { b: Number(rows[0].stars) || 0, s: Number(rows[0].spend) || 0 };
+      }
+      if (m[1] === "p") {
+        const [prof, bal] = await Promise.all([
+          sbSelect("profiles", `id=eq.${id}`),
+          sbSelect("balances", `profile_id=eq.${id}`),
+        ]);
+        return {
+          u: Date.parse(prof[0]?.updated_at) || Date.now(),
+          b: Number(bal[0]?.stars) || 0,
+          q: Number(prof[0]?.question_count) || 20,
+          m: Number(prof[0]?.tables_max) || 0,
+        };
+      }
+      if (m[1] === "h") {
+        const rows = await sbSelect("history", `profile_id=eq.${id}&order=at.desc`);
+        return {
+          u: Date.now(),
+          h: rows.map((r) => {
+            const off = dateOffset(r.date_key);
+            return [sbUnix(r.at), Number(r.delta) || 0, off >= 0 ? off : (r.date_key || "")];
+          }),
+        };
+      }
+      if (m[1] === "d") {
+        const rows = await sbSelect("days", `profile_id=eq.${id}&order=date.asc`);
+        const c = [];
+        const d = rows.map((r) => {
+          const off = dateOffset(r.date);
+          if (r.status === "done" && off >= 0) c.push(off);
+          return [
+            r.date,
+            r.status === "done" ? 1 : 0,
+            Number(r.examples_correct) || 0,
+            Number(r.examples_fails) || 0,
+            Number(r.examples_answered) || 0,
+            Number(r.coins) || 0,
+            Number(r.runs) || 0,
+            sbUnix(r.completed_at),
+            Number(r.total_coins) || 0,
+          ];
+        });
+        return { u: Date.now(), c: c.join(","), d };
+      }
+      if (m[1] === "y") {
+        const rows = await sbSelect("purchases", `profile_id=eq.${id}&order=at.desc`);
+        return {
+          u: Date.now(),
+          y: rows.map((r) => [r.id, r.prize_id, Number(r.cost) || 0, sbUnix(r.at), r.title_ru || "", r.title_en || ""]),
+        };
+      }
+      if (m[1] === "r") {
+        const rows = await sbSelect("claims", `profile_id=eq.${id}&order=at.desc`);
+        return { u: Date.now(), r: rows.map(sbClaimRow) };
+      }
+      return null;
+    }
+    function sbClaimRow(r) {
+      const statusIdx = { new: 0, approved: 1, rejected: 2 };
+      return [
+        r.id,
+        Math.max(0, PROFILES.findIndex((p) => p.id === r.profile_id)),
+        r.kind_id,
+        statusIdx[r.status] ?? 0,
+        sbUnix(r.at),
+        sbUnix(r.decided_at),
+        r.paid ? 1 : 0,
+        r.reason || "",
+        r.title_ru || "",
+        r.title_en || "",
+        Number(r.coins) || 0,
+      ];
+    }
+    async function sbPutKey(key, value, hex) {
+      if (key === "cfg") {
+        return sbUpsert("config", [{ key: "fail_extra", value: String(Number(value?.f) || 1) }]);
+      }
+      if (key === "catalog") {
+        const prizes = value?.p || value?.prizes || [];
+        if (!prizes.length) return true;
+        const rows = prizes.map((p) => Array.isArray(p)
+          ? { id: p[0], title_ru: p[1] || "", title_en: p[2] || "", cost: Number(p[3]) || 0 }
+          : { id: p.id, title_ru: p.titleRu || p.title_ru || "", title_en: p.titleEn || p.title_en || "", cost: Number(p.cost) || 0 })
+          .filter((p) => p.id);
+        return sbReplace("catalog", "id=not.is.null", rows);
+      }
+      if (/^c\d+$/.test(key) && value) {
+        const row = Array.isArray(value)
+          ? { id: value[0], title_ru: value[1] || "", title_en: value[2] || "", cost: Number(value[3]) || 0 }
+          : { id: value.id, title_ru: value.titleRu || "", title_en: value.titleEn || "", cost: Number(value.cost) || 0 };
+        return row.id ? sbUpsert("catalog", [row]) : true;
+      }
+      if (key === "kinds") {
+        const live = value?.k || value?.kinds || [];
+        const archive = value?.x || value?.archive || [];
+        const rows = [
+          ...live.map((k) => sbKindRow(k, false)),
+          ...archive.map((k) => sbKindRow(k, true)),
+        ].filter((k) => k.id);
+        if (!rows.length) return true;
+        return sbReplace("claim_kinds", "id=not.is.null", rows);
+      }
+      if (key === "claims") {
+        const rows = sbExpandClaims(value?.r || value?.claims || [], "");
+        return sbReplace("claims", "id=not.is.null", rows);
+      }
+      const m = String(key || "").match(/^([bphdyr])_(.+)$/);
+      if (!m) return true;
+      const id = m[2];
+      if (m[1] === "b") {
+        const nextB = Number(value?.b) || 0;
+        const prev = await sbSelect("balances", `profile_id=eq.${id}`);
+        const prevB = Number(prev[0]?.stars) || 0;
+        if (nextB <= 0 && prevB > 5 && !(Number(value?.s) || 0)) return true;
+        return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend: Number(value?.s) || 0, updated_at: new Date().toISOString() }]);
+      }
+      if (m[1] === "p") {
+        await sbUpsert("profiles", [{
+          id,
+          question_count: Number(value?.q) || 20,
+          tables_max: Number(value?.m) || 0,
+          updated_at: new Date().toISOString(),
+        }]);
+        if (value && value.b != null) {
+          const nextB = Number(value.b) || 0;
+          const prev = await sbSelect("balances", `profile_id=eq.${id}`);
+          const prevB = Number(prev[0]?.stars) || 0;
+          if (nextB > 0 || prevB <= 0) {
+            await sbUpsert("balances", [{ profile_id: id, stars: nextB, updated_at: new Date().toISOString() }]);
+          }
+        }
+        return true;
+      }
+      if (m[1] === "h") {
+        const rows = sbExpandHistory(value?.h || value?.history || [], id);
+        return sbReplace("history", `profile_id=eq.${id}`, rows);
+      }
+      if (m[1] === "d") {
+        const rows = sbExpandDays(value, id);
+        return sbReplace("days", `profile_id=eq.${id}`, rows);
+      }
+      if (m[1] === "y") {
+        const rows = sbExpandPurchases(value?.y || value?.purchases || [], id);
+        return sbReplace("purchases", `profile_id=eq.${id}`, rows);
+      }
+      if (m[1] === "r") {
+        const incoming = sbExpandClaims(value?.r || value?.claims || [], id);
+        const kept = (await sbSelect("claims", `profile_id=neq.${id}`)).map((r) => ({
+          id: r.id,
+          profile_id: r.profile_id,
+          kind_id: r.kind_id,
+          status: r.status,
+          at: r.at,
+          decided_at: r.decided_at,
+          coins: r.coins,
+          paid: r.paid,
+          reason: r.reason,
+          title_ru: r.title_ru,
+          title_en: r.title_en,
+        }));
+        return sbReplace("claims", "id=not.is.null", kept.concat(incoming));
+      }
+      return true;
+    }
+    function sbKindRow(raw, archived) {
+      if (Array.isArray(raw)) return { id: raw[0], title_ru: raw[1] || "", title_en: raw[2] || "", coins: Number(raw[3]) || 0, archived };
+      return { id: raw.id, title_ru: raw.titleRu || raw.title_ru || "", title_en: raw.titleEn || raw.title_en || "", coins: Number(raw.amount || raw.coins) || 0, archived };
+    }
+    function sbExpandHistory(list, id) {
+      return (list || []).map((item) => {
+        if (Array.isArray(item)) {
+          if (typeof item[0] === "number") {
+            const dayRef = item[2];
+            const dateKey = typeof dayRef === "number" ? keyFromOffset(dayRef) : (dayRef || "");
+            return {
+              id: `h-${item[0]}-${item[1]}`,
+              profile_id: id,
+              at: sbIso(item[0]),
+              delta: Number(item[1]) || 0,
+              kind: (Number(item[1]) || 0) < 0 ? "prize" : "lesson",
+              date_key: dateKey,
+            };
+          }
+          return {
+            id: item[0] || `h-${item[1]}`,
+            profile_id: id,
+            at: sbIso(item[1]),
+            delta: Number(item[3]) || 0,
+            kind: "lesson",
+            date_key: item[2] || "",
+          };
+        }
+        return {
+          id: item.id,
+          profile_id: id,
+          at: item.at,
+          delta: Number(item.amount || item.delta) || 0,
+          kind: item.kind || "lesson",
+          date_key: item.dateKey || item.date_key || "",
+        };
+      }).filter((r) => r.id);
+    }
+    function sbExpandDays(value, id) {
+      const rows = value?.d || value?.days || [];
+      const extra = String(value?.c || value?.completed || "").split(",");
+      const seen = {};
+      const out = rows.map((row) => {
+        if (Array.isArray(row)) {
+          seen[row[0]] = true;
+          return {
+            profile_id: id,
+            date: row[0],
+            status: row[1] ? "done" : "open",
+            examples_correct: Number(row[2]) || 0,
+            examples_fails: Number(row[3]) || 0,
+            examples_answered: Number(row[4]) || 0,
+            coins: Number(row[5]) || 0,
+            total_coins: Number(row[8] || row[5]) || 0,
+            runs: Number(row[6]) || 0,
+            completed_at: sbIso(row[7]),
+          };
+        }
+        seen[row.date] = true;
+        return {
+          profile_id: id,
+          date: row.date,
+          status: row.completed || row.status === "done" ? "done" : "open",
+          examples_correct: Number(row.correct) || 0,
+          examples_fails: Number(row.fails) || 0,
+          examples_answered: Number(row.answered) || 0,
+          coins: Number(row.coinsAwarded || row.coins) || 0,
+          total_coins: Number(row.totalCoins || row.total_coins) || 0,
+          runs: Number(row.runsCompleted || row.runs) || 0,
+          completed_at: row.completedAt || row.completed_at || null,
+        };
+      });
+      extra.forEach((part) => {
+        if (!/^\d+$/.test(part.trim())) return;
+        const date = keyFromOffset(Number(part));
+        if (date && !seen[date]) {
+          out.push({
+            profile_id: id,
+            date,
+            status: "done",
+            examples_correct: 0,
+            examples_fails: 0,
+            examples_answered: 0,
+            coins: 0,
+            total_coins: 0,
+            runs: 1,
+            completed_at: null,
+          });
+        }
+      });
+      return out.filter((r) => r.date);
+    }
+    function sbExpandPurchases(list, id) {
+      return expandPurchases(list).map((p) => ({
+        id: p.id,
+        profile_id: id,
+        at: p.at || null,
+        prize_id: p.prizeId || "",
+        title_ru: p.titleRu || "",
+        title_en: p.titleEn || "",
+        cost: Number(p.cost) || 0,
+      })).filter((p) => p.id);
+    }
+    function sbExpandClaims(list, fallback) {
+      return expandClaims(list, fallback).map((c) => ({
+        id: c.id,
+        profile_id: c.profileId || fallback,
+        kind_id: c.kind,
+        status: c.status || "new",
+        at: c.createdAt || null,
+        decided_at: c.decidedAt || null,
+        coins: Number(c.amount) || 0,
+        paid: !!c.paid,
+        reason: c.reason || "",
+        title_ru: c.titleRu || "",
+        title_en: c.titleEn || "",
+      })).filter((c) => c.id);
+    }
+    async function sbPull(id) {
+      const shared = ["catalog", "kinds", "cfg", "claims"];
+      const mine = id ? ["b", "p", "h", "d", "y", "r"].map((p) => `${p}_${id}`) : [];
+      const keys = {};
+      await Promise.all([...shared, ...mine].map(async (key) => {
+        keys[key] = await sbGetKey(key);
+      }));
+      return keys;
+    }
     async function sheetsCall(payload) {
+      if (cloudUsesSupabase()) {
+        try {
+          if (payload.a === "ping") return { ok: true };
+          if (payload.a === "pull") return { ok: true, keys: await sbPull(payload.id || "") };
+          if (payload.a === "get") return { ok: true, v: await sbGetKey(payload.k) };
+          if (payload.a === "getHex") return { ok: true, hex: "" };
+          if (payload.a === "put") {
+            const ok = await sbPutKey(payload.k, payload.v, payload.hex);
+            return ok ? { ok: true } : null;
+          }
+        } catch {
+          return null;
+        }
+      }
       const body = { t: CLOUD_SHEETS_TOKEN, ...payload };
       const readOnly = payload.a === "get" || payload.a === "getHex" || payload.a === "getMany" || payload.a === "pull" || payload.a === "ping";
       try {
@@ -4602,12 +4999,21 @@
           if (!profileDirty) return;
           writePendingSnapshot();
           try {
-            navigator.sendBeacon(CLOUD_SHEETS_URL, new Blob([JSON.stringify({
-              t: CLOUD_SHEETS_TOKEN,
-              a: "put",
-              k: cloudBalKey(),
-              v: { b: coins.balance, s: purchaseSpend(coins.purchases) },
-            })], { type: "text/plain" }));
+            if (cloudUsesSupabase()) {
+              navigator.sendBeacon(`${CLOUD_SUPABASE_URL}/rest/v1/balances?on_conflict=profile_id`, new Blob([JSON.stringify([{
+                profile_id: profileId,
+                stars: coins.balance,
+                spend: purchaseSpend(coins.purchases),
+                updated_at: new Date().toISOString(),
+              }])], { type: "application/json" }));
+            } else {
+              navigator.sendBeacon(CLOUD_SHEETS_URL, new Blob([JSON.stringify({
+                t: CLOUD_SHEETS_TOKEN,
+                a: "put",
+                k: cloudBalKey(),
+                v: { b: coins.balance, s: purchaseSpend(coins.purchases) },
+              })], { type: "text/plain" }));
+            }
           } catch { /* ignore */ }
         });
       }
