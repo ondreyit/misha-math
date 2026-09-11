@@ -1648,6 +1648,7 @@
     let cloudPushing = false;
     let cloudPushQueued = false;
     let suppressCloudPush = false;
+    let localEarnDelta = 0;
     let dayMissionKey = null;
     let appStarted = false;
     let customPhotos = {};
@@ -2054,6 +2055,7 @@
       cloudMeta = { updatedAt: 0 };
       state = null;
       profileDirty = false;
+      localEarnDelta = 0;
     }
     function readLegacyJson(key) {
       try { return JSON.parse(localStorage.getItem(key) || "null"); }
@@ -2064,11 +2066,6 @@
       let coinsRaw = readLegacyJson(COINS_KEY_BASE + suffix);
       let settingsRaw = readLegacyJson(SETTINGS_KEY_BASE + suffix);
       let storeRaw = readLegacyJson(STORAGE_KEY_BASE + suffix);
-      if (id === "misha") {
-        if (!coinsRaw) coinsRaw = readLegacyJson(COINS_KEY_BASE);
-        if (!settingsRaw) settingsRaw = readLegacyJson(SETTINGS_KEY_BASE);
-        if (!storeRaw) storeRaw = readLegacyJson(STORAGE_KEY_BASE);
-      }
       if (!coinsRaw && !settingsRaw && !storeRaw) return null;
       return {
         coins: parseCoins(coinsRaw),
@@ -3330,9 +3327,9 @@
       return out !== null;
     }
     async function sbReplace(table, query, rows) {
+      if (!rows || !rows.length) return true;
       await sbRest(`${table}?${query}`, { method: "DELETE", prefer: "return=minimal", body: undefined });
-      if (rows && rows.length) return sbUpsert(table, rows);
-      return true;
+      return sbUpsert(table, rows);
     }
     function sbUnix(value) {
       if (!value) return 0;
@@ -3490,7 +3487,7 @@
       }
       if (key === "claims") {
         const rows = sbExpandClaims(value?.r || value?.claims || [], "");
-        return sbReplace("claims", "id=not.is.null", rows);
+        return rows.length ? sbUpsert("claims", rows) : true;
       }
       const m = String(key || "").match(/^([bphdyr])_(.+)$/);
       if (!m) return true;
@@ -3500,53 +3497,32 @@
         const prev = await sbSelect("balances", `profile_id=eq.${id}`);
         const prevB = Number(prev[0]?.stars) || 0;
         if (nextB <= 0 && prevB > 5 && !(Number(value?.s) || 0)) return true;
+        if (nextB > prevB && !(Number(value?.s) || 0) && localEarnDelta <= 0 && id === profileId) return true;
         return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend: Number(value?.s) || 0, updated_at: new Date().toISOString() }]);
       }
       if (m[1] === "p") {
-        await sbUpsert("profiles", [{
+        return sbUpsert("profiles", [{
           id,
           question_count: Number(value?.q) || 20,
           tables_max: Number(value?.m) || 0,
           updated_at: new Date().toISOString(),
         }]);
-        if (value && value.b != null) {
-          const nextB = Number(value.b) || 0;
-          const prev = await sbSelect("balances", `profile_id=eq.${id}`);
-          const prevB = Number(prev[0]?.stars) || 0;
-          if (nextB > 0 || prevB <= 0) {
-            await sbUpsert("balances", [{ profile_id: id, stars: nextB, updated_at: new Date().toISOString() }]);
-          }
-        }
-        return true;
       }
       if (m[1] === "h") {
         const rows = sbExpandHistory(value?.h || value?.history || [], id);
-        return sbReplace("history", `profile_id=eq.${id}`, rows);
+        return rows.length ? sbUpsert("history", rows) : true;
       }
       if (m[1] === "d") {
         const rows = sbExpandDays(value, id);
-        return sbReplace("days", `profile_id=eq.${id}`, rows);
+        return rows.length ? sbUpsert("days", rows) : true;
       }
       if (m[1] === "y") {
         const rows = sbExpandPurchases(value?.y || value?.purchases || [], id);
-        return sbReplace("purchases", `profile_id=eq.${id}`, rows);
+        return rows.length ? sbUpsert("purchases", rows) : true;
       }
       if (m[1] === "r") {
         const incoming = sbExpandClaims(value?.r || value?.claims || [], id);
-        const kept = (await sbSelect("claims", `profile_id=neq.${id}`)).map((r) => ({
-          id: r.id,
-          profile_id: r.profile_id,
-          kind_id: r.kind_id,
-          status: r.status,
-          at: r.at,
-          decided_at: r.decided_at,
-          coins: r.coins,
-          paid: r.paid,
-          reason: r.reason,
-          title_ru: r.title_ru,
-          title_en: r.title_en,
-        }));
-        return sbReplace("claims", "id=not.is.null", kept.concat(incoming));
+        return incoming.length ? sbUpsert("claims", incoming) : true;
       }
       return true;
     }
@@ -3940,6 +3916,13 @@
     async function fetchBalanceCloud(id = profileId) {
       return (await fetchBalanceCloudMeta(id)).b;
     }
+    function capUnexplainedRaise(localB, remoteB) {
+      const local = Math.max(0, Number(localB) || 0);
+      const remote = Math.max(0, Number(remoteB) || 0);
+      if (!remote || local <= remote) return local;
+      if (localEarnDelta > 0) return Math.min(local, remote + localEarnDelta);
+      return remote;
+    }
     async function pushBalanceCloud(target) {
       const n = Math.max(0, Number(target) || 0);
       const remoteMeta = await fetchBalanceCloudMeta();
@@ -3949,7 +3932,11 @@
       }
       const remote = remoteMeta.b;
       const spend = purchaseSpend(coins.purchases);
-      const merged = mergeDedicatedBalance(n, remote, coins.purchases || [], remoteMeta.s);
+      const merged = capUnexplainedRaise(
+        mergeDedicatedBalance(n, remote, coins.purchases || [], remoteMeta.s),
+        remote
+      );
+      if (merged > n && merged <= remote) return remote;
       if (merged > n) return merged;
       if (remote > merged && spend === 0) return remote;
       const ok = await putKvRaw(cloudBalKey(), encodeBalanceCloud(merged, spend));
@@ -4308,12 +4295,12 @@
       if (!profileId) return;
       const remoteMeta = await fetchBalanceCloudMeta();
       const remoteB = remoteMeta.b;
-      const merged = mergeDedicatedBalance(
+      const merged = capUnexplainedRaise(mergeDedicatedBalance(
         coins.balance,
         remoteB,
         coins.purchases || [],
         remoteMeta.s
-      );
+      ), remoteB);
       if (merged < coins.balance || merged < remoteB) {
         coins.balance = merged;
         forceRememberedBalance(merged);
@@ -4423,12 +4410,12 @@
         const remoteB = Number(remote.coins?.balance) || 0;
         const rememberedB = readRememberedBalance();
         replaceFromCloud(remote);
-        const merged = mergeDedicatedBalance(
+        const merged = capUnexplainedRaise(mergeDedicatedBalance(
           coins.balance,
-          Math.max(remoteB, rememberedB),
+          remoteB,
           coins.purchases || [],
           Number(remote.balanceSpend) || 0
-        );
+        ), remoteB);
         coins.balance = merged;
         if (merged < rememberedB || merged < remoteB) {
           forceRememberedBalance(merged);
@@ -4614,6 +4601,7 @@
     function addCoins(amount, historyEntry) {
       if (!amount) return;
       coins.balance += amount;
+      localEarnDelta += amount;
       writeRememberedBalance(coins.balance);
       if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
@@ -4872,17 +4860,16 @@
         const remote = await fetchProfileCloud();
         const pending = readPendingSnapshot();
         const remoteB = Number(remote?.coins?.balance) || 0;
-        const pendingB = Number(pending?.b) || 0;
         const rememberedB = readRememberedBalance();
         if (remote) replaceFromCloud(remote);
         applyRememberedLocalProfile();
         if (pending) applyPendingSnapshot(pending);
-        const merged = mergeDedicatedBalance(
+        const merged = capUnexplainedRaise(mergeDedicatedBalance(
           coins.balance,
-          Math.max(remoteB, pendingB, rememberedB),
+          remoteB,
           coins.purchases || [],
           Number(remote?.balanceSpend) || 0
-        );
+        ), remoteB);
         if (merged !== coins.balance) {
           const lowered = merged < coins.balance;
           coins.balance = merged;
@@ -4910,7 +4897,7 @@
         }
         await loadProfilePhoto(profileId);
         const legacy = readLegacyDeviceProfile(profileId);
-        if (legacyRicherThanCloud(legacy, remote)) {
+        if (!remoteB && legacyRicherThanCloud(legacy, remote)) {
           applyLegacyDeviceProfile(legacy);
           fillHistoryFromDays();
           renderCoins();

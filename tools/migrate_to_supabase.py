@@ -230,7 +230,7 @@ def main():
             row[7] if len(row) > 7 else "",
             row[8] if len(row) > 8 else "",
             row[9] if len(row) > 9 else "",
-            row[10] if len(row) > 10 else 0,
+            row[10] if len(row) > 10 and row[10] else (4 if row[3] == 1 else 0),
         )
 
     claims = []
@@ -247,7 +247,10 @@ def main():
     upsert(
         """insert into claims (id, profile_id, kind_id, status, at, decided_at, paid, reason, title_ru, title_en, coins)
            values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-           on conflict (id) do update set status=excluded.status, paid=excluded.paid, coins=excluded.coins""",
+           on conflict (id) do update set
+             profile_id=excluded.profile_id, kind_id=excluded.kind_id,
+             status=excluded.status, paid=excluded.paid, coins=excluded.coins,
+             title_ru=excluded.title_ru, title_en=excluded.title_en""",
         list(uniq.values()),
     )
 
