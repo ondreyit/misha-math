@@ -2912,11 +2912,7 @@
       const day = store?.[key];
       if (day?.completed) return true;
       if (historyEarnsForDay(key).length > 0) return true;
-      if (rememberedOffsetHas(key)) return true;
-      return (coins.history || []).some((entry) => {
-        if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return false;
-        return trainedKeyFromAt(entry.at) === key;
-      });
+      return rememberedOffsetHas(key);
     }
     function recoveredLesson(key) {
       return RECOVERED_LESSONS[profileId]?.[key] || null;
@@ -2932,11 +2928,9 @@
         }
       });
       (coins.history || []).forEach((entry) => {
-        if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return;
+        if ((entry.amount || 0) <= 0 || !entry.dateKey || isClaimHistory(entry)) return;
         const extra = recoveredLesson(entry.dateKey) || { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
-        if (entry.dateKey && markDayCompleted(store, entry.dateKey, extra)) changed = true;
-        const trained = trainedKeyFromAt(entry.at);
-        if (trained && trained !== entry.dateKey && markDayCompleted(store, trained, extra)) changed = true;
+        if (markDayCompleted(store, entry.dateKey, extra)) changed = true;
       });
       if (changed) saveStore(store, { quiet: true });
       return changed;
@@ -4281,10 +4275,11 @@
           cloudMeta.updatedAt = Date.now();
           writePendingSnapshot();
         }
-        coins.history = dedupeHistory(coins.history);
+        coins.history = dedupeHistory(mergeHistory(coins.history, readRememberedHistory()));
         fillDaysFromHistory();
         const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
+        persistRememberedProgress();
         if (unionC !== String(remote?.completedOffsets || "")) {
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
