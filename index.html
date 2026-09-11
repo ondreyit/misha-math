@@ -6100,21 +6100,26 @@
       const store = loadStore();
       const status = planStatus(dateKey, store, today);
       const tables = dayState.tables?.length ? dayState.tables : tablesForDate(dateKey);
-      const remain = dayState.sessionDone ? 0 : (dayState.queue?.length || dayState.startCount || questionCount());
+      const done = status.kind === "done" || !!dayState.completed || !!dayState.sessionDone;
+      const remain = done ? 0 : (dayState.queue?.length || Math.max(0, (dayState.startCount || questionCount()) - (dayState.answered || 0)));
       const answered = dayState.answered || 0;
       const correct = dayState.correct || 0;
       const fails = dayState.fails || 0;
-      const runs = dayState.runsCompleted || 0;
+      const runs = dayState.runsCompleted || (done ? 1 : 0);
       const coinsAwarded = dayState.totalCoins || dayState.coinsAwarded || 0;
       const emoji = status.kind === "done" ? "🎉" : status.kind === "progress" ? "🤔" : status.kind === "miss" || status.kind === "late" ? "😡" : "🚀";
       const hasWork = dayHasLessonWork(dayState);
       const mood = status.kind === "done"
-        ? (hasWork ? t("dayMissionHappy") : t("dayMissionNoStats"))
+        ? t("dayMissionHappy")
         : status.kind === "progress"
           ? t("dayMissionThink")
           : answered
             ? status.meta
             : t("dayMissionReady");
+      const progressValue = hasWork || !done
+        ? `${t("scoreLine", correct, fails)} · ${t("remain", remain)}`
+        : "—";
+      const answeredValue = hasWork || !done ? String(answered) : "—";
       document.getElementById("dayMissionTitle").textContent = formatDateLong(dateKey);
       document.getElementById("dayMissionContent").innerHTML = `
         <div class="day-mission-emoji">${emoji}</div>
@@ -6122,12 +6127,13 @@
         <p class="note" style="margin-top:10px;font-weight:800;color:var(--ink);">${mood}</p>
         <div class="day-mission-meta">
           <div class="row"><span>${t("dayMissionTables")}</span><strong>${tables.join(", ")}</strong></div>
-          ${hasWork || status.kind !== "done" ? `<div class="row"><span>${t("dayMissionProgress")}</span><strong>${t("scoreLine", correct, fails)} · ${t("remain", remain)}</strong></div>
-          <div class="row"><span>${t("answers")}</span><strong>${answered}</strong></div>
-          <div class="row"><span>${t("dayMissionRuns")}</span><strong>${runs}</strong></div>` : ""}
+          <div class="row"><span>${t("dayMissionProgress")}</span><strong>${progressValue}</strong></div>
+          <div class="row"><span>${t("answers")}</span><strong>${answeredValue}</strong></div>
+          <div class="row"><span>${t("dayMissionRuns")}</span><strong>${runs}</strong></div>
           <div class="row"><span>${t("dayMissionCoins")}</span><strong>${coinsAwarded} ${COIN_SYMBOL}</strong></div>
         </div>
         <div class="day-tables">${tables.map((n) => `<span>${n}</span>`).join("")}</div>
+        ${status.kind === "done" && !hasWork ? `<p class="note" style="margin-top:12px;">${t("dayMissionNoStats")}</p>` : ""}
         ${!answered && !dayState.completed ? `<p class="note" style="margin-top:12px;">${t("dayMissionEmpty")}</p>` : ""}
       `;
       const openBtn = document.getElementById("dayMissionOpenBtn");
