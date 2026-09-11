@@ -3614,6 +3614,12 @@
         const rows = await sbSelect("claims", "select=*&order=at.desc");
         return { u: Date.now(), r: rows.map(sbClaimRow) };
       }
+      if (/^a_/.test(key)) {
+        const id = key.slice(2).split("_")[0];
+        const rows = await sbSelect("photos", `profile_id=eq.${encodeURIComponent(id)}&select=data_url`);
+        const url = String(rows[0]?.data_url || "");
+        return url.startsWith("data:image") ? { n: 1, u: Date.now(), url } : { n: 0, u: Date.now() };
+      }
       const m = String(key || "").match(/^([bphdyr])_(.+)$/);
       if (!m) return null;
       const id = m[2];
@@ -3733,6 +3739,15 @@
       if (key === "claims") {
         const rows = sbExpandClaims(value?.r || value?.claims || [], "");
         return rows.length ? sbUpsert("claims", rows) : true;
+      }
+      if (/^a_/.test(key)) {
+        const id = key.slice(2).split("_")[0];
+        const url = value?.url || value?.data_url || "";
+        return sbUpsert("photos", [{
+          profile_id: id,
+          data_url: String(url).startsWith("data:image") ? url : "",
+          updated_at: estNowIso(),
+        }]);
       }
       const m = String(key || "").match(/^([bphdyr])_(.+)$/);
       if (!m) return true;
@@ -4039,6 +4054,24 @@
     }
     async function loadProfilePhoto(id = profileId) {
       if (!id) return;
+      if (cloudUsesSupabase()) {
+        const rows = await sbSelect("photos", `profile_id=eq.${encodeURIComponent(id)}&select=data_url`);
+        const url = String(rows[0]?.data_url || "");
+        if (url.startsWith("data:image")) {
+          customPhotos[id] = url;
+          return;
+        }
+        if (customPhotos[id]) {
+          await sbUpsert("photos", [{
+            profile_id: id,
+            data_url: customPhotos[id],
+            updated_at: estNowIso(),
+          }]);
+          return;
+        }
+        if (rows.length) delete customPhotos[id];
+        return;
+      }
       const meta = await fetchKvRaw(cloudPhotoKey(id));
       if (!meta) return;
       const count = Number(meta.n) || 0;
@@ -4076,7 +4109,21 @@
     }
     async function saveProfilePhoto(dataUrl) {
       if (!profileId) return false;
-      if (!dataUrl) {
+      const url = dataUrl && String(dataUrl).startsWith("data:image") ? String(dataUrl) : "";
+      if (cloudUsesSupabase()) {
+        const ok = await sbUpsert("photos", [{
+          profile_id: profileId,
+          data_url: url,
+          updated_at: estNowIso(),
+        }]);
+        if (!ok) return false;
+        if (url) customPhotos[profileId] = url;
+        else delete customPhotos[profileId];
+        cachePhotos();
+        notifyCloud("photo", { id: profileId });
+        return true;
+      }
+      if (!url) {
         const ok = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: 0 })));
         if (!ok) return false;
         delete customPhotos[profileId];
@@ -4084,7 +4131,7 @@
         notifyCloud("photo", { id: profileId });
         return true;
       }
-      let hex = dataUrlToJpegHex(dataUrl);
+      let hex = dataUrlToJpegHex(url);
       const chunkSize = cloudHexBudget(`${cloudPhotoKey()}_99`);
       const chunks = [];
       while (hex.length) {
@@ -4101,7 +4148,7 @@
       }
       const okMeta = await putKvRaw(cloudPhotoKey(), bytesToHex(JSON.stringify({ u: Date.now(), n: chunks.length })));
       if (!okMeta) return false;
-      customPhotos[profileId] = dataUrl;
+      customPhotos[profileId] = url;
       cachePhotos();
       notifyCloud("photo", { id: profileId });
       return true;
@@ -4113,7 +4160,7 @@
         reader.onload = () => {
           const img = new Image();
           img.onload = () => {
-            const size = 72;
+            const size = cloudUsesSupabase() ? 160 : 72;
             const canvas = document.createElement("canvas");
             canvas.width = size;
             canvas.height = size;
@@ -4122,14 +4169,17 @@
             const sx = (img.width - min) / 2;
             const sy = (img.height - min) / 2;
             ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
-            const maxHex = PHOTO_CHUNKS_MAX * cloudHexBudget(`${cloudPhotoKey()}_99`);
-            let quality = 0.45;
+            const maxChars = cloudUsesSupabase() ? 350000 : PHOTO_CHUNKS_MAX * cloudHexBudget(`${cloudPhotoKey()}_99`);
+            let quality = cloudUsesSupabase() ? 0.72 : 0.45;
             let dataUrl = canvas.toDataURL("image/jpeg", quality);
-            while (dataUrlToJpegHex(dataUrl).length > maxHex && quality > 0.12) {
+            const tooBig = () => cloudUsesSupabase()
+              ? dataUrl.length > maxChars
+              : dataUrlToJpegHex(dataUrl).length > maxChars;
+            while (tooBig() && quality > 0.12) {
               quality -= 0.06;
               dataUrl = canvas.toDataURL("image/jpeg", quality);
             }
-            if (dataUrlToJpegHex(dataUrl).length > maxHex) {
+            if (tooBig()) {
               reject(new Error("image"));
               return;
             }
