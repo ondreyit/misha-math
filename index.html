@@ -1364,6 +1364,9 @@
         coinHistoryTitle: "История Мишкоинов",
         coinHistoryEmpty: "Пока нет записей. Пройди урок и заработай Мишкоины!",
         coinHistoryBalance: (n) => `Баланс: ${n} Мишкоинов`,
+        coinHistoryLedger: (earn, spend) => spend
+          ? `По записям: +${earn} · −${spend} · итог ${earn - spend}`
+          : `По записям: +${earn}`,
         mishcoin: "Мишкоин", mishcoins: "Мишкоины",
         tablesSettingsTitle: "Настройки таблиц",
         tablesSettingsHint: "Можно добавить таблицы выше минимума и вернуть назад до него.",
@@ -1580,6 +1583,9 @@
         coinHistoryTitle: "Mishcoin history",
         coinHistoryEmpty: "No entries yet. Complete a lesson to earn Mishcoins!",
         coinHistoryBalance: (n) => `Balance: ${n} Mishcoins`,
+        coinHistoryLedger: (earn, spend) => spend
+          ? `From records: +${earn} · −${spend} · net ${earn - spend}`
+          : `From records: +${earn}`,
         mishcoin: "Mishcoin", mishcoins: "Mishcoins",
         tablesSettingsTitle: "Table settings",
         tablesSettingsHint: "You can add tables above the minimum and lower them back to it.",
@@ -2508,7 +2514,7 @@
     }
     function historyFromDays(days) {
       return (days || [])
-        .filter((d) => d && d.completed && dayHasLessonWork(d) && (Number(d.totalCoins) || Number(d.coinsAwarded)))
+        .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
         .map((d) => {
           const amount = Number(d.totalCoins || d.coinsAwarded) || 0;
           const reward = calcRewards(d);
@@ -2528,7 +2534,11 @@
     function dedupeHistory(list) {
       const items = Array.isArray(list) ? list : [];
       const realDays = new Set(items.filter((e) => e.amount > 0 && !isSyntheticHistory(e)).map((e) => e.dateKey));
-      const filtered = items.filter((e) => !(e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)));
+      const filtered = items.filter((e) => {
+        if (e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)) return false;
+        if (isSyntheticHistory(e) && !String(e.id || "").startsWith("claim-") && matchedPaidClaim(e)) return false;
+        return true;
+      });
       const map = new Map();
       filtered.forEach((entry) => {
         if (isClaimHistory(entry) && entry.id) {
@@ -2864,6 +2874,16 @@
     function isClaimHistory(entry) {
       return String(entry?.id || "").startsWith("claim-")
         || (entry?.parts || []).some((part) => part && part.k === "claim");
+    }
+    function matchedPaidClaim(entry) {
+      if (!entry) return null;
+      return (familyClaims || []).find((claim) => {
+        if (!claim?.paid || (claim.profileId && claim.profileId !== profileId)) return false;
+        if (entry.id && (entry.id === claim.id || entry.id === `claim-${claim.id}`)) return true;
+        const a = Date.parse(entry.at) || 0;
+        const b = Date.parse(claim.decidedAt) || 0;
+        return a && b && Math.abs(a - b) < 180000 && Number(entry.amount) === Number(claim.amount);
+      }) || null;
     }
     function claimHistoryEntry(claim) {
       return {
@@ -3401,10 +3421,16 @@
         const rows = await sbSelect("history", `profile_id=eq.${id}&order=at.desc`);
         return {
           u: Date.now(),
-          h: rows.map((r) => {
-            const off = dateOffset(r.date_key);
-            return [sbUnix(r.at), Number(r.delta) || 0, off >= 0 ? off : (r.date_key || "")];
-          }),
+          h: rows.map((r) => ({
+            id: r.id,
+            at: r.at,
+            dateKey: r.date_key || "",
+            amount: Number(r.delta) || 0,
+            kind: r.kind || "lesson",
+            parts: r.kind === "claim" || String(r.id || "").startsWith("claim-")
+              ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+              : [],
+          })),
         };
       }
       if (m[1] === "d") {
@@ -3559,8 +3585,9 @@
           profile_id: id,
           at: item.at,
           delta: Number(item.amount || item.delta) || 0,
-          kind: item.kind || "lesson",
+          kind: item.kind || (isClaimHistory(item) ? "claim" : "lesson"),
           date_key: item.dateKey || item.date_key || "",
+          note: item.note || item.parts?.[0]?.r || item.parts?.[0]?.e || "",
         };
       }).filter((r) => r.id);
     }
@@ -5514,7 +5541,12 @@
     }
     function inferredHistoryParts(item) {
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
-      if (isClaimHistory(item)) return stored.length ? stored : [{ k: "claim", r: item.parts?.[0]?.r || "", e: item.parts?.[0]?.e || "", amount: item.amount }];
+      if (isClaimHistory(item) || matchedPaidClaim(item)) {
+        const claim = matchedPaidClaim(item);
+        const ru = stored[0]?.r || claim?.titleRu || knownKindById(claim?.kind)?.titleRu || "";
+        const en = stored[0]?.e || claim?.titleEn || knownKindById(claim?.kind)?.titleEn || "";
+        return [{ k: "claim", r: ru, e: en, amount: item.amount }];
+      }
       const lumped = stored.length === 1 && stored[0].k === "onTime" && Number(stored[0].amount) === Number(item.amount) && Number(item.amount) > 1;
       if (stored.length && !lumped) return stored;
       if ((item.amount || 0) < 0) return stored.length ? stored : [{ k: "prize", label: item.parts?.[0]?.label || "", amount: item.amount }];
@@ -5538,7 +5570,10 @@
       if (!coins.history || !coins.history.length) {
         return `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
       }
+      const earned = (coins.history || []).reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
+      const spent = (coins.history || []).reduce((sum, item) => sum + Math.max(0, -(Number(item.amount) || 0)), 0) + purchaseSpend(coins.purchases);
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
+        <p class="note" style="margin-bottom:12px;">${t("coinHistoryLedger", earned, spent)}</p>
         <div class="history-list">${coins.history.map((item) => {
           const neg = item.amount < 0;
           const partsHtml = inferredHistoryParts(item).map((p) => {
@@ -5603,11 +5638,12 @@
       if (key < PROGRAM_START) return { kind: "future", badge: "—", meta: "—", action: false };
       if (key > today) return { kind: "future", badge: t("badgeFuture"), meta: t("metaFuture", count), action: false };
       if (dayReallyDone(key, store)) {
-        const coinText = dayState?.coinsAwarded ? ` · +${dayState.coinsAwarded} ${COIN_SYMBOL}` : "";
+        const shown = Number(dayState?.totalCoins) || Number(dayState?.coinsAwarded) || 0;
+        const coinText = shown ? ` · +${shown} ${COIN_SYMBOL}` : "";
         if (!dayHasLessonWork(dayState)) {
           const earned = historyEarnsForDay(key).reduce((sum, entry) => sum + (entry.amount || 0), 0);
-          const coinsText = (dayState?.totalCoins || dayState?.coinsAwarded || earned)
-            ? `+${dayState?.totalCoins || dayState?.coinsAwarded || earned} ${COIN_SYMBOL}`
+          const coinsText = (shown || earned)
+            ? `+${shown || earned} ${COIN_SYMBOL}`
             : t("dayMissionNoStats");
           return { kind: "done", badge: t("badgeDone"), meta: coinsText, action: true };
         }
@@ -5628,7 +5664,9 @@
       const store = loadStore();
       const today = todayKey();
       const start = parseKey(PROGRAM_START);
-      const from = dayOffset(new Date(), -Math.min(7, Math.floor((parseKey(today) - start) / 86400000)));
+      const daysSinceStart = Math.max(0, Math.round((parseKey(today) - start) / 86400000));
+      const lookback = Math.min(daysSinceStart, PLAN_DAYS - 3);
+      const from = dayOffset(parseKey(today), -lookback);
       const begin = from < start ? start : from;
       for (let i = 0; i < PLAN_DAYS; i += 1) {
         const day = dayOffset(begin, i);
