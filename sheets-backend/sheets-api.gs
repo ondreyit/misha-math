@@ -840,11 +840,25 @@ function handleAction(a, token, key, value, hex, id, keysCsv) {
   return { ok: false, error: "unknown_op" };
 }
 
+function parseParamJson(raw) {
+  if (raw == null || raw === "") return null;
+  if (typeof raw !== "string") return raw;
+  try { return JSON.parse(raw); } catch (e) { return raw; }
+}
+
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     return withLock(function () {
-      return jsonOut(handleAction(p.a || p.op, p.t || p.token, p.k || p.table, null, "", p.id, p.k));
+      return jsonOut(handleAction(
+        p.a || p.op,
+        p.t || p.token,
+        p.k || p.table,
+        parseParamJson(p.v),
+        p.hex || "",
+        p.id,
+        p.k
+      ));
     });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message ? err.message : err) });
