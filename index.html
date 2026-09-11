@@ -169,9 +169,22 @@
       background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
     }
     .theme-switch button { padding: 0 8px; }
-    .theme-dock {
-      position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-      z-index: 45; box-shadow: var(--shadow);
+    .bottom-docks {
+      position: fixed; left: 12px; width: 360px; max-width: calc(100% - 24px);
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      z-index: 120; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .theme-dock { box-shadow: var(--shadow); flex-shrink: 0; }
+    .reload-dock {
+      box-shadow: var(--shadow); flex-shrink: 0;
+      border: 2px solid var(--line-strong); border-radius: 999px;
+      background: var(--surface); color: var(--ink);
+      min-height: 38px; padding: 0 14px;
+      font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+    }
+    .reload-dock:active { transform: scale(0.97); }
+    @media (min-width: 721px) {
+      .bottom-docks { right: 12px; width: auto; max-width: none; }
     }
     .coins {
       display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
@@ -1091,10 +1104,13 @@
       </div>
     </main>
   </div>
-  <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
-    <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
-    <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
-    <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
+  <div class="bottom-docks">
+    <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
+      <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
+      <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
+      <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
+    </div>
+    <button class="reload-dock" id="hardReloadBtn" type="button" data-i18n="hardReload" data-i18n-title="hardReloadHint">Обновить</button>
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
@@ -1368,6 +1384,8 @@
           ? `По записям: +${earn} · −${spend} · итог ${earn - spend}`
           : `По записям: +${earn}`,
         mishcoin: "Мишкоин", mishcoins: "Мишкоины",
+        hardReload: "Обновить",
+        hardReloadHint: "Сбросить кэш этого телефона и загрузить сайт заново",
         tablesSettingsTitle: "Настройки таблиц",
         tablesSettingsHint: "Можно добавить таблицы выше минимума и вернуть назад до него.",
         tablesFloorLabel: "Открыто прогрессом",
@@ -1587,6 +1605,8 @@
           ? `From records: +${earn} · −${spend} · net ${earn - spend}`
           : `From records: +${earn}`,
         mishcoin: "Mishcoin", mishcoins: "Mishcoins",
+        hardReload: "Reload",
+        hardReloadHint: "Clear this phone’s cache and reload the site",
         tablesSettingsTitle: "Table settings",
         tablesSettingsHint: "You can add tables above the minimum and lower them back to it.",
         tablesFloorLabel: "Unlocked by progress",
@@ -4735,6 +4755,7 @@
       dayState.correct = 0; dayState.fails = 0; dayState.answered = 0;
       dayState.sessionDone = false;
       dayState.startedAt = new Date().toISOString();
+      dayState.completedAt = null;
       dayState.coinsAwarded = 0; dayState.coinParts = null;
       return dayState;
     }
@@ -4992,6 +5013,11 @@
         const key = el.getAttribute("data-i18n-placeholder");
         const value = t(key);
         if (typeof value === "string") el.placeholder = value;
+      });
+      document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-title");
+        const value = t(key);
+        if (typeof value === "string") el.title = value;
       });
       document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
       document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
@@ -5878,7 +5904,7 @@
     }
     function finishTraining() {
       state.sessionDone = true; state.completed = true;
-      state.completedAt = state.completedAt || new Date().toISOString();
+      state.completedAt = new Date().toISOString();
       state.queue = [];
       state.runsCompleted = (state.runsCompleted || 0) + 1;
       const reward = calcRewards(state);
@@ -5886,19 +5912,12 @@
       state.coinsAwarded = reward.total;
       state.totalCoins = (state.totalCoins || 0) + reward.total;
       const historyEntry = {
-        id: uid(), at: new Date().toISOString(), dateKey: state.date || todayKey(),
+        id: uid(), at: state.completedAt, dateKey: state.date || todayKey(),
         amount: reward.total,
         parts: reward.parts.filter((p) => p.amount > 0),
       };
       if (reward.total) addCoins(reward.total, historyEntry);
       persist();
-      const trainedKey = todayKey();
-      if (trainedKey !== state.date) {
-        const store = loadStore();
-        if (markDayCompleted(store, trainedKey, { completedAt: historyEntry.at, coinsAwarded: 0 })) {
-          saveStore(store, { quiet: true });
-        }
-      }
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
@@ -6244,6 +6263,34 @@
       if (state && !state.sessionDone && store[state.date]) state = store[state.date];
       return changed;
     }
+    function hardReloadApp() {
+      const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY]);
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
+        keys.forEach((key) => {
+          if (key && key.startsWith("misha-") && !keep.has(key)) localStorage.removeItem(key);
+        });
+        sessionStorage.clear();
+      } catch { /* ignore */ }
+      const reload = () => {
+        const url = new URL(location.href);
+        url.searchParams.set("r", String(Date.now()));
+        location.replace(url.toString());
+      };
+      const tasks = [];
+      if (navigator.serviceWorker) {
+        tasks.push(navigator.serviceWorker.getRegistrations().then((regs) => (
+          Promise.all(regs.map((reg) => reg.unregister()))
+        )).catch(() => {}));
+      }
+      if (window.caches) {
+        tasks.push(caches.keys().then((names) => (
+          Promise.all(names.map((name) => caches.delete(name)))
+        )).catch(() => {}));
+      }
+      Promise.all(tasks).then(reload, reload);
+    }
     function onTitleTap() {
       const now = Date.now();
       titleTaps = titleTaps.filter((ts) => now - ts < 2500);
@@ -6260,6 +6307,7 @@
     document.getElementById("themeDayBtn").addEventListener("click", () => setThemePref("light"));
     document.getElementById("themeAutoBtn").addEventListener("click", () => setThemePref("auto"));
     document.getElementById("themeNightBtn").addEventListener("click", () => setThemePref("dark"));
+    document.getElementById("hardReloadBtn").addEventListener("click", hardReloadApp);
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
     document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
     document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
