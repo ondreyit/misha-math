@@ -1148,6 +1148,8 @@
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
     const CLOUD_KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
+    const CLOUD_SHEETS_URL = "https://script.google.com/macros/s/AKfycbxCFeg8K-z4XI_85vcB5BagdDYNuCAhwA4JPT-eohsSedtus9oWWlHWejUoxcOs-VAIvw/exec";
+    const CLOUD_SHEETS_TOKEN = "kaa-mishcoin-2026";
     const CLOUD_NOTIFY_URL = "https://ntfy.sh/misha-math-live-f7c3a91e";
     const CLIENT_ID = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 8)}`;
     const PHOTO_CACHE_KEY = "misha-photos-v1";
@@ -3286,8 +3288,51 @@
         creditApprovedClaims();
       }
     }
+    let sheetsMemo = {};
+    let sheetsMemoAt = 0;
     function cloudHexBudget(key) {
-      return Math.max(32, 260 - `/api/KeyVal/UpdateValue/${CLOUD_KV_APP}/${key}/`.length);
+      return CLOUD_SHEETS_URL ? 40000 : Math.max(32, 260 - `/api/KeyVal/UpdateValue/${CLOUD_KV_APP}/${key}/`.length);
+    }
+    async function sheetsCall(payload) {
+      const body = { t: CLOUD_SHEETS_TOKEN, ...payload };
+      const readOnly = payload.a === "get" || payload.a === "getHex" || payload.a === "getMany" || payload.a === "pull" || payload.a === "ping";
+      try {
+        let res;
+        if (readOnly) {
+          const q = new URLSearchParams({
+            t: CLOUD_SHEETS_TOKEN,
+            a: payload.a || "get",
+            k: payload.k || "",
+            id: payload.id || "",
+          });
+          if (payload.keys) q.set("k", (payload.keys || []).join(","));
+          res = await fetch(`${CLOUD_SHEETS_URL}?${q}`, { cache: "no-store" });
+        } else {
+          res = await fetch(CLOUD_SHEETS_URL, {
+            method: "POST",
+            cache: "no-store",
+            redirect: "follow",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(body),
+          });
+        }
+        if (!res.ok) return null;
+        const data = JSON.parse(await res.text());
+        return data && data.ok ? data : null;
+      } catch {
+        return null;
+      }
+    }
+    async function hydrateSheets(id = profileId) {
+      const data = await sheetsCall({ a: "pull", id: id || "" });
+      if (!data || !data.keys) return false;
+      const incoming = data.keys;
+      const incomingCount = Object.keys(incoming).filter((k) => incoming[k] != null).length;
+      const localCount = Object.keys(sheetsMemo).filter((k) => sheetsMemo[k] != null).length;
+      if (!incomingCount && localCount) return false;
+      sheetsMemo = { ...sheetsMemo, ...incoming };
+      sheetsMemoAt = Date.now();
+      return true;
     }
     function bytesToHex(str) {
       return Array.from(new TextEncoder().encode(str))
@@ -3352,14 +3397,22 @@
       } catch { return null; }
     }
     async function fetchKvRaw(key) {
-      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) return null;
-      return parseKvText(await res.text());
+      if (Object.prototype.hasOwnProperty.call(sheetsMemo, key) && Date.now() - sheetsMemoAt < 12000 && sheetsMemo[key] != null) {
+        return sheetsMemo[key];
+      }
+      const data = await sheetsCall({ a: "get", k: key });
+      if (!data) return Object.prototype.hasOwnProperty.call(sheetsMemo, key) ? sheetsMemo[key] : null;
+      if (data.v == null && sheetsMemo[key] != null) return sheetsMemo[key];
+      sheetsMemo[key] = data.v;
+      sheetsMemoAt = Date.now();
+      return data.v;
     }
     async function fetchKvHex(key) {
-      const res = await fetch(`${CLOUD_KV_BASE}/GetValue/${CLOUD_KV_APP}/${key}?t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) return "";
-      return String(await res.text()).replace(/^"|"$/g, "").trim();
+      if (typeof sheetsMemo[key] === "string" && Date.now() - sheetsMemoAt < 12000) return sheetsMemo[key];
+      const data = await sheetsCall({ a: "getHex", k: key });
+      const hex = (data && data.hex) || "";
+      if (hex) sheetsMemo[key] = hex;
+      return hex;
     }
     function defaultPhoto(profile = currentProfile()) { return profile.photo; }
     function currentPhoto(profile = currentProfile()) {
@@ -3470,14 +3523,15 @@
       });
     }
     async function putKvRaw(key, hex) {
-      if (!hex || hex.length > cloudHexBudget(key)) return false;
-      const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${key}/${hex}`;
-      try {
-        const res = await fetch(url, { method: "POST", body: "", cache: "no-store", keepalive: true });
-        return res.ok;
-      } catch {
-        return false;
-      }
+      if (!hex) return false;
+      const parsed = parseKvText(hex);
+      const data = await sheetsCall(parsed != null
+        ? { a: "put", k: key, v: parsed }
+        : { a: "put", k: key, hex });
+      if (!data) return false;
+      sheetsMemo[key] = parsed != null ? parsed : hex;
+      sheetsMemoAt = Date.now();
+      return true;
     }
     async function fetchBalanceCloudMeta(id = profileId) {
       if (!id) return { b: 0, s: 0 };
@@ -3934,6 +3988,7 @@
     }
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
+      await hydrateSheets(profileId);
       const pending = readPendingSnapshot();
       if (pending) {
         applyPendingSnapshot(pending);
@@ -4400,6 +4455,7 @@
       setSyncState("busy");
       try {
         applyRememberedLocalProfile();
+        await hydrateSheets(profileId);
         await pullCatalogSync();
         await pullKindsSync();
         await pullFamilyClaims();
@@ -4532,9 +4588,14 @@
           else writeRememberedBalance(coins.balance);
           if (!profileDirty) return;
           writePendingSnapshot();
-          const hex = encodeBalanceCloud(coins.balance, purchaseSpend(coins.purchases));
-          const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudBalKey()}/${hex}`;
-          try { navigator.sendBeacon(url); } catch { /* ignore */ }
+          try {
+            navigator.sendBeacon(CLOUD_SHEETS_URL, new Blob([JSON.stringify({
+              t: CLOUD_SHEETS_TOKEN,
+              a: "put",
+              k: cloudBalKey(),
+              v: { b: coins.balance, s: purchaseSpend(coins.purchases) },
+            })], { type: "text/plain" }));
+          } catch { /* ignore */ }
         });
       }
     }
@@ -5035,12 +5096,7 @@
         at,
       });
       if (coins.purchases.length > 50) coins.purchases.length = 50;
-      const entry = {
-        id: uid(), at, dateKey: todayKey(),
-        amount: -prize.cost,
-        parts: [{ k: "prize", r: prize.titleRu, e: prize.titleEn, label: t("redeemSpend", title), amount: -prize.cost }],
-      };
-      spendCoins(prize.cost, entry);
+      spendCoins(prize.cost);
       showToast("ok", t("redeemSuccess", title), t("redeemSuccessHint"), "🎁");
       renderRedeem();
     }
@@ -5962,9 +6018,11 @@
     show("home", { replace: true });
     openProfilePicker();
     listenCloudNotify();
-    loadAllProfilePhotos();
-    pullCatalogSync();
-    pullKindsSync();
+    hydrateSheets().then(() => {
+      loadAllProfilePhotos();
+      pullCatalogSync();
+      pullKindsSync();
+    });
   </script>
 </body>
 </html>
