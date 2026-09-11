@@ -1177,7 +1177,7 @@
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
     const DEVICE_KEY = "misha-device-id-v1";
-    const SESSION_TTL_MS = 90000;
+    const SESSION_TTL_MS = 120000;
     const PENDING_KEY_BASE = "misha-pending-v1";
     const BAL_KEY_BASE = "misha-bal-v2";
     const DAYS_KEY_BASE = "misha-days-v2";
@@ -5117,22 +5117,41 @@
     }
     function isForeignLiveLock(row) {
       if (!row || !row.device_id || row.device_id === deviceId()) return false;
-      const at = stampMs(row.updated_at);
-      if (!at) return false;
+      const at = Number(row.updated_ms) || stampMs(row.updated_at);
+      if (!at) return true;
       return (Date.now() - at) < SESSION_TTL_MS;
     }
     async function fetchSessionRow(id) {
-      if (!id || !cloudUsesSupabase()) return null;
-      const rows = await sbSelect("sessions", `profile_id=eq.${encodeURIComponent(id)}&select=*`);
-      return rows[0] || null;
+      if (!id || !cloudUsesSupabase()) return { ok: false, row: null };
+      const res = await fetch(
+        `${CLOUD_SUPABASE_URL}/rest/v1/sessions?profile_id=eq.${encodeURIComponent(id)}&select=*`,
+        {
+          cache: "no-store",
+          headers: {
+            apikey: CLOUD_SUPABASE_ANON,
+            Authorization: `Bearer ${CLOUD_SUPABASE_ANON}`,
+          },
+        }
+      );
+      if (!res.ok) return { ok: false, row: null };
+      try {
+        const rows = await res.json();
+        return { ok: true, row: Array.isArray(rows) && rows[0] ? rows[0] : null };
+      } catch {
+        return { ok: false, row: null };
+      }
     }
     async function claimSessionLock(id) {
-      if (!id || !cloudUsesSupabase()) return true;
-      return sbUpsert("sessions", [{
+      if (!id || !cloudUsesSupabase()) return false;
+      const out = await sbUpsert("sessions", [{
         profile_id: id,
         device_id: deviceId(),
+        updated_ms: Date.now(),
         updated_at: estNowIso(),
       }]);
+      if (!out) return false;
+      const got = await fetchSessionRow(id);
+      return !!(got.ok && got.row && got.row.device_id === deviceId());
     }
     async function releaseSessionLock(id) {
       if (!id || !cloudUsesSupabase()) return;
@@ -5151,13 +5170,14 @@
     }
     function startSessionHeartbeat() {
       stopSessionHeartbeat();
-      sessionHeartbeatTimer = window.setInterval(() => { refreshSessionLock(); }, 20000);
+      sessionHeartbeatTimer = window.setInterval(() => { refreshSessionLock(); }, 4000);
       refreshSessionLock();
     }
     async function refreshSessionLock() {
       if (!profileId || document.visibilityState === "hidden") return;
-      const row = await fetchSessionRow(profileId);
-      if (isForeignLiveLock(row)) {
+      const got = await fetchSessionRow(profileId);
+      if (!got.ok) return;
+      if (isForeignLiveLock(got.row)) {
         await onSessionStolen();
         return;
       }
@@ -5177,8 +5197,13 @@
     async function tryEnterProfile(id, options = {}) {
       const force = !!options.force;
       if (!PROFILES.some((p) => p.id === id)) return false;
-      const row = await fetchSessionRow(id);
-      if (!force && isForeignLiveLock(row)) {
+      const got = await fetchSessionRow(id);
+      if (!got.ok && !force) {
+        pendingSessionProfile = id;
+        openSessionBusyModal();
+        return false;
+      }
+      if (!force && isForeignLiveLock(got.row)) {
         pendingSessionProfile = id;
         openSessionBusyModal();
         return false;

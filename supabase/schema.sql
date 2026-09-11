@@ -98,6 +98,7 @@ create table if not exists photos (
 create table if not exists sessions (
   profile_id text primary key,
   device_id text not null default '',
+  updated_ms bigint not null default 0,
   updated_at timestamp not null default timezone('America/New_York', now())
 );
 
