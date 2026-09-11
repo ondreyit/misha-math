@@ -1083,8 +1083,12 @@
     const PROGRAM_START = "2026-09-03";
     const RECOVERED_LESSONS = {
       misha: {
+        "2026-09-03": { coinsAwarded: 3, totalCoins: 3, runsCompleted: 1, completedAt: "2026-09-08T00:48:41.000Z" },
         "2026-09-05": { correct: 21, fails: 1, answered: 22, coinsAwarded: 4, totalCoins: 4, runsCompleted: 1, completedAt: "2026-09-05T23:00:00.000Z" },
         "2026-09-06": { correct: 20, fails: 0, answered: 20, coinsAwarded: 4, totalCoins: 8, runsCompleted: 2, completedAt: "2026-09-06T23:00:00.000Z" },
+        "2026-09-07": { coinsAwarded: 3, totalCoins: 3, runsCompleted: 1, completedAt: "2026-09-08T00:48:41.000Z" },
+        "2026-09-08": { coinsAwarded: 4, totalCoins: 4, runsCompleted: 1, completedAt: "2026-09-09T00:05:50.000Z" },
+        "2026-09-09": { coinsAwarded: 1, totalCoins: 1, runsCompleted: 1, completedAt: "2026-09-10T03:41:42.000Z" },
       },
     };
     const FAIL_EXTRA_DEFAULT = 2;
@@ -1105,6 +1109,8 @@
     const PROFILE_KEY = "misha-profile-v1";
     const PENDING_KEY_BASE = "misha-pending-v1";
     const BAL_KEY_BASE = "misha-bal-v2";
+    const DAYS_KEY_BASE = "misha-days-v2";
+    const HIST_KEY_BASE = "misha-hist-v2";
     const PLAN_DAYS = 14;
     const COIN_SYMBOL = "★";
     const TABLE_MAX = 12;
@@ -1654,6 +1660,72 @@
       if (!id) return;
       try { localStorage.setItem(rememberedBalKey(id), String(Math.max(0, Number(n) || 0))); } catch { /* ignore */ }
     }
+    function rememberedDaysKey(id = profileId) { return `${DAYS_KEY_BASE}:${id}`; }
+    function rememberedHistKey(id = profileId) { return `${HIST_KEY_BASE}:${id}`; }
+    function parseOffsetString(raw) {
+      return String(raw || "").split(",").map((part) => part.trim()).filter((part) => /^\d+$/.test(part)).map(Number)
+        .filter((n) => n >= 0 && n < 400);
+    }
+    function unionOffsetString(...parts) {
+      const set = new Set();
+      parts.forEach((raw) => parseOffsetString(raw).forEach((n) => set.add(n)));
+      return [...set].sort((a, b) => a - b).join(",");
+    }
+    function readRememberedDaysRaw(id = profileId) {
+      if (!id) return { c: "", d: [] };
+      try {
+        const raw = JSON.parse(localStorage.getItem(rememberedDaysKey(id)) || "null");
+        if (!raw || typeof raw !== "object") return { c: "", d: [] };
+        return {
+          c: String(raw.c || raw.completed || ""),
+          d: Array.isArray(raw.d) ? raw.d : (Array.isArray(raw.days) ? raw.days : []),
+        };
+      } catch {
+        return { c: "", d: [] };
+      }
+    }
+    function writeRememberedDays(store = dayStore, id = profileId) {
+      if (!id) return;
+      const prev = readRememberedDaysRaw(id);
+      const nextC = unionOffsetCsv(prev.c, completedOffsetList(store));
+      const merged = Object.keys(store || {}).length
+        ? mergeDayLists(expandDays(prev.d), expandDays(compactDays(store)))
+        : expandDays(prev.d);
+      const payload = { u: Date.now(), c: nextC, d: compactDays(Object.fromEntries(merged.map((day) => [day.date, day]))) };
+      try { localStorage.setItem(rememberedDaysKey(id), JSON.stringify(payload)); } catch { /* ignore quota */ }
+    }
+    function readRememberedHistory(id = profileId) {
+      if (!id) return [];
+      try { return expandHistory(JSON.parse(localStorage.getItem(rememberedHistKey(id)) || "null")); }
+      catch { return []; }
+    }
+    function writeRememberedHistory(list = coins.history, id = profileId) {
+      if (!id) return;
+      const merged = mergeHistory(readRememberedHistory(id), list);
+      try { localStorage.setItem(rememberedHistKey(id), JSON.stringify(compactRememberedHistory(merged))); } catch { /* ignore quota */ }
+    }
+    function compactRememberedHistory(list) {
+      return (list || []).slice(0, 80).map((entry) => ([
+        entry.id || "",
+        toUnix(entry.at),
+        entry.dateKey || "",
+        Number(entry.amount) || 0,
+        (entry.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || "", p.e || ""]),
+      ]));
+    }
+    function persistRememberedProgress() {
+      if (!profileId) return;
+      writeRememberedDays();
+      writeRememberedHistory();
+    }
+    function applyRememberedLocalProfile() {
+      if (!profileId) return;
+      const snap = readRememberedDaysRaw();
+      if (snap.d && snap.d.length) mergeRemoteDays(expandDays(snap.d));
+      if (snap.c) applyCompletedOffsets(snap.c);
+      const hist = readRememberedHistory();
+      if (hist.length) coins.history = mergeHistory(coins.history, hist);
+    }
     function cloudPhotoKey(id = profileId) { return `a_${id}`; }
     function pendingKey(id = profileId) { return `${PENDING_KEY_BASE}:${id}`; }
     function currentProfile() { return PROFILES.find((p) => p.id === profileId) || PROFILES[0]; }
@@ -1698,7 +1770,20 @@
       }[c]));
     }
 
-    function todayKey(date = new Date()) {
+    function estDateKey(date = new Date()) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(date);
+      const y = parts.find((part) => part.type === "year")?.value;
+      const m = parts.find((part) => part.type === "month")?.value;
+      const d = parts.find((part) => part.type === "day")?.value;
+      return `${y}-${m}-${d}`;
+    }
+    function todayKey(date) {
+      if (date == null) return estDateKey();
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, "0");
       const d = String(date.getDate()).padStart(2, "0");
@@ -1890,10 +1975,14 @@
     function loadStore() { return dayStore; }
     function saveStore(store, options = {}) {
       dayStore = store || {};
+      if (!suppressCloudPush) persistRememberedProgress();
       if (!options.quiet) markProfileDirty();
     }
     function saveSettings() { markProfileDirty(); }
-    function saveCoins() { markProfileDirty(); }
+    function saveCoins() {
+      if (!suppressCloudPush) persistRememberedProgress();
+      markProfileDirty();
+    }
     function saveCatalog() {
       catalog.updatedAt = Date.now();
       catalogDirty = true;
@@ -2199,7 +2288,9 @@
         if (pending.m != null) settings.tablesMax = Number(pending.m) || 0;
         if (pending.d) mergeRemoteDays(expandDays(pending.d));
         if (pending.c) applyCompletedOffsets(pending.c);
+        if (pending.h) writeRememberedHistory(mergeHistory(coins.history, pending.h));
         cloudMeta.updatedAt = Number(pending.u) || Date.now();
+        persistRememberedProgress();
         renderCoins();
       } finally {
         suppressCloudPush = false;
@@ -2238,7 +2329,16 @@
       ]));
     }
     function compactMiniHistory(list) {
-      return (list || []).slice(0, 8).map((e) => [toUnix(e.at), Number(e.amount) || 0, e.dateKey || ""]);
+      const lessons = [];
+      const other = [];
+      (list || []).forEach((entry) => {
+        if ((entry?.amount || 0) > 0 && entry.dateKey && !isClaimHistory(entry)) lessons.push(entry);
+        else other.push(entry);
+      });
+      return [...lessons, ...other].slice(0, 12).map((e) => {
+        const off = dateOffset(e.dateKey);
+        return [toUnix(e.at), Number(e.amount) || 0, off >= 0 ? off : (e.dateKey || "")];
+      });
     }
     function expandHistory(list) {
       if (!Array.isArray(list)) return [];
@@ -2254,10 +2354,11 @@
         }
         if (!Array.isArray(item)) return null;
         if (typeof item[0] === "number") {
+          const dayRef = item[2];
           return {
             id: `h-${item[0]}-${item[1]}`,
             at: fromUnix(item[0]) || new Date().toISOString(),
-            dateKey: item[2] || "",
+            dateKey: typeof dayRef === "number" ? keyFromOffset(dayRef) : (dayRef || ""),
             amount: Number(item[1]) || 0,
             parts: [],
           };
@@ -2683,13 +2784,15 @@
       const okBal = await putKvRaw(cloudBalKey(claim.profileId), encodeBalanceCloud(nextB, remoteMeta.s));
       if (!okBal) return false;
       writeRememberedBalance(nextB, claim.profileId);
-      hist.unshift(claimHistoryEntry(claim));
-      const histHex = encodeJsonHex(
-        { u: Date.now(), h: compactMiniHistory(hist) },
-        (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; },
-        cloudHistKey(claim.profileId)
-      );
-      await putKvRaw(cloudHistKey(claim.profileId), histHex);
+      if (histRaw) {
+        hist.unshift(claimHistoryEntry(claim));
+        const histHex = encodeJsonHex(
+          { u: Date.now(), h: compactMiniHistory(hist) },
+          (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; },
+          cloudHistKey(claim.profileId)
+        );
+        await putKvRaw(cloudHistKey(claim.profileId), histHex);
+      }
       claim.paid = true;
       notifyCloud("bal", { id: claim.profileId });
       notifyCloud("claim", { id: claim.profileId });
@@ -2720,12 +2823,32 @@
         if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return;
         addCompletedOffset(offsets, entry.dateKey);
       });
+      Object.keys(RECOVERED_LESSONS[profileId] || {}).forEach((key) => addCompletedOffset(offsets, key));
       return [...offsets].sort((a, b) => a - b);
     }
     function trainedKeyFromAt(iso) {
       if (!iso) return "";
-      const key = todayKey(new Date(iso));
+      const key = estDateKey(new Date(iso));
       return key >= PROGRAM_START ? key : "";
+    }
+    function unionOffsetCsv(...lists) {
+      const offsets = new Set();
+      lists.forEach((raw) => {
+        if (Array.isArray(raw)) {
+          raw.forEach((n) => {
+            const num = Number(n);
+            if (Number.isInteger(num) && num >= 0 && num < 400) offsets.add(num);
+          });
+          return;
+        }
+        String(raw || "").split(",").forEach((part) => {
+          const text = String(part).trim();
+          if (!/^\d+$/.test(text)) return;
+          const n = Number(text);
+          if (n >= 0 && n < 400) offsets.add(n);
+        });
+      });
+      return [...offsets].sort((a, b) => a - b).join(",");
     }
     function stubCompletedDay(key, extra = {}) {
       return {
@@ -2781,9 +2904,14 @@
       return (Number(day.answered) || 0) > 0 || (Number(day.correct) || 0) > 0 || (Number(day.fails) || 0) > 0;
     }
     function dayReallyDone(key, store = dayStore) {
+      if (recoveredLesson(key)) return true;
       const day = store?.[key];
-      if (day?.completed && dayHasLessonWork(day)) return true;
-      return historyEarnsForDay(key).length > 0;
+      if (day?.completed) return true;
+      if (historyEarnsForDay(key).length > 0) return true;
+      return (coins.history || []).some((entry) => {
+        if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return false;
+        return trainedKeyFromAt(entry.at) === key;
+      });
     }
     function recoveredLesson(key) {
       return RECOVERED_LESSONS[profileId]?.[key] || null;
@@ -2799,25 +2927,13 @@
         }
       });
       (coins.history || []).forEach((entry) => {
-        if ((entry.amount || 0) <= 0 || !entry.dateKey || isClaimHistory(entry)) return;
+        if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return;
         const extra = recoveredLesson(entry.dateKey) || { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
-        if (markDayCompleted(store, entry.dateKey, extra)) changed = true;
+        if (entry.dateKey && markDayCompleted(store, entry.dateKey, extra)) changed = true;
+        const trained = trainedKeyFromAt(entry.at);
+        if (trained && trained !== entry.dateKey && markDayCompleted(store, trained, extra)) changed = true;
       });
-      if (scrubFakeCompletions(store)) changed = true;
       if (changed) saveStore(store, { quiet: true });
-      return changed;
-    }
-    function scrubFakeCompletions(store = dayStore) {
-      let changed = false;
-      Object.keys(store || {}).forEach((key) => {
-        const day = store[key];
-        if (!day?.completed) return;
-        if (dayHasLessonWork(day)) return;
-        if (historyEarnsForDay(key).length) return;
-        if (recoveredLesson(key)) return;
-        delete store[key];
-        changed = true;
-      });
       return changed;
     }
     function compactDays(store) {
@@ -3707,6 +3823,17 @@
         }
         writeRememberedBalance(merged);
         fillHistoryFromDays();
+        const unionC = unionOffsetCsv(remote.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
+        if (unionC) applyCompletedOffsets(unionC);
+        if (unionC !== String(remote.completedOffsets || "")) {
+          profileDirty = true;
+          cloudMeta.updatedAt = Date.now();
+          writePendingSnapshot();
+          refreshAfterCloudApply();
+          flushCloudNow();
+          setSyncState("busy");
+          return true;
+        }
         refreshAfterCloudApply();
         setSyncState("ok");
         return true;
@@ -3717,10 +3844,10 @@
         cloudSyncing = false;
       }
     }
-    function encodeDaysHex(updatedAt) {
+    function encodeDaysHex(updatedAt, extraC = "") {
       const key = cloudDaysKey();
       const limit = cloudHexBudget(key);
-      const c = completedOffsetList(dayStore).join(",");
+      const c = unionOffsetCsv(completedOffsetList(dayStore), extraC);
       let d = compactDays(dayStore);
       let obj = { u: updatedAt, c, d };
       let hex = bytesToHex(JSON.stringify(obj));
@@ -3736,7 +3863,14 @@
       return hex;
     }
     async function pushHistoryAndDays(payload, updatedAt) {
-      const hist = { u: updatedAt, h: compactMiniHistory(payload.coins.history) };
+      const [histRaw, daysRaw] = await Promise.all([
+        fetchKvRaw(cloudHistKey()),
+        fetchKvRaw(cloudDaysKey()),
+      ]);
+      const mergedHist = mergeHistory(payload.coins.history, expandHistory(histRaw?.h || histRaw?.history || []));
+      if (daysRaw?.d || daysRaw?.days) mergeRemoteDays(expandDays(daysRaw.d || daysRaw.days));
+      if (daysRaw?.c || daysRaw?.completed) applyCompletedOffsets(daysRaw.c || daysRaw.completed);
+      const hist = { u: updatedAt, h: compactMiniHistory(mergedHist) };
       const buys = {
         u: updatedAt,
         y: expandPurchases(payload.coins.purchases).slice(0, 6).map((p) => [p.id || "", Number(p.cost) || 0, toUnix(p.at)]),
@@ -3746,7 +3880,7 @@
         r: compactClaims(payload.coins.claims || coins.claims || []),
       };
       const histHex = encodeJsonHex(hist, (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; }, cloudHistKey());
-      const daysHex = encodeDaysHex(updatedAt);
+      const daysHex = encodeDaysHex(updatedAt, daysRaw?.c || daysRaw?.completed || "");
       const buyHex = encodeJsonHex(buys, (obj) => { if (obj.y && obj.y.length) { obj.y.pop(); return true; } return false; }, cloudBuyKey());
       const claimHex = encodeJsonHex(claims, (obj) => { if (obj.r && obj.r.length) { obj.r.pop(); return true; } return false; }, cloudClaimKey());
       await putKvRaw(cloudHistKey(), histHex);
@@ -3984,10 +4118,6 @@
       if (dayReallyDone(date, store) && !store[date].completed) {
         markDayCompleted(store, date, recoveredLesson(date) || {});
         saveStore(store, { quiet: true });
-      } else if (store[date].completed && !dayHasLessonWork(store[date]) && !historyEarnsForDay(date).length && !recoveredLesson(date)) {
-        store[date] = createDayState(date);
-        saveStore(store, { quiet: true });
-        return store[date];
       }
       const day = store[date];
       if (day.sessionDone == null) day.sessionDone = !!day.completed;
@@ -4026,7 +4156,7 @@
     }
     function isLate(dayState) {
       if (!dayState?.completed || !dayState.completedAt) return false;
-      return todayKey(new Date(dayState.completedAt)) > dayState.date;
+      return estDateKey(new Date(dayState.completedAt)) > dayState.date;
     }
     function dayMark(key, store, today) {
       if (key < PROGRAM_START) return "before";
@@ -4120,6 +4250,7 @@
         const pendingB = Number(pending?.b) || 0;
         const rememberedB = readRememberedBalance();
         if (remote) replaceFromCloud(remote);
+        applyRememberedLocalProfile();
         if (pending) applyPendingSnapshot(pending);
         const merged = mergeDedicatedBalance(
           coins.balance,
@@ -4144,7 +4275,9 @@
         }
         coins.history = dedupeHistory(coins.history);
         fillDaysFromHistory();
-        if (String(remote?.completedOffsets || "") !== completedOffsetList().join(",")) {
+        const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
+        if (unionC) applyCompletedOffsets(unionC);
+        if (unionC !== String(remote?.completedOffsets || "")) {
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
           writePendingSnapshot();
@@ -4212,6 +4345,8 @@
       if (profileId && profileDirty) await pushCloudSync();
       profileId = id;
       resetProfileMemory();
+      applyRememberedLocalProfile();
+      fillDaysFromHistory();
       profileModal.classList.add("hidden");
       updateProfileChrome();
       applyI18n();
@@ -4979,7 +5114,7 @@
     function calcRewards(dayState) {
       const parts = [];
       let total = 0;
-      const completedDay = dayState.completedAt ? todayKey(new Date(dayState.completedAt)) : todayKey();
+      const completedDay = dayState.completedAt ? estDateKey(new Date(dayState.completedAt)) : todayKey();
       const onTime = completedDay === dayState.date;
       if (onTime) { parts.push({ k: "onTime", label: t("rewardOnTime"), amount: 1 }); total += 1; }
       const failRate = dayState.answered ? (dayState.fails / dayState.answered) * 100 : 100;
@@ -5139,6 +5274,13 @@
       };
       if (reward.total) addCoins(reward.total, historyEntry);
       persist();
+      const trainedKey = todayKey();
+      if (trainedKey !== state.date) {
+        const store = loadStore();
+        if (markDayCompleted(store, trainedKey, { completedAt: historyEntry.at, coinsAwarded: 0 })) {
+          saveStore(store, { quiet: true });
+        }
+      }
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
     }
