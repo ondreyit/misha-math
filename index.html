@@ -748,8 +748,8 @@
   <div class="modal hidden" id="kindModal">
     <div class="modal-card">
       <div class="label" id="adminKindFormTitle">Add request type</div>
-      <input id="kindTitleRu" type="text" placeholder="RU" data-i18n-placeholder="kindTitleRuPh" />
-      <input id="kindTitleEn" type="text" placeholder="EN" data-i18n-placeholder="kindTitleEnPh" />
+      <textarea id="kindTitleRu" class="kind-title-input" rows="2" maxlength="40" placeholder="RU" data-i18n-placeholder="kindTitleRuPh"></textarea>
+      <textarea id="kindTitleEn" class="kind-title-input" rows="2" maxlength="40" placeholder="EN" data-i18n-placeholder="kindTitleEnPh"></textarea>
       <input id="kindAmount" type="number" min="1" max="9999" step="1" placeholder="Stars" data-i18n-placeholder="kindAmountPh" />
       <div class="prize-form-actions">
         <button class="btn btn-accent" id="adminSaveKindBtn" type="button" data-i18n="adminSaveKind">Save type</button>
@@ -1083,12 +1083,8 @@
     const PROGRAM_START = "2026-09-03";
     const RECOVERED_LESSONS = {
       misha: {
-        "2026-09-03": { coinsAwarded: 3, totalCoins: 3, runsCompleted: 1, completedAt: "2026-09-08T00:48:41.000Z" },
         "2026-09-05": { correct: 21, fails: 1, answered: 22, coinsAwarded: 4, totalCoins: 4, runsCompleted: 1, completedAt: "2026-09-05T23:00:00.000Z" },
         "2026-09-06": { correct: 20, fails: 0, answered: 20, coinsAwarded: 4, totalCoins: 8, runsCompleted: 2, completedAt: "2026-09-06T23:00:00.000Z" },
-        "2026-09-07": { coinsAwarded: 3, totalCoins: 3, runsCompleted: 1, completedAt: "2026-09-08T00:48:41.000Z" },
-        "2026-09-08": { coinsAwarded: 4, totalCoins: 4, runsCompleted: 1, completedAt: "2026-09-09T00:05:50.000Z" },
-        "2026-09-09": { coinsAwarded: 1, totalCoins: 1, runsCompleted: 1, completedAt: "2026-09-10T03:41:42.000Z" },
       },
     };
     const FAIL_EXTRA_DEFAULT = 2;
@@ -1102,6 +1098,7 @@
     const CATALOG_PENDING_KEY = "misha-catalog-pending-v1";
     const KINDS_KEY = "misha-claim-kinds-v1";
     const KINDS_PENDING_KEY = "misha-kinds-pending-v1";
+    const KIND_TITLE_MAX = 40;
     const FAMILY_CLAIMS_KEY = "misha-family-claims-v1";
     const LANG_KEY = "misha-lang-v1";
     const THEME_KEY = "misha-theme-pref-v1";
