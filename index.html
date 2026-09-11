@@ -2591,6 +2591,7 @@
       return Math.max(0, high + sharedSpend - unionSpend);
     }
     function parseBalanceCloud(raw) {
+      if (raw == null) return { b: 0, s: 0, missing: true };
       if (typeof raw === "number" && Number.isFinite(raw)) return { b: raw, s: 0 };
       if (raw && typeof raw === "object") {
         return {
@@ -3534,8 +3535,10 @@
       return true;
     }
     async function fetchBalanceCloudMeta(id = profileId) {
-      if (!id) return { b: 0, s: 0 };
-      return parseBalanceCloud(await fetchKvRaw(cloudBalKey(id)));
+      if (!id) return { b: 0, s: 0, missing: true };
+      const raw = await fetchKvRaw(cloudBalKey(id));
+      if (raw === undefined) return { b: 0, s: 0, missing: true };
+      return parseBalanceCloud(raw);
     }
     async function fetchBalanceCloud(id = profileId) {
       return (await fetchBalanceCloudMeta(id)).b;
@@ -3543,6 +3546,10 @@
     async function pushBalanceCloud(target) {
       const n = Math.max(0, Number(target) || 0);
       const remoteMeta = await fetchBalanceCloudMeta();
+      if (remoteMeta.missing) {
+        if (n > 0) await putKvRaw(cloudBalKey(), encodeBalanceCloud(n, purchaseSpend(coins.purchases)));
+        return n;
+      }
       const remote = remoteMeta.b;
       const spend = purchaseSpend(coins.purchases);
       const merged = mergeDedicatedBalance(n, remote, coins.purchases || [], remoteMeta.s);

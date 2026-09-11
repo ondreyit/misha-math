@@ -490,9 +490,13 @@ function archiveField(i, field) {
 function balanceKv(id) {
   var rows = readTable("balances");
   for (var i = 0; i < rows.length; i++) {
-    if (rows[i].profile_id === id) return { b: num(rows[i].stars), s: num(rows[i].spend) };
+    var pid = rows[i].profile_id || rows[i].profile || rows[i].id;
+    if (String(pid) === String(id)) {
+      var stars = rows[i].stars !== "" && rows[i].stars != null ? rows[i].stars : rows[i].balance;
+      return { b: num(stars), s: num(rows[i].spend) };
+    }
   }
-  return { b: 0, s: 0 };
+  return null;
 }
 function profileKv(id) {
   var q = 20;
@@ -505,7 +509,8 @@ function profileKv(id) {
       u = Date.parse(r.updated_at) || u;
     }
   });
-  return { u: u, b: balanceKv(id).b, q: q, m: m };
+  var bal = balanceKv(id);
+  return { u: u, b: bal ? bal.b : 0, q: q, m: m };
 }
 function historyKv(id) {
   var h = readTable("history").filter(function (r) { return r.profile_id === id; }).map(function (r) {
@@ -623,7 +628,10 @@ function kvPut(key, value, hex) {
   if (m) {
     var id = m[2];
     if (m[1] === "b") {
-      upsertRows("balances", [{ profile_id: id, stars: num(value && value.b), spend: num(value && value.s), updated_at: now }]);
+      var nextB = num(value && value.b);
+      var prevB = balanceKv(id);
+      if (nextB <= 0 && prevB && prevB.b > 5 && num(value && value.s) === 0) return;
+      upsertRows("balances", [{ profile_id: id, stars: nextB, spend: num(value && value.s), updated_at: now }]);
       return;
     }
     if (m[1] === "p") {
@@ -633,7 +641,13 @@ function kvPut(key, value, hex) {
         tables_max: num(value && value.m),
         updated_at: now,
       }]);
-      if (value && value.b != null) upsertRows("balances", [{ profile_id: id, stars: num(value.b), updated_at: now }]);
+      if (value && value.b != null) {
+        var nextP = num(value.b);
+        var prevP = balanceKv(id);
+        if (nextP > 0 || !prevP || prevP.b <= 0) {
+          upsertRows("balances", [{ profile_id: id, stars: nextP, updated_at: now }]);
+        }
+      }
       return;
     }
     if (m[1] === "h") {
@@ -800,7 +814,7 @@ function kvPull(id) {
   for (var j = 0; j < ((kinds && kinds.n) || 0); j++) keys["k" + j] = kvGet("k" + j);
   var ids = id ? [id] : PROFILES;
   ids.forEach(function (pid) {
-    ["b", "p", "h", "d", "y", "r", "a"].forEach(function (p) { keys[p + "_" + pid] = kvGet(p + "_" + pid); });
+    ["b", "p", "h", "d", "y", "r"].forEach(function (p) { keys[p + "_" + pid] = kvGet(p + "_" + pid); });
   });
   if (!id) {
     PROFILES.forEach(function (pid) { keys["b_" + pid] = kvGet("b_" + pid); });
@@ -808,11 +822,40 @@ function kvPull(id) {
   return keys;
 }
 
+function restoreKnownBalances_() {
+  var now = new Date().toISOString();
+  var known = {
+    misha: 42,
+    papa: 54,
+    mama: 1,
+    lika: 0,
+    lucy: 7,
+    rostik: 1,
+    paulina: 0,
+  };
+  var spend = { lucy: 5 };
+  var current = {};
+  readTable("balances").forEach(function (r) {
+    var pid = String(r.profile_id || r.profile || r.id || "");
+    if (pid) current[pid] = num(r.stars !== "" && r.stars != null ? r.stars : r.balance);
+  });
+  var rows = Object.keys(known).map(function (pid) {
+    var live = current[pid];
+    var stars = (live == null || live <= 0) && known[pid] > 0 ? known[pid] : (live == null ? known[pid] : live);
+    return { profile_id: pid, stars: stars, spend: spend[pid] || 0, updated_at: now };
+  });
+  writeAllRows("balances", rows);
+  return rows;
+}
+
 function handleAction(a, token, key, value, hex, id, keysCsv) {
-  ensureDb();
   if (!authOk(token)) return { ok: false, error: "token" };
-  a = a || "dump";
+  a = a || "get";
   if (a === "ping") return { ok: true, sheets: listSheetNames(), title: ss().getName() };
+  if (a === "repair") {
+    return { ok: true, balances: restoreKnownBalances_() };
+  }
+  ensureDb();
   if (a === "dump" || a === "opdump") return { ok: true, sheets: listSheetNames(), tables: readAll() };
   if (a === "get") return { ok: true, v: kvGet(key) };
   if (a === "getHex") return { ok: true, hex: kvGetHex(key) };
