@@ -1655,6 +1655,7 @@
     let cloudPushQueued = false;
     let suppressCloudPush = false;
     let localEarnDelta = 0;
+    let starsWriteAllowed = 0;
     let dayMissionKey = null;
     let appStarted = false;
     let customPhotos = {};
@@ -2578,8 +2579,13 @@
     function historyFromPurchases(list = coins.purchases) {
       return expandPurchases(list).map(purchaseHistoryEntry).filter(Boolean);
     }
+    function isMoneyEvent(entry) {
+      if (!entry) return false;
+      if (entry.kind === "adjust" || String(entry.id || "").startsWith("open-")) return false;
+      return true;
+    }
     function ledgerSum(list = coins.history) {
-      return (list || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      return (list || []).filter(isMoneyEvent).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     }
     function fillHistoryFromPurchases() {
       const generated = historyFromPurchases();
@@ -2593,11 +2599,13 @@
     function fillHistoryLedger() {
       const fromDays = fillHistoryFromDays();
       const fromBuys = fillHistoryFromPurchases();
-      coins.history = (coins.history || []).map((entry) => ({
-        ...entry,
-        dateKey: canonicalDateKey(entry.dateKey),
-        amount: Number(entry.amount) || 0,
-      }));
+      coins.history = (coins.history || [])
+        .filter(isMoneyEvent)
+        .map((entry) => ({
+          ...entry,
+          dateKey: canonicalDateKey(entry.dateKey),
+          amount: Number(entry.amount) || 0,
+        }));
       return fromDays || fromBuys;
     }
     function applyLedgerBalance() {
@@ -2995,13 +3003,19 @@
       }
       const remoteMeta = await fetchBalanceCloudMeta(claim.profileId);
       const nextB = (Number(remoteMeta.b) || 0) + claim.amount;
-      const okBal = await putKvRaw(cloudBalKey(claim.profileId), encodeBalanceCloud(nextB, remoteMeta.s));
+      starsWriteAllowed += 1;
+      let okBal = false;
+      try {
+        okBal = await putKvRaw(cloudBalKey(claim.profileId), encodeBalanceCloud(nextB, remoteMeta.s));
+      } finally {
+        starsWriteAllowed -= 1;
+      }
       if (!okBal) return false;
       writeRememberedBalance(nextB, claim.profileId);
       if (histRaw) {
         hist.unshift(claimHistoryEntry(claim));
         const histHex = encodeJsonHex(
-          { u: Date.now(), h: compactMiniHistory(hist) },
+          { u: Date.now(), h: cloudUsesSupabase() ? hist : compactMiniHistory(hist) },
           (obj) => { if (obj.h && obj.h.length) { obj.h.pop(); return true; } return false; },
           cloudHistKey(claim.profileId)
         );
@@ -3349,12 +3363,7 @@
       suppressCloudPush = true;
       try {
         coins = {
-          balance: mergeBalance(
-            coins.balance,
-            Number(remote.coins?.balance) || 0,
-            coins.purchases,
-            remote.coins?.purchases
-          ),
+          balance: 0,
           history: mergeHistory(coins.history, remote.coins?.history),
           purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
           claims: mergeClaims(coins.claims, remote.coins?.claims, profileId),
@@ -3589,12 +3598,10 @@
       if (!m) return true;
       const id = m[2];
       if (m[1] === "b") {
-        const nextB = Number(value?.b) || 0;
-        const prev = await sbSelect("balances", `profile_id=eq.${id}`);
-        const prevB = Number(prev[0]?.stars) || 0;
-        if (nextB <= 0 && prevB > 5 && !(Number(value?.s) || 0)) return true;
-        if (nextB > prevB && !(Number(value?.s) || 0) && localEarnDelta <= 0 && id === profileId) return true;
-        return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend: Number(value?.s) || 0, updated_at: new Date().toISOString() }]);
+        const spend = id === profileId ? purchaseSpend(coins.purchases) : (Number(value?.s) || 0);
+        const nextB = id === profileId ? ledgerSum() : (Number(value?.b) || 0);
+        if (id !== profileId && starsWriteAllowed <= 0) return true;
+        return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend, updated_at: new Date().toISOString() }]);
       }
       if (m[1] === "p") {
         return sbUpsert("profiles", [{
@@ -4014,38 +4021,18 @@
     async function fetchBalanceCloud(id = profileId) {
       return (await fetchBalanceCloudMeta(id)).b;
     }
-    function capUnexplainedRaise(localB, remoteB) {
-      const local = Math.max(0, Number(localB) || 0);
-      const remote = Math.max(0, Number(remoteB) || 0);
-      if (!remote || local <= remote) return local;
-      if (localEarnDelta > 0) return Math.min(local, remote + localEarnDelta);
-      return remote;
-    }
-    async function pushBalanceCloud(target) {
-      const n = Math.max(0, Number(target) || 0);
-      const remoteMeta = await fetchBalanceCloudMeta();
-      if (remoteMeta.missing) {
-        if (n > 0) await putKvRaw(cloudBalKey(), encodeBalanceCloud(n, purchaseSpend(coins.purchases)));
-        return n;
-      }
-      const remote = remoteMeta.b;
+    async function pushBalanceCloud() {
+      fillHistoryLedger();
+      applyLedgerBalance();
+      const n = ledgerSum();
       const spend = purchaseSpend(coins.purchases);
-      const merged = capUnexplainedRaise(
-        mergeDedicatedBalance(n, remote, coins.purchases || [], remoteMeta.s),
-        remote
-      );
-      if (merged > n && merged <= remote) return remote;
-      if (merged > n) return merged;
-      if (remote > merged && spend === 0) return remote;
-      const ok = await putKvRaw(cloudBalKey(), encodeBalanceCloud(merged, spend));
-      if (!ok) return spend > 0 ? merged : Math.max(remote, merged);
-      const written = await fetchBalanceCloud();
-      if (written > merged && spend > 0) {
-        forceRememberedBalance(merged);
-        return merged;
+      starsWriteAllowed += 1;
+      try {
+        await putKvRaw(cloudBalKey(), encodeBalanceCloud(n, spend));
+      } finally {
+        starsWriteAllowed -= 1;
       }
-      if (merged < n || merged < remote) forceRememberedBalance(merged);
-      return written || merged;
+      return n;
     }
     async function fetchProfileCloud() {
       const [coreRaw, histRaw, daysRaw, buyRaw, claimRaw] = await Promise.all([
@@ -4063,7 +4050,6 @@
       const balOnly = balMeta.b;
       if (!payload && balOnly) payload = fromCompactCloud({ u: Date.now(), b: balOnly, q: 20, m: 0 });
       if (!payload) return null;
-      if (balOnly > (payload.coins.balance || 0)) payload.coins.balance = balOnly;
       payload.balanceSpend = balMeta.s;
       if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
         payload.coins.history = mergeHistory(payload.coins.history, expandHistory(histRaw.h || histRaw.history));
@@ -4082,6 +4068,7 @@
         payload.coins.claims = mergeClaims(payload.coins.claims, expandClaims(claimRaw.r || claimRaw.claims, profileId), profileId);
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(claimRaw.u || claimRaw.updatedAt) || 0);
       }
+      payload.coins.balance = ledgerSum(payload.coins.history);
       return payload;
     }
     function mergeDayLists(local, remote) {
@@ -4391,41 +4378,15 @@
     }
     async function pullBalanceOnly() {
       if (!profileId) return;
-      const remoteMeta = await fetchBalanceCloudMeta();
-      const remoteB = remoteMeta.b;
-      const merged = capUnexplainedRaise(mergeDedicatedBalance(
-        coins.balance,
-        remoteB,
-        coins.purchases || [],
-        remoteMeta.s
-      ), remoteB);
-      if (merged < coins.balance || merged < remoteB) {
-        coins.balance = merged;
-        forceRememberedBalance(merged);
-        renderCoins();
-        if (merged < remoteB) {
-          profileDirty = true;
-          flushCloudNow();
-        }
-        return;
+      const histRaw = await fetchKvRaw(cloudHistKey());
+      if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
+        coins.history = mergeHistory(coins.history, expandHistory(histRaw.h || histRaw.history));
       }
-      const rememberedB = readRememberedBalance();
-      if (rememberedB > coins.balance && purchaseSpend(coins.purchases) > 0) {
-        forceRememberedBalance(coins.balance);
+      const buyRaw = await fetchKvRaw(cloudBuyKey());
+      if (buyRaw && (Array.isArray(buyRaw.y) || Array.isArray(buyRaw.purchases))) {
+        coins.purchases = mergePurchases(coins.purchases, expandPurchases(buyRaw.y || buyRaw.purchases));
       }
-      if (coins.balance > remoteB) {
-        writeRememberedBalance(coins.balance);
-        if (!profileDirty) {
-          profileDirty = true;
-          flushCloudNow();
-        }
-        return;
-      }
-      if (remoteB > coins.balance) {
-        coins.balance = remoteB;
-        writeRememberedBalance(remoteB);
-        renderCoins();
-      }
+      applyLedgerBalance();
     }
     async function onCloudNotify(data) {
       if (!data || data.c === CLIENT_ID) return;
@@ -4505,29 +4466,10 @@
           setSyncState(profileDirty ? "busy" : "ok");
           return false;
         }
-        const remoteB = Number(remote.coins?.balance) || 0;
-        const rememberedB = readRememberedBalance();
         replaceFromCloud(remote);
-        const merged = capUnexplainedRaise(mergeDedicatedBalance(
-          coins.balance,
-          remoteB,
-          coins.purchases || [],
-          Number(remote.balanceSpend) || 0
-        ), remoteB);
-        coins.balance = merged;
-        if (merged < rememberedB || merged < remoteB) {
-          forceRememberedBalance(merged);
-          profileDirty = true;
-          fillHistoryLedger();
-          applyLedgerBalance();
-          refreshAfterCloudApply();
-          flushCloudNow();
-          setSyncState("busy");
-          return true;
-        }
-        writeRememberedBalance(merged);
         fillHistoryLedger();
         applyLedgerBalance();
+        forceRememberedBalance(coins.balance);
         const unionC = unionOffsetCsv(remote.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         if (unionC !== String(remote.completedOffsets || "")) {
@@ -4612,47 +4554,21 @@
       setSyncState("busy");
       writePendingSnapshot();
       try {
-        for (let i = 0; i < 8; i += 1) {
+        for (let i = 0; i < 4; i += 1) {
           cloudPushQueued = false;
-          if (coins.balance < readRememberedBalance() && purchaseSpend(coins.purchases) > 0) {
-            forceRememberedBalance(coins.balance);
-          } else {
-            writeRememberedBalance(coins.balance);
-          }
-          const remoteBal = await pushBalanceCloud(coins.balance);
-          if (remoteBal > coins.balance) {
-            const adopted = mergeDedicatedBalance(
-              coins.balance,
-              remoteBal,
-              coins.purchases || [],
-              purchaseSpend(coins.purchases)
-            );
-            coins.balance = adopted;
-            if (adopted < remoteBal) forceRememberedBalance(adopted);
-            else writeRememberedBalance(adopted);
-            renderCoins();
-          }
-          if (remoteBal < coins.balance) {
-            if (purchaseSpend(coins.purchases) > 0) {
-              coins.balance = remoteBal;
-              forceRememberedBalance(remoteBal);
-              renderCoins();
-            } else {
-              await sleep(150 * (i + 1));
-              continue;
-            }
-          } else if (remoteBal < readRememberedBalance()) {
-            forceRememberedBalance(remoteBal);
-          }
+          fillHistoryLedger();
+          applyLedgerBalance();
+          forceRememberedBalance(coins.balance);
           const payload = buildCloudPayload();
           const core = toCompactCloud(payload);
-          core.b = coins.balance;
+          core.b = ledgerSum();
+          await pushHistoryAndDays(payload, core.u);
+          await pushBalanceCloud();
           await putKvRaw(cloudKvKey(), encodeJsonHex(core, null, cloudKvKey()));
           profileDirty = false;
           clearPendingSnapshot();
           setSyncState("ok");
           notifyCloud("bal", { id: profileId });
-          pushHistoryAndDays(payload, core.u);
           return true;
         }
         setSyncState("err");
@@ -4963,36 +4879,14 @@
         await pullFamilyClaims();
         const remote = await fetchProfileCloud();
         const pending = readPendingSnapshot();
-        const remoteB = Number(remote?.coins?.balance) || 0;
-        const rememberedB = readRememberedBalance();
         if (remote) replaceFromCloud(remote);
         applyRememberedLocalProfile();
         if (pending) applyPendingSnapshot(pending);
-        const merged = capUnexplainedRaise(mergeDedicatedBalance(
-          coins.balance,
-          remoteB,
-          coins.purchases || [],
-          Number(remote?.balanceSpend) || 0
-        ), remoteB);
-        if (merged !== coins.balance) {
-          const lowered = merged < coins.balance;
-          coins.balance = merged;
-          if (lowered) forceRememberedBalance(merged);
-          else writeRememberedBalance(merged);
-        } else if (merged < rememberedB) {
-          forceRememberedBalance(merged);
-        } else {
-          writeRememberedBalance(merged);
-        }
-        if (merged !== remoteB) {
-          profileDirty = true;
-          cloudMeta.updatedAt = Date.now();
-          writePendingSnapshot();
-        }
         coins.history = dedupeHistory(mergeHistory(coins.history, readRememberedHistory()));
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
+        forceRememberedBalance(coins.balance);
         const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         persistRememberedProgress();
@@ -5002,16 +4896,6 @@
           writePendingSnapshot();
         }
         await loadProfilePhoto(profileId);
-        const legacy = readLegacyDeviceProfile(profileId);
-        if (!remoteB && legacyRicherThanCloud(legacy, remote)) {
-          applyLegacyDeviceProfile(legacy);
-          fillHistoryLedger();
-          applyLedgerBalance();
-          renderCoins();
-          profileDirty = true;
-          cloudMeta.updatedAt = Date.now();
-          writePendingSnapshot();
-        }
         clearDeviceProfileData();
         renderCoins();
         if (profileDirty) await pushCloudSync();
@@ -5092,23 +4976,6 @@
           else writeRememberedBalance(coins.balance);
           if (!profileDirty) return;
           writePendingSnapshot();
-          try {
-            if (cloudUsesSupabase()) {
-              navigator.sendBeacon(`${CLOUD_SUPABASE_URL}/rest/v1/balances?on_conflict=profile_id`, new Blob([JSON.stringify([{
-                profile_id: profileId,
-                stars: coins.balance,
-                spend: purchaseSpend(coins.purchases),
-                updated_at: new Date().toISOString(),
-              }])], { type: "application/json" }));
-            } else {
-              navigator.sendBeacon(CLOUD_SHEETS_URL, new Blob([JSON.stringify({
-                t: CLOUD_SHEETS_TOKEN,
-                a: "put",
-                k: cloudBalKey(),
-                v: { b: coins.balance, s: purchaseSpend(coins.purchases) },
-              })], { type: "text/plain" }));
-            }
-          } catch { /* ignore */ }
         });
       }
     }
