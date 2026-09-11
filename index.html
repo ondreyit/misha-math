@@ -1954,7 +1954,7 @@
     function applyLegacyDeviceProfile(legacy) {
       if (!legacy) return;
       coins = {
-        balance: Math.max(coins.balance, legacy.coins.balance),
+        balance: mergeBalance(coins.balance, legacy.coins.balance, coins.purchases, legacy.coins.purchases),
         history: mergeHistory(coins.history, legacy.coins.history),
         purchases: mergePurchases(coins.purchases, legacy.coins.purchases),
         claims: mergeClaims(coins.claims, legacy.coins.claims, profileId),
@@ -2184,7 +2184,14 @@
       if (!pending) return;
       suppressCloudPush = true;
       try {
-        coins.balance = Math.max(Number(coins.balance) || 0, Number(pending.b) || 0);
+        const pendingB = Number(pending.b) || 0;
+        coins.balance = mergeBalance(
+          coins.balance,
+          pendingB,
+          coins.purchases,
+          pending.y || pending.purchases || []
+        );
+        if (pendingB < coins.balance) forceRememberedBalance(coins.balance);
         coins.history = mergeHistory(coins.history, pending.h || []);
         coins.purchases = mergePurchases(coins.purchases, pending.y || []);
         adoptClaims(pending.r || pending.claims || [], profileId);
@@ -2337,6 +2344,53 @@
       return [...map.values()]
         .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
         .slice(0, 40);
+    }
+    function purchaseSpend(list) {
+      return (list || []).reduce((sum, item) => sum + Math.max(0, Number(item.cost) || 0), 0);
+    }
+    function mergeBalance(localB, remoteB, localPurchases, remotePurchases) {
+      const localSpend = purchaseSpend(localPurchases);
+      const remoteSpend = purchaseSpend(remotePurchases);
+      const unionSpend = purchaseSpend(mergePurchases(localPurchases, remotePurchases));
+      const gross = Math.max(Number(localB) || 0, Number(remoteB) || 0) + Math.min(localSpend, remoteSpend);
+      return Math.max(0, gross - unionSpend);
+    }
+    function parseBalanceCloud(raw) {
+      if (typeof raw === "number" && Number.isFinite(raw)) return { b: raw, s: 0 };
+      if (raw && typeof raw === "object") {
+        return {
+          b: Number(raw.b) || 0,
+          s: Math.max(0, Number(raw.s) || 0),
+        };
+      }
+      return { b: 0, s: 0 };
+    }
+    function encodeBalanceCloud(b, s = 0) {
+      return bytesToHex(JSON.stringify({
+        b: Math.max(0, Number(b) || 0),
+        s: Math.max(0, Number(s) || 0),
+      }));
+    }
+    function purchasesCoveringSpend(list, spendHint) {
+      const hint = Math.max(0, Number(spendHint) || 0);
+      if (hint <= 0) return [];
+      const covered = [];
+      let acc = 0;
+      for (const item of (list || [])) {
+        if (acc >= hint) break;
+        covered.push(item);
+        acc += Math.max(0, Number(item.cost) || 0);
+      }
+      if (acc < hint) covered.push({ id: "__cloud_spend__", cost: hint - acc });
+      return covered;
+    }
+    function mergeDedicatedBalance(localB, remoteB, localPurchases, remoteSpendHint) {
+      return mergeBalance(
+        localB,
+        remoteB,
+        localPurchases,
+        purchasesCoveringSpend(localPurchases, remoteSpendHint)
+      );
     }
     function claimKindById(id) {
       return liveKinds().find((item) => item.id === id) || null;
@@ -2623,10 +2677,10 @@
         claim.paid = true;
         return false;
       }
-      const remoteB = await fetchBalanceCloud(claim.profileId);
+      const remoteMeta = await fetchBalanceCloudMeta(claim.profileId);
       const remembered = readRememberedBalance(claim.profileId);
-      const nextB = Math.max(remoteB, remembered) + claim.amount;
-      const okBal = await putKvRaw(cloudBalKey(claim.profileId), bytesToHex(String(nextB)));
+      const nextB = Math.max(remoteMeta.b, remembered) + claim.amount;
+      const okBal = await putKvRaw(cloudBalKey(claim.profileId), encodeBalanceCloud(nextB, remoteMeta.s));
       if (!okBal) return false;
       writeRememberedBalance(nextB, claim.profileId);
       hist.unshift(claimHistoryEntry(claim));
@@ -2959,7 +3013,12 @@
       suppressCloudPush = true;
       try {
         coins = {
-          balance: Number(remote.coins?.balance) || 0,
+          balance: mergeBalance(
+            coins.balance,
+            Number(remote.coins?.balance) || 0,
+            coins.purchases,
+            remote.coins?.purchases
+          ),
           history: mergeHistory(coins.history, remote.coins?.history),
           purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
           claims: mergeClaims(coins.claims, remote.coins?.claims, profileId),
@@ -3169,20 +3228,30 @@
         return false;
       }
     }
+    async function fetchBalanceCloudMeta(id = profileId) {
+      if (!id) return { b: 0, s: 0 };
+      return parseBalanceCloud(await fetchKvRaw(cloudBalKey(id)));
+    }
     async function fetchBalanceCloud(id = profileId) {
-      if (!id) return 0;
-      const raw = await fetchKvRaw(cloudBalKey(id));
-      if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-      if (raw && typeof raw === "object" && raw.b != null) return Number(raw.b) || 0;
-      return 0;
+      return (await fetchBalanceCloudMeta(id)).b;
     }
     async function pushBalanceCloud(target) {
       const n = Math.max(0, Number(target) || 0);
-      const remote = await fetchBalanceCloud();
-      if (remote > n) return remote;
-      const ok = await putKvRaw(cloudBalKey(), bytesToHex(String(n)));
-      if (!ok) return remote;
-      return await fetchBalanceCloud();
+      const remoteMeta = await fetchBalanceCloudMeta();
+      const remote = remoteMeta.b;
+      const spend = purchaseSpend(coins.purchases);
+      const merged = mergeDedicatedBalance(n, remote, coins.purchases || [], remoteMeta.s);
+      if (merged > n) return merged;
+      if (remote > merged && spend === 0) return remote;
+      const ok = await putKvRaw(cloudBalKey(), encodeBalanceCloud(merged, spend));
+      if (!ok) return spend > 0 ? merged : Math.max(remote, merged);
+      const written = await fetchBalanceCloud();
+      if (written > merged && spend > 0) {
+        forceRememberedBalance(merged);
+        return merged;
+      }
+      if (merged < n || merged < remote) forceRememberedBalance(merged);
+      return written || merged;
     }
     async function fetchProfileCloud() {
       const [coreRaw, histRaw, daysRaw, buyRaw, claimRaw] = await Promise.all([
@@ -3196,10 +3265,12 @@
       if (!payload && profileId === "misha") {
         payload = normalizeCloudPayload(await fetchKvRaw("family"));
       }
-      const balOnly = await fetchBalanceCloud();
+      const balMeta = await fetchBalanceCloudMeta();
+      const balOnly = balMeta.b;
       if (!payload && balOnly) payload = fromCompactCloud({ u: Date.now(), b: balOnly, q: 20, m: 0 });
       if (!payload) return null;
       if (balOnly > (payload.coins.balance || 0)) payload.coins.balance = balOnly;
+      payload.balanceSpend = balMeta.s;
       if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
         payload.coins.history = mergeHistory(payload.coins.history, expandHistory(histRaw.h || histRaw.history));
         payload.updatedAt = Math.max(payload.updatedAt || 0, Number(histRaw.u || histRaw.updatedAt) || 0);
@@ -3502,10 +3573,30 @@
     }
     async function pullBalanceOnly() {
       if (!profileId) return;
-      const remoteB = await fetchBalanceCloud();
-      const keep = Math.max(coins.balance, readRememberedBalance());
-      if (keep > remoteB) {
-        writeRememberedBalance(keep);
+      const remoteMeta = await fetchBalanceCloudMeta();
+      const remoteB = remoteMeta.b;
+      const merged = mergeDedicatedBalance(
+        coins.balance,
+        remoteB,
+        coins.purchases || [],
+        remoteMeta.s
+      );
+      if (merged < coins.balance || merged < remoteB) {
+        coins.balance = merged;
+        forceRememberedBalance(merged);
+        renderCoins();
+        if (merged < remoteB) {
+          profileDirty = true;
+          flushCloudNow();
+        }
+        return;
+      }
+      const rememberedB = readRememberedBalance();
+      if (rememberedB > coins.balance && purchaseSpend(coins.purchases) > 0) {
+        forceRememberedBalance(coins.balance);
+      }
+      if (coins.balance > remoteB) {
+        writeRememberedBalance(coins.balance);
         if (!profileDirty) {
           profileDirty = true;
           flushCloudNow();
@@ -3575,7 +3666,7 @@
     async function pullCloudSync() {
       if (!profileId || cloudSyncing) return false;
       const pending = readPendingSnapshot();
-      if (pending && (Number(pending.b) || 0) > coins.balance) {
+      if (pending) {
         applyPendingSnapshot(pending);
         profileDirty = true;
       }
@@ -3595,18 +3686,26 @@
           setSyncState(profileDirty ? "busy" : "ok");
           return false;
         }
-        const keep = Math.max(coins.balance, readRememberedBalance());
-        if (keep > (remote.coins?.balance || 0)) {
-          coins.balance = keep;
-          writeRememberedBalance(keep);
+        const remoteB = Number(remote.coins?.balance) || 0;
+        const rememberedB = readRememberedBalance();
+        replaceFromCloud(remote);
+        const merged = mergeDedicatedBalance(
+          coins.balance,
+          Math.max(remoteB, rememberedB),
+          coins.purchases || [],
+          Number(remote.balanceSpend) || 0
+        );
+        coins.balance = merged;
+        if (merged < rememberedB || merged < remoteB) {
+          forceRememberedBalance(merged);
           profileDirty = true;
+          fillHistoryFromDays();
+          refreshAfterCloudApply();
           flushCloudNow();
           setSyncState("busy");
-          return false;
+          return true;
         }
-        replaceFromCloud(remote);
-        coins.balance = Math.max(coins.balance, keep);
-        writeRememberedBalance(coins.balance);
+        writeRememberedBalance(merged);
         fillHistoryFromDays();
         refreshAfterCloudApply();
         setSyncState("ok");
@@ -3667,16 +3766,35 @@
       try {
         for (let i = 0; i < 8; i += 1) {
           cloudPushQueued = false;
-          writeRememberedBalance(coins.balance);
+          if (coins.balance < readRememberedBalance() && purchaseSpend(coins.purchases) > 0) {
+            forceRememberedBalance(coins.balance);
+          } else {
+            writeRememberedBalance(coins.balance);
+          }
           const remoteBal = await pushBalanceCloud(coins.balance);
           if (remoteBal > coins.balance) {
-            coins.balance = remoteBal;
-            writeRememberedBalance(remoteBal);
+            const adopted = mergeDedicatedBalance(
+              coins.balance,
+              remoteBal,
+              coins.purchases || [],
+              purchaseSpend(coins.purchases)
+            );
+            coins.balance = adopted;
+            if (adopted < remoteBal) forceRememberedBalance(adopted);
+            else writeRememberedBalance(adopted);
             renderCoins();
           }
           if (remoteBal < coins.balance) {
-            await sleep(150 * (i + 1));
-            continue;
+            if (purchaseSpend(coins.purchases) > 0) {
+              coins.balance = remoteBal;
+              forceRememberedBalance(remoteBal);
+              renderCoins();
+            } else {
+              await sleep(150 * (i + 1));
+              continue;
+            }
+          } else if (remoteBal < readRememberedBalance()) {
+            forceRememberedBalance(remoteBal);
           }
           const payload = buildCloudPayload();
           const core = toCompactCloud(payload);
@@ -4001,15 +4119,25 @@
         const remoteB = Number(remote?.coins?.balance) || 0;
         const pendingB = Number(pending?.b) || 0;
         const rememberedB = readRememberedBalance();
-        const bestB = Math.max(remoteB, pendingB, rememberedB);
         if (remote) replaceFromCloud(remote);
-        if (pending && pendingB > remoteB) applyPendingSnapshot(pending);
-        else if (pending && pendingB <= remoteB) clearPendingSnapshot();
-        if (bestB > coins.balance) {
-          coins.balance = bestB;
-          writeRememberedBalance(bestB);
+        if (pending) applyPendingSnapshot(pending);
+        const merged = mergeDedicatedBalance(
+          coins.balance,
+          Math.max(remoteB, pendingB, rememberedB),
+          coins.purchases || [],
+          Number(remote?.balanceSpend) || 0
+        );
+        if (merged !== coins.balance) {
+          const lowered = merged < coins.balance;
+          coins.balance = merged;
+          if (lowered) forceRememberedBalance(merged);
+          else writeRememberedBalance(merged);
+        } else if (merged < rememberedB) {
+          forceRememberedBalance(merged);
+        } else {
+          writeRememberedBalance(merged);
         }
-        if (bestB > remoteB) {
+        if (merged !== remoteB) {
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
           writePendingSnapshot();
@@ -4105,10 +4233,11 @@
         });
         window.addEventListener("pagehide", () => {
           if (!profileId) return;
-          writeRememberedBalance(coins.balance);
+          if (coins.balance < readRememberedBalance()) forceRememberedBalance(coins.balance);
+          else writeRememberedBalance(coins.balance);
           if (!profileDirty) return;
           writePendingSnapshot();
-          const hex = bytesToHex(String(coins.balance));
+          const hex = encodeBalanceCloud(coins.balance, purchaseSpend(coins.purchases));
           const url = `${CLOUD_KV_BASE}/UpdateValue/${CLOUD_KV_APP}/${cloudBalKey()}/${hex}`;
           try { navigator.sendBeacon(url); } catch { /* ignore */ }
         });
