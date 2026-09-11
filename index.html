@@ -169,7 +169,10 @@
       background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
     }
     .theme-switch button { padding: 0 8px; }
-    .sidebar-theme { margin-top: auto; align-self: flex-start; flex-shrink: 0; }
+    .theme-dock {
+      position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+      z-index: 45; box-shadow: var(--shadow);
+    }
     .coins {
       display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
       padding: 5px 12px 5px 7px; border-radius: 999px;
@@ -200,6 +203,7 @@
     .sidebar-nav {
       display: flex; flex-direction: column; gap: 6px; margin-top: 14px;
       flex: 1; min-height: 0; overflow-y: auto;
+      padding-bottom: 52px;
     }
     .nav-btn {
       display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
@@ -215,7 +219,7 @@
     .nav-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
     .main {
       margin-left: var(--sidebar-w); flex: 1; min-width: 0;
-      padding: 20px 18px calc(28px + env(safe-area-inset-bottom));
+      padding: 20px 18px calc(56px + env(safe-area-inset-bottom));
       overflow-y: auto; max-height: 100vh;
     }
     .main-inner { max-width: 520px; margin: 0 auto; }
@@ -627,8 +631,7 @@
       text-decoration: underline; white-space: nowrap;
     }
     .admin-link.danger { color: var(--bad); }
-    #adminAddPrizeBtn { margin-top: 12px; }
-    #adminClaimKinds { margin-top: 12px; }
+    #adminAddPrizeBtn, #adminAddKindBtn { margin-top: 12px; }
     #adminSaveBtn { margin-top: 8px; }
     .prize-form-actions { display: grid; gap: 8px; margin-top: 8px; }
     .prize-form-actions .btn + .btn { margin-top: 0; }
@@ -678,10 +681,7 @@
       .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
       .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
       .sidebar-controls { flex: 1; justify-content: flex-end; }
-      .sidebar-theme {
-        position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-        margin-top: 0; z-index: 40; box-shadow: var(--shadow);
-      }
+      .sidebar-nav { padding-bottom: 2px; }
       .theme-switch button { padding: 0 7px; font-size: 11px; }
       .hero-bubble { padding: 8px 10px; min-height: 64px; }
       .hero-text { font-size: 12px; min-height: calc(1.35em * 2); -webkit-line-clamp: 2; }
@@ -740,6 +740,18 @@
       <div class="prize-form-actions">
         <button class="btn btn-accent" id="adminSavePrizeBtn" type="button" data-i18n="adminSavePrize">Save prize</button>
         <button class="btn btn-ghost" id="adminCancelPrizeBtn" type="button" data-i18n="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal hidden" id="kindModal">
+    <div class="modal-card">
+      <div class="label" id="adminKindFormTitle">Add request type</div>
+      <input id="kindTitleRu" type="text" placeholder="RU" data-i18n-placeholder="kindTitleRuPh" />
+      <input id="kindTitleEn" type="text" placeholder="EN" data-i18n-placeholder="kindTitleEnPh" />
+      <input id="kindAmount" type="number" min="1" max="9999" step="1" placeholder="Stars" data-i18n-placeholder="kindAmountPh" />
+      <div class="prize-form-actions">
+        <button class="btn btn-accent" id="adminSaveKindBtn" type="button" data-i18n="adminSaveKind">Save type</button>
+        <button class="btn btn-ghost" id="adminCancelKindBtn" type="button" data-i18n="cancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -860,11 +872,6 @@
         <button class="nav-btn" data-view="guide" type="button"><span class="nav-icon">📖</span><span data-i18n="navGuide">Reward guide</span></button>
         <button class="nav-btn" data-view="history" type="button"><span class="nav-icon">★</span><span data-i18n="navHistory">History</span></button>
       </nav>
-      <div class="lang-switch theme-switch sidebar-theme" role="group" aria-label="Theme">
-        <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
-        <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
-        <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
-      </div>
     </aside>
     <main class="main" id="mainContent">
       <div class="main-inner">
@@ -1042,7 +1049,9 @@
           <div class="card admin-pane hidden" id="adminPaneKinds" data-pane="kinds">
             <span class="label" data-i18n="adminKindsTitle">Типы заявок</span>
             <p class="note" data-i18n="adminKindsHint">Справочник типов заявок из «Еще мишкоинов».</p>
-            <div class="guide-list" id="adminClaimKinds"></div>
+            <div class="admin-prize-list" id="adminKindsList"></div>
+            <p class="admin-flash" id="adminKindsStatus"></p>
+            <button class="btn btn-accent btn-sm" id="adminAddKindBtn" type="button" data-i18n="adminAddKindBtn">Добавить</button>
           </div>
           <div class="card admin-pane hidden" id="adminPaneClaims" data-pane="claims">
             <span class="label" data-i18n="adminClaimsTitle">Mishcoin requests</span>
@@ -1058,6 +1067,11 @@
         </section>
       </div>
     </main>
+  </div>
+  <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
+    <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
+    <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
+    <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
@@ -1076,6 +1090,8 @@
     const CLOUD_META_KEY_BASE = "misha-cloud-meta-v1";
     const CATALOG_KEY = "misha-prize-catalog-v1";
     const CATALOG_PENDING_KEY = "misha-catalog-pending-v1";
+    const KINDS_KEY = "misha-claim-kinds-v1";
+    const KINDS_PENDING_KEY = "misha-kinds-pending-v1";
     const FAMILY_CLAIMS_KEY = "misha-family-claims-v1";
     const LANG_KEY = "misha-lang-v1";
     const THEME_KEY = "misha-theme-pref-v1";
@@ -1088,13 +1104,13 @@
     const TABLE_MAX = 12;
     const FACTOR_MAX = 12;
     const POOL_VERSION = 8;
-    const CLAIM_KINDS = [
-      { id: "morning", amount: 4 },
-      { id: "morningOnTime", amount: 6 },
-      { id: "day", amount: 4 },
-      { id: "dayOnTime", amount: 6 },
-      { id: "evening", amount: 4 },
-      { id: "eveningOnTime", amount: 6 },
+    const DEFAULT_CLAIM_KINDS = [
+      { id: "morning", titleRu: "Утренний график", titleEn: "Morning schedule", amount: 4 },
+      { id: "morningOnTime", titleRu: "Утренний график вовремя", titleEn: "Morning schedule on time", amount: 6 },
+      { id: "day", titleRu: "Дневной график", titleEn: "Daytime schedule", amount: 4 },
+      { id: "dayOnTime", titleRu: "Дневной график вовремя", titleEn: "Daytime schedule on time", amount: 6 },
+      { id: "evening", titleRu: "Вечерний график", titleEn: "Evening schedule", amount: 4 },
+      { id: "eveningOnTime", titleRu: "Вечерний график вовремя", titleEn: "Evening schedule on time", amount: 6 },
     ];
     const MAIN_NAV = ["home", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
@@ -1181,6 +1197,15 @@
         adminEditPrize: "Редактировать",
         adminEditPrizeTitle: "Редактировать приз",
         adminSavePrize: "Сохранить награду",
+        adminAddKind: "Добавить тип",
+        adminAddKindBtn: "Добавить",
+        adminEditKind: "Редактировать",
+        adminEditKindTitle: "Редактировать тип",
+        adminSaveKind: "Сохранить тип",
+        kindColName: "Название",
+        kindColCost: "Звёзды",
+        kindTitleRuPh: "Название (RU)", kindTitleEnPh: "Title (EN)", kindAmountPh: "Звёзды",
+        kindsEmpty: "Пока нет типов заявок. Нажми «Добавить».",
         prizeColName: "Название",
         prizeColCost: "Сумма",
         prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
@@ -1193,6 +1218,10 @@
         prizeAdded: "Награда добавлена в каталог",
         prizeUpdated: "Награда сохранена",
         prizeRemoved: "Награда удалена",
+        kindsSaved: "Типы заявок сохранены",
+        kindAdded: "Тип заявки добавлен",
+        kindUpdated: "Тип заявки сохранён",
+        kindRemoved: "Тип заявки удалён",
         dataSaved: "Данные сохранены",
         dataSavedHint: "Всё записано. Можно продолжать!",
         streak: (n) => `Серия дней: ${n}`,
@@ -1385,6 +1414,15 @@
         adminEditPrize: "Edit",
         adminEditPrizeTitle: "Edit prize",
         adminSavePrize: "Save prize",
+        adminAddKind: "Add type",
+        adminAddKindBtn: "Add",
+        adminEditKind: "Edit",
+        adminEditKindTitle: "Edit type",
+        adminSaveKind: "Save type",
+        kindColName: "Name",
+        kindColCost: "Stars",
+        kindTitleRuPh: "Title (RU)", kindTitleEnPh: "Title (EN)", kindAmountPh: "Stars",
+        kindsEmpty: "No request types yet. Tap Add.",
         prizeColName: "Name",
         prizeColCost: "Cost",
         prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
@@ -1397,6 +1435,10 @@
         prizeAdded: "Prize added to the catalog",
         prizeUpdated: "Prize saved",
         prizeRemoved: "Prize deleted",
+        kindsSaved: "Request types saved",
+        kindAdded: "Request type added",
+        kindUpdated: "Request type saved",
+        kindRemoved: "Request type deleted",
         dataSaved: "Data saved",
         dataSavedHint: "Everything is stored. You can continue!",
         streak: (n) => `Day streak: ${n}`,
@@ -1534,6 +1576,7 @@
     let profileId = null;
     let settings = { questionCount: 20, tablesMax: 0, wishlist: [] };
     let catalog = { updatedAt: 0, prizes: [] };
+    let claimKinds = { updatedAt: 0, kinds: DEFAULT_CLAIM_KINDS.map((k) => ({ ...k })), archive: [] };
     let state = null;
     let busy = false;
     let coins = { balance: 0, history: [], purchases: [], claims: [] };
@@ -1548,6 +1591,8 @@
     let cloudPushTimer = null;
     let catalogPushTimer = null;
     let catalogDirty = false;
+    let kindsPushTimer = null;
+    let kindsDirty = false;
     let familyClaims = [];
     let familyClaimsUpdatedAt = 0;
     let familyClaimsDirty = false;
@@ -1558,9 +1603,12 @@
     let earnApprovedOnly = false;
     let pendingReject = null;
     let adminEditingPrizeId = null;
+    let adminEditingKindId = null;
     let adminTab = "general";
     let catalogPushing = false;
     let catalogPushQueued = false;
+    let kindsPushing = false;
+    let kindsPushQueued = false;
     let cloudSyncing = false;
     let cloudPushing = false;
     let cloudPushQueued = false;
@@ -1846,6 +1894,13 @@
       writePendingCatalog();
       scheduleCatalogPush();
     }
+    function saveClaimKinds() {
+      claimKinds.updatedAt = Date.now();
+      kindsDirty = true;
+      writeLocalKinds();
+      writePendingKinds();
+      scheduleKindsPush();
+    }
     function resetProfileMemory() {
       settings = emptySettings();
       coins = emptyCoins();
@@ -1920,7 +1975,7 @@
       });
     }
     function clearDeviceProfileData() {
-      const keys = [CATALOG_KEY, PROFILE_KEY, STORAGE_KEY_BASE, SETTINGS_KEY_BASE, COINS_KEY_BASE, CLOUD_META_KEY_BASE];
+      const keys = [CATALOG_KEY, KINDS_KEY, KINDS_PENDING_KEY, PROFILE_KEY, STORAGE_KEY_BASE, SETTINGS_KEY_BASE, COINS_KEY_BASE, CLOUD_META_KEY_BASE];
       PROFILES.forEach((p) => {
         keys.push(`${STORAGE_KEY_BASE}:${p.id}`, `${SETTINGS_KEY_BASE}:${p.id}`, `${COINS_KEY_BASE}:${p.id}`, `${CLOUD_META_KEY_BASE}:${p.id}`);
       });
@@ -1968,6 +2023,102 @@
       if (pendingAt > (catalog.updatedAt || 0) || prizes.length > (catalog.prizes || []).length) {
         catalog = { updatedAt: pendingAt, prizes };
         catalogDirty = true;
+        return true;
+      }
+      return false;
+    }
+    function seedClaimKinds() {
+      return DEFAULT_CLAIM_KINDS.map((k) => ({ ...k }));
+    }
+    function liveKinds() {
+      return Array.isArray(claimKinds.kinds) ? claimKinds.kinds : [];
+    }
+    function archivedKinds() {
+      return Array.isArray(claimKinds.archive) ? claimKinds.archive : [];
+    }
+    function normalizeClaimKinds(list) {
+      return (Array.isArray(list) ? list : []).map((k) => {
+        if (Array.isArray(k)) {
+          return {
+            id: k[0],
+            titleRu: k[1] || "",
+            titleEn: k[2] || "",
+            amount: Number(k[3]) || 1,
+          };
+        }
+        return {
+          id: k.id || k.i,
+          titleRu: k.titleRu || k.r || "",
+          titleEn: k.titleEn || k.e || "",
+          amount: Number(k.amount ?? k.a ?? k.c) || 1,
+        };
+      }).filter((k) => k.id && (k.titleRu || k.titleEn));
+    }
+    function writeLocalKinds() {
+      try {
+        localStorage.setItem(KINDS_KEY, JSON.stringify({
+          u: claimKinds.updatedAt || 0,
+          kinds: claimKinds.kinds || [],
+          archive: claimKinds.archive || [],
+        }));
+      } catch { /* ignore */ }
+    }
+    function readLocalKinds() {
+      try { return JSON.parse(localStorage.getItem(KINDS_KEY) || "null"); }
+      catch { return null; }
+    }
+    function writePendingKinds() {
+      try {
+        localStorage.setItem(KINDS_PENDING_KEY, JSON.stringify({
+          u: claimKinds.updatedAt || Date.now(),
+          kinds: claimKinds.kinds || [],
+          archive: claimKinds.archive || [],
+        }));
+      } catch { /* ignore */ }
+    }
+    function readPendingKinds() {
+      try { return JSON.parse(localStorage.getItem(KINDS_PENDING_KEY) || "null"); }
+      catch { return null; }
+    }
+    function clearPendingKinds() {
+      try { localStorage.removeItem(KINDS_PENDING_KEY); } catch { /* ignore */ }
+    }
+    function applyKindsPayload(raw, markDirty = false) {
+      if (!raw || typeof raw !== "object") return false;
+      const kinds = normalizeClaimKinds(raw.kinds || raw.k || raw.p);
+      const archive = normalizeClaimKinds(raw.archive || raw.x || raw.a);
+      const updatedAt = Number(raw.u || raw.updatedAt) || 0;
+      if (!kinds.length && !archive.length && !updatedAt) return false;
+      claimKinds = {
+        updatedAt: updatedAt || Date.now(),
+        kinds: kinds.length ? kinds : (updatedAt ? [] : seedClaimKinds()),
+        archive,
+      };
+      if (markDirty) kindsDirty = true;
+      writeLocalKinds();
+      return true;
+    }
+    function applyStoredKinds() {
+      const pending = readPendingKinds();
+      const local = readLocalKinds();
+      const pendingAt = Number(pending?.u || pending?.updatedAt) || 0;
+      const localAt = Number(local?.u || local?.updatedAt) || 0;
+      if (pending && pendingAt >= localAt && applyKindsPayload(pending, pendingAt > (claimKinds.updatedAt || 0))) {
+        return true;
+      }
+      if (local && localAt > (claimKinds.updatedAt || 0)) {
+        return applyKindsPayload(local);
+      }
+      return false;
+    }
+    function applyPendingKinds() {
+      const pending = readPendingKinds();
+      const pendingAt = Number(pending?.u || pending?.updatedAt) || 0;
+      if (!pending || pendingAt < (claimKinds.updatedAt || 0)) return false;
+      const kinds = normalizeClaimKinds(pending.kinds || pending.k || pending.p);
+      if (!kinds.length && !(claimKinds.kinds || []).length) return false;
+      if (pendingAt > (claimKinds.updatedAt || 0) || kinds.length > (claimKinds.kinds || []).length) {
+        applyKindsPayload(pending, true);
         return true;
       }
       return false;
@@ -2182,21 +2333,67 @@
         .slice(0, 40);
     }
     function claimKindById(id) {
-      return CLAIM_KINDS.find((item) => item.id === id) || null;
+      return liveKinds().find((item) => item.id === id) || null;
     }
-    function claimTitle(kind) {
-      return t(`claimKind_${kind}`) || kind;
+    function knownKindById(id) {
+      if (!id && id !== 0) return null;
+      return claimKindById(id)
+        || archivedKinds().find((item) => item.id === id)
+        || DEFAULT_CLAIM_KINDS.find((item) => item.id === id)
+        || null;
+    }
+    function expandKindRef(raw) {
+      if (typeof raw === "string" && raw && !/^\d+$/.test(raw)) return raw;
+      const idx = Number(raw);
+      if (Number.isFinite(idx) && DEFAULT_CLAIM_KINDS[idx]) return DEFAULT_CLAIM_KINDS[idx].id;
+      if (typeof raw === "string" && raw) return raw;
+      return "";
+    }
+    function compactKindRef(kindId) {
+      const idx = DEFAULT_CLAIM_KINDS.findIndex((k) => k.id === kindId);
+      return idx >= 0 ? idx : String(kindId || "");
+    }
+    function kindDisplayTitle(kind) {
+      if (!kind) return "";
+      const ru = kind.titleRu || "";
+      const en = kind.titleEn || "";
+      return (lang === "en" ? (en || ru) : (ru || en)) || t(`claimKind_${kind.id}`) || kind.id;
+    }
+    function claimTitle(kindOrClaim) {
+      if (kindOrClaim && typeof kindOrClaim === "object") {
+        const snap = lang === "en"
+          ? (kindOrClaim.titleEn || kindOrClaim.titleRu)
+          : (kindOrClaim.titleRu || kindOrClaim.titleEn);
+        if (snap) return snap;
+        return claimTitle(kindOrClaim.kind || kindOrClaim.id);
+      }
+      const id = expandKindRef(kindOrClaim);
+      const known = knownKindById(id);
+      if (known) return kindDisplayTitle(known);
+      return t(`claimKind_${id}`) || id || String(kindOrClaim || "");
+    }
+    function stampClaimKind(claim, kind) {
+      if (!claim || !kind) return claim;
+      claim.kind = kind.id;
+      claim.amount = kind.amount;
+      claim.titleRu = kind.titleRu || "";
+      claim.titleEn = kind.titleEn || "";
+      return claim;
     }
     function normalizeClaim(raw) {
       if (!raw || typeof raw !== "object") return null;
-      const kind = claimKindById(raw.kind) || CLAIM_KINDS[Number(raw.kind)] || null;
-      if (!kind) return null;
+      const kindId = expandKindRef(raw.kind);
+      const known = knownKindById(kindId);
+      if (!raw.id && !kindId && !known) return null;
       const status = ["new", "approved", "rejected"].includes(raw.status) ? raw.status : "new";
+      const amount = Number(raw.amount);
       return {
         id: raw.id || uid(),
         profileId: raw.profileId || "",
-        kind: kind.id,
-        amount: kind.amount,
+        kind: kindId || known?.id || "",
+        amount: Number.isFinite(amount) && amount > 0 ? amount : (known?.amount || 0),
+        titleRu: String(raw.titleRu || raw.r || known?.titleRu || "").trim().slice(0, 80),
+        titleEn: String(raw.titleEn || raw.e || known?.titleEn || "").trim().slice(0, 80),
         status,
         createdAt: raw.createdAt || new Date().toISOString(),
         decidedAt: raw.decidedAt || null,
@@ -2209,7 +2406,7 @@
       return (list || []).slice(0, 30).map((c) => ([
         c.id,
         Math.max(0, PROFILES.findIndex((p) => p.id === c.profileId)),
-        Math.max(0, CLAIM_KINDS.findIndex((k) => k.id === c.kind)),
+        compactKindRef(c.kind),
         statusIdx[c.status] ?? 0,
         toUnix(c.createdAt),
         toUnix(c.decidedAt),
@@ -2228,19 +2425,21 @@
         return normalizeClaim({
           id: row[0],
           profileId: PROFILES[row[1]]?.id || fallbackProfile,
-          kind: (CLAIM_KINDS[row[2]] || CLAIM_KINDS[0]).id,
+          kind: expandKindRef(row[2]) || DEFAULT_CLAIM_KINDS[0].id,
           status: ["new", "approved", "rejected"][row[3]] || "new",
           createdAt: fromUnix(row[4]),
           decidedAt: fromUnix(row[5]) || null,
           paid: !!row[6],
           reason: row[7] || "",
+          titleRu: row[8] || "",
+          titleEn: row[9] || "",
+          amount: row[10],
         });
       }
-      const kind = CLAIM_KINDS[row[1]] || CLAIM_KINDS[0];
       return normalizeClaim({
         id: row[0],
         profileId: fallbackProfile,
-        kind: kind.id,
+        kind: expandKindRef(row[1]) || DEFAULT_CLAIM_KINDS[0].id,
         status: ["new", "approved", "rejected"][row[2]] || "new",
         createdAt: fromUnix(row[3]),
         decidedAt: fromUnix(row[4]) || null,
@@ -2376,8 +2575,8 @@
         amount: claim.amount,
         parts: [{
           k: "claim",
-          r: I18N.ru[`claimKind_${claim.kind}`] || claim.kind,
-          e: I18N.en[`claimKind_${claim.kind}`] || claim.kind,
+          r: claim.titleRu || I18N.ru[`claimKind_${claim.kind}`] || knownKindById(claim.kind)?.titleRu || claim.kind,
+          e: claim.titleEn || I18N.en[`claimKind_${claim.kind}`] || knownKindById(claim.kind)?.titleEn || claim.kind,
           amount: claim.amount,
         }],
       };
@@ -3142,6 +3341,151 @@
       window.clearTimeout(catalogPushTimer);
       pushCatalogSync();
     }
+    function refreshKindsViews() {
+      if (currentView === "admin") renderAdminKinds();
+      if (currentView === "earn") renderEarn();
+      const claimModal = document.getElementById("claimModal");
+      if (claimModal && !claimModal.classList.contains("hidden")) renderClaimKindButtons();
+    }
+    async function fetchKindsCloud() {
+      const remote = await fetchKvRaw("kinds");
+      const fromK = normalizeClaimKinds(remote?.k || remote?.kinds || remote?.p);
+      const fromX = normalizeClaimKinds(remote?.x || remote?.archive || remote?.a);
+      const declared = Number(remote?.n);
+      const archivedN = Number(remote?.xn);
+      const scan = Number.isFinite(declared) && declared >= 0 ? declared : (fromK.length || 8);
+      const xScan = Number.isFinite(archivedN) && archivedN >= 0 ? archivedN : fromX.length;
+      const [rows, xrows] = await Promise.all([
+        Promise.all(Array.from({ length: scan }, (_, i) => fetchKvRaw(`k${i}`))),
+        Promise.all(Array.from({ length: xScan }, (_, i) => fetchKvRaw(`x${i}`))),
+      ]);
+      const readChunk = (row, extraKeys) => {
+        if (row == null) return null;
+        const list = Array.isArray(row) ? [row] : extraKeys(row);
+        return normalizeClaimKinds(list)[0] || null;
+      };
+      const chunked = rows.map((row) => readChunk(row, (r) => r.k || r.p || [r])).filter(Boolean);
+      const xchunked = xrows.map((row) => readChunk(row, (r) => r.x || r.k || r.p || [r])).filter(Boolean);
+      const map = new Map();
+      [...chunked, ...fromK].forEach((kind) => {
+        if (kind?.id && !map.has(kind.id)) map.set(kind.id, kind);
+      });
+      const archiveMap = new Map();
+      [...xchunked, ...fromX].forEach((kind) => {
+        if (kind?.id && !map.has(kind.id) && !archiveMap.has(kind.id)) archiveMap.set(kind.id, kind);
+      });
+      const kinds = [...map.values()];
+      const archive = [...archiveMap.values()];
+      if (!kinds.length && !archive.length) {
+        return remote ? { updatedAt: Number(remote.u || remote.updatedAt) || 0, kinds: [], archive } : null;
+      }
+      return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), kinds, archive };
+    }
+    async function pullKindsSync() {
+      applyPendingKinds();
+      if (kindsDirty) {
+        scheduleKindsPush();
+        return;
+      }
+      const remote = await fetchKindsCloud();
+      if (!remote) {
+        if ((claimKinds.kinds || []).length) {
+          kindsDirty = true;
+          scheduleKindsPush();
+        }
+        return;
+      }
+      if ((claimKinds.updatedAt || 0) > remote.updatedAt) {
+        kindsDirty = true;
+        scheduleKindsPush();
+        return;
+      }
+      if (!remote.kinds.length && !remote.updatedAt) {
+        kindsDirty = true;
+        scheduleKindsPush();
+        return;
+      }
+      claimKinds = {
+        updatedAt: remote.updatedAt || Date.now(),
+        kinds: remote.kinds,
+        archive: remote.archive || [],
+      };
+      clearPendingKinds();
+      writeLocalKinds();
+      refreshKindsViews();
+    }
+    async function pushKindsSync() {
+      if (kindsPushing) {
+        kindsPushQueued = true;
+        return false;
+      }
+      kindsPushing = true;
+      writePendingKinds();
+      writeLocalKinds();
+      try {
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const kinds = (claimKinds.kinds || []).slice(0, 16);
+          const archive = (claimKinds.archive || []).slice(0, 16);
+          let wroteAll = true;
+          const writeKindRow = async (item, key) => {
+            const row = [item.id, item.titleRu, item.titleEn, item.amount];
+            let hex = bytesToHex(JSON.stringify(row));
+            while (hex.length > cloudHexBudget(key) && (String(row[1]).length > 1 || String(row[2]).length > 1)) {
+              if (String(row[1]).length >= String(row[2]).length) row[1] = String(row[1]).slice(0, -1);
+              else row[2] = String(row[2]).slice(0, -1);
+              hex = bytesToHex(JSON.stringify(row));
+            }
+            return putKvRaw(key, hex);
+          };
+          for (let i = 0; i < kinds.length; i += 1) {
+            if (!await writeKindRow(kinds[i], `k${i}`)) { wroteAll = false; break; }
+          }
+          if (wroteAll) {
+            for (let i = 0; i < archive.length; i += 1) {
+              if (!await writeKindRow(archive[i], `x${i}`)) { wroteAll = false; break; }
+            }
+          }
+          if (!wroteAll) { await sleep(150 * (attempt + 1)); continue; }
+          const compact = {
+            u: claimKinds.updatedAt || Date.now(),
+            n: kinds.length,
+            xn: archive.length,
+            k: kinds.map((k) => [k.id, k.titleRu, k.titleEn, k.amount]),
+            x: archive.map((k) => [k.id, k.titleRu, k.titleEn, k.amount]),
+          };
+          let json = JSON.stringify(compact);
+          let hex = bytesToHex(json);
+          while (hex.length > cloudHexBudget("kinds") && (compact.k.length || compact.x.length)) {
+            if (compact.x.length) compact.x.pop();
+            else compact.k.pop();
+            json = JSON.stringify(compact);
+            hex = bytesToHex(json);
+          }
+          if (!await putKvRaw("kinds", hex)) { await sleep(150 * (attempt + 1)); continue; }
+          const check = await fetchKindsCloud();
+          const remoteIds = new Set((check?.kinds || []).map((k) => k.id));
+          if (kinds.some((k) => !remoteIds.has(k.id))) { await sleep(150 * (attempt + 1)); continue; }
+          kindsDirty = false;
+          clearPendingKinds();
+          writeLocalKinds();
+          notifyCloud("kinds");
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        kindsPushing = false;
+        if (kindsPushQueued) {
+          kindsPushQueued = false;
+          pushKindsSync();
+        }
+      }
+    }
+    function scheduleKindsPush() {
+      window.clearTimeout(kindsPushTimer);
+      pushKindsSync();
+    }
     async function notifyCloud(kind, extra = {}) {
       try {
         await fetch(CLOUD_NOTIFY_URL, {
@@ -3177,6 +3521,10 @@
       }
       if (data.k === "catalog") {
         await pullCatalogSync();
+        return;
+      }
+      if (data.k === "kinds") {
+        await pullKindsSync();
         return;
       }
       if (data.k === "photo") {
@@ -3234,6 +3582,7 @@
       setSyncState("busy");
       try {
         await pullCatalogSync();
+        await pullKindsSync();
         await pullFamilyClaims();
         const remote = await fetchProfileCloud();
         if (!remote) {
@@ -3639,6 +3988,7 @@
       setSyncState("busy");
       try {
         await pullCatalogSync();
+        await pullKindsSync();
         await pullFamilyClaims();
         const remote = await fetchProfileCloud();
         const pending = readPendingSnapshot();
@@ -3787,6 +4137,9 @@
       }
       if (currentView === "earn") renderEarn();
       if (currentView === "admin") setAdminTab(adminTab);
+      syncPrizeFormChrome();
+      syncKindFormChrome();
+      refreshKindsViews();
       renderWeekdays();
     }
 
@@ -4015,7 +4368,7 @@
       return `<${withPick ? "label" : "div"} class="admin-claim-row${withPick ? "" : " plain"}">
         ${withPick ? `<input class="claim-pick" type="checkbox" data-id="${escapeHtml(claim.id)}" />` : ""}
         <div>
-          <div class="claim-title">${escapeHtml(claimOwnerName(claim))} · ${escapeHtml(claimTitle(claim.kind))}</div>
+          <div class="claim-title">${escapeHtml(claimOwnerName(claim))} · ${escapeHtml(claimTitle(claim))}</div>
           <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
         </div>
         <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
@@ -4075,7 +4428,7 @@
       box.innerHTML = `<div class="claim-list">${claims.map((claim) => `
         <div class="claim-row ${claim.status}">
           <div>
-            <div class="claim-title">${escapeHtml(claimTitle(claim.kind))}</div>
+            <div class="claim-title">${escapeHtml(claimTitle(claim))}</div>
             <div class="claim-meta">${claim.amount} ${COIN_SYMBOL} · ${formatHistoryDate(claim.decidedAt || claim.createdAt)}${escapeHtml(claimReasonLine(claim))}</div>
           </div>
           <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
@@ -4091,17 +4444,24 @@
         btn.addEventListener("click", () => deleteClaim(btn.getAttribute("data-id")));
       });
     }
-    function openClaimModal(claimId = null) {
-      editingClaimId = claimId || null;
+    function renderClaimKindButtons() {
       const list = document.getElementById("claimKindList");
-      list.innerHTML = CLAIM_KINDS.map((kind) => `
-        <button class="claim-kind" type="button" data-kind="${kind.id}">
-          <strong>${escapeHtml(claimTitle(kind.id))}</strong>
+      if (!list) return;
+      const kinds = liveKinds();
+      list.innerHTML = kinds.length
+        ? kinds.map((kind) => `
+        <button class="claim-kind" type="button" data-kind="${escapeHtml(kind.id)}">
+          <strong>${escapeHtml(claimTitle(kind))}</strong>
           <span>+${kind.amount} ${COIN_SYMBOL}</span>
-        </button>`).join("");
+        </button>`).join("")
+        : `<p class="note">${t("kindsEmpty")}</p>`;
       list.querySelectorAll(".claim-kind").forEach((btn) => {
         btn.addEventListener("click", () => submitClaimKind(btn.getAttribute("data-kind")));
       });
+    }
+    function openClaimModal(claimId = null) {
+      editingClaimId = claimId || null;
+      renderClaimKindButtons();
       document.getElementById("claimModal").classList.remove("hidden");
     }
     function closeClaimModal() {
@@ -4114,8 +4474,7 @@
       if (editingClaimId) {
         const claim = familyClaims.find((item) => item.id === editingClaimId && item.profileId === profileId);
         if (!claim || claim.status !== "new") return;
-        claim.kind = kind.id;
-        claim.amount = kind.amount;
+        stampClaimKind(claim, kind);
         saveFamilyClaims();
         markProfileDirty();
         closeClaimModal();
@@ -4124,16 +4483,14 @@
         return;
       }
       earnTab = "pending";
-      familyClaims.unshift({
+      familyClaims.unshift(stampClaimKind({
         id: uid(),
         profileId,
-        kind: kind.id,
-        amount: kind.amount,
         status: "new",
         createdAt: new Date().toISOString(),
         decidedAt: null,
         paid: false,
-      });
+      }, kind));
       if (familyClaims.length > 60) familyClaims.length = 60;
       saveFamilyClaims();
       markProfileDirty();
@@ -4699,6 +5056,7 @@
       if (currentView === "done" && state) renderReward(state);
       if (currentView === "admin") {
         syncPrizeFormChrome();
+        syncKindFormChrome();
         setAdminTab(adminTab);
       }
     }
@@ -4732,19 +5090,12 @@
       setAdminFlash("adminStatus", "");
       setAdminFlash("adminCatalogStatus", "");
       closePrizeForm();
+      closeKindForm();
+      setAdminFlash("adminKindsStatus", "");
       setAdminFlash("adminClaimsStatus", "");
       setAdminTab(adminTab);
       setHero(t("adminTitle"));
       show("admin", options);
-    }
-    function renderAdminClaimKinds() {
-      const box = document.getElementById("adminClaimKinds");
-      if (!box) return;
-      box.innerHTML = CLAIM_KINDS.map((kind) => `
-        <div class="guide-row">
-          <p>${escapeHtml(claimTitle(kind.id))}</p>
-          <span class="guide-amt">+${kind.amount} ${COIN_SYMBOL}</span>
-        </div>`).join("");
     }
     function setAdminTab(tab) {
       const next = ["general", "catalog", "kinds", "claims"].includes(tab) ? tab : "general";
@@ -4756,7 +5107,7 @@
         btn.classList.toggle("on", btn.getAttribute("data-tab") === next);
       });
       if (next === "catalog") renderAdminWishlist();
-      if (next === "kinds") renderAdminClaimKinds();
+      if (next === "kinds") renderAdminKinds();
       if (next === "claims") renderAdminClaims();
     }
     function setAdminFlash(id, text, ok = true) {
@@ -4772,6 +5123,114 @@
     function syncPrizeFormChrome() {
       const title = document.getElementById("adminPrizeFormTitle");
       if (title) title.textContent = adminEditingPrizeId ? t("adminEditPrizeTitle") : t("adminAddPrize");
+    }
+    function syncKindFormChrome() {
+      const title = document.getElementById("adminKindFormTitle");
+      if (title) title.textContent = adminEditingKindId ? t("adminEditKindTitle") : t("adminAddKind");
+    }
+    function closeKindForm() {
+      adminEditingKindId = null;
+      const modal = document.getElementById("kindModal");
+      if (modal) modal.classList.add("hidden");
+      const ru = document.getElementById("kindTitleRu");
+      const en = document.getElementById("kindTitleEn");
+      const amount = document.getElementById("kindAmount");
+      if (ru) ru.value = "";
+      if (en) en.value = "";
+      if (amount) amount.value = "";
+      syncKindFormChrome();
+      renderAdminKinds();
+    }
+    function openKindForm(kind = null) {
+      adminEditingKindId = kind?.id || null;
+      document.getElementById("kindTitleRu").value = kind?.titleRu || "";
+      document.getElementById("kindTitleEn").value = kind?.titleEn || "";
+      document.getElementById("kindAmount").value = kind ? String(kind.amount) : "";
+      syncKindFormChrome();
+      document.getElementById("kindModal").classList.remove("hidden");
+      renderAdminKinds();
+      document.getElementById("kindTitleRu").focus();
+    }
+    function saveKindForm() {
+      const titleRu = document.getElementById("kindTitleRu").value.trim();
+      const titleEn = document.getElementById("kindTitleEn").value.trim();
+      const amount = Number(document.getElementById("kindAmount").value);
+      if (!titleRu || !titleEn || !Number.isFinite(amount) || amount < 1) {
+        setAdminFlash("adminKindsStatus", t("kindTitleRuPh"), false);
+        return;
+      }
+      if (!claimKinds.kinds) claimKinds.kinds = [];
+      if (!claimKinds.archive) claimKinds.archive = [];
+      const existing = adminEditingKindId
+        ? claimKinds.kinds.find((k) => k.id === adminEditingKindId)
+        : null;
+      if (existing) {
+        existing.titleRu = titleRu;
+        existing.titleEn = titleEn;
+        existing.amount = Math.round(amount);
+        (familyClaims || []).forEach((claim) => {
+          if (claim.kind === existing.id && claim.status === "new") stampClaimKind(claim, existing);
+        });
+      } else {
+        const id = uid();
+        const next = { id, titleRu, titleEn, amount: Math.round(amount) };
+        claimKinds.kinds.push(next);
+        claimKinds.archive = claimKinds.archive.filter((k) => k.id !== id);
+      }
+      saveClaimKinds();
+      if (existing) saveFamilyClaims();
+      const added = !existing;
+      closeKindForm();
+      notifyAdminSave("adminKindsStatus", t("kindsSaved"), added ? t("kindAdded") : t("kindUpdated"));
+    }
+    function removeClaimKind(id) {
+      const kind = (claimKinds.kinds || []).find((k) => k.id === id);
+      if (!kind) return;
+      claimKinds.kinds = claimKinds.kinds.filter((k) => k.id !== id);
+      if (!claimKinds.archive) claimKinds.archive = [];
+      if (!claimKinds.archive.some((k) => k.id === kind.id)) {
+        claimKinds.archive.push({
+          id: kind.id,
+          titleRu: kind.titleRu,
+          titleEn: kind.titleEn,
+          amount: kind.amount,
+        });
+      }
+      (familyClaims || []).forEach((claim) => {
+        if (claim.kind === kind.id) stampClaimKind(claim, kind);
+      });
+      saveClaimKinds();
+      saveFamilyClaims();
+      if (adminEditingKindId === id) closeKindForm();
+      else renderAdminKinds();
+      notifyAdminSave("adminKindsStatus", t("kindsSaved"), t("kindRemoved"));
+    }
+    function renderAdminKinds() {
+      const box = document.getElementById("adminKindsList");
+      if (!box) return;
+      const list = liveKinds();
+      if (!list.length) { box.innerHTML = `<p class="note" style="margin:0;padding:10px;">${t("kindsEmpty")}</p>`; return; }
+      const head = `<div class="admin-prize-head">
+        <span>${t("kindColName")}</span>
+        <span>${t("kindColCost")}</span>
+        <span></span><span></span>
+      </div>`;
+      box.innerHTML = head + list.map((kind) => `
+        <div class="admin-prize-row${kind.id === adminEditingKindId ? " editing" : ""}" data-id="${escapeHtml(kind.id)}">
+          <span class="admin-prize-name">${escapeHtml(claimTitle(kind))}</span>
+          <span class="admin-prize-cost">${kind.amount} ${COIN_SYMBOL}</span>
+          <button class="admin-link admin-edit-kind" data-id="${escapeHtml(kind.id)}" type="button">${t("adminEditKind")}</button>
+          <button class="admin-link danger admin-remove-kind" data-id="${escapeHtml(kind.id)}" type="button">${t("adminRemove")}</button>
+        </div>`).join("");
+      box.querySelectorAll(".admin-edit-kind").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const kind = liveKinds().find((k) => k.id === btn.getAttribute("data-id"));
+          if (kind) openKindForm(kind);
+        });
+      });
+      box.querySelectorAll(".admin-remove-kind").forEach((btn) => {
+        btn.addEventListener("click", () => removeClaimKind(btn.getAttribute("data-id")));
+      });
     }
     function closePrizeForm() {
       adminEditingPrizeId = null;
@@ -5018,6 +5477,12 @@
     document.getElementById("prizeModal").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closePrizeForm();
     });
+    document.getElementById("adminAddKindBtn").addEventListener("click", () => openKindForm());
+    document.getElementById("adminSaveKindBtn").addEventListener("click", saveKindForm);
+    document.getElementById("adminCancelKindBtn").addEventListener("click", closeKindForm);
+    document.getElementById("kindModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeKindForm();
+    });
     document.querySelectorAll("#adminTabs .earn-tab").forEach((btn) => {
       btn.addEventListener("click", () => setAdminTab(btn.getAttribute("data-tab")));
     });
@@ -5037,11 +5502,13 @@
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     restorePhotoCache();
     applyPendingCatalog();
+    applyStoredKinds();
     show("home", { replace: true });
     openProfilePicker();
     listenCloudNotify();
     loadAllProfilePhotos();
     pullCatalogSync();
+    pullKindsSync();
   </script>
 </body>
 </html>
