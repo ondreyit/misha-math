@@ -1855,9 +1855,66 @@
       }[c]));
     }
 
+    const EST_TZ = "America/New_York";
+    function estDateTimeParts(date = new Date()) {
+      const map = {};
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: EST_TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(date).forEach((part) => {
+        if (part.type !== "literal") map[part.type] = part.value;
+      });
+      return map;
+    }
+    function toEstWall(date = new Date()) {
+      const p = estDateTimeParts(date);
+      return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+    }
+    function parseNaiveEst(wall) {
+      const stamp = String(wall || "").trim().replace(" ", "T").slice(0, 19);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(stamp)) return null;
+      for (const off of ["-04:00", "-05:00"]) {
+        const d = new Date(`${stamp}${off}`);
+        if (!Number.isNaN(d.getTime()) && toEstWall(d) === stamp) return d;
+      }
+      const d = new Date(`${stamp}-04:00`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    function parseStamp(value) {
+      if (value == null || value === "") return null;
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+      if (typeof value === "number") {
+        const d = new Date(value > 1e12 ? value : value * 1000);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      const s = String(value).trim();
+      if (!s) return null;
+      if (/[zZ]$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) {
+        const d = new Date(s);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s)) {
+        const wall = s.replace(" ", "T");
+        return parseNaiveEst(wall.length === 16 ? `${wall}:00` : wall);
+      }
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    function estNowIso() { return toEstWall(new Date()); }
+    function toEstIso(value) { return toEstWall(parseStamp(value) || new Date()); }
+    function stampMs(value) {
+      const d = parseStamp(value);
+      return d ? d.getTime() : 0;
+    }
     function estDateKey(date = new Date()) {
       const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/New_York",
+        timeZone: EST_TZ,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -1883,12 +1940,21 @@
       return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
     }
     function formatHistoryDate(iso) {
-      const d = new Date(iso);
-      return d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const d = parseStamp(iso);
+      if (!d) return "";
+      return d.toLocaleString(lang === "ru" ? "ru-RU" : "en-US", {
+        timeZone: EST_TZ,
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }) + " ET";
     }
     function estHour(now = new Date()) {
       const hour = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
+        timeZone: EST_TZ,
         hour: "numeric",
         hourCycle: "h23",
       }).formatToParts(now).find((part) => part.type === "hour");
@@ -2465,18 +2531,18 @@
       flushCloudNow();
     }
     function toUnix(iso) {
-      const n = Date.parse(iso || "");
-      return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
+      const d = parseStamp(iso);
+      return d ? Math.floor(d.getTime() / 1000) : 0;
     }
     function fromUnix(sec) {
       const n = Number(sec) || 0;
-      return n ? new Date(n * 1000).toISOString() : "";
+      return n ? toEstWall(new Date(n * 1000)) : "";
     }
     function historyKey(entry) {
       return entry.id || `${entry.at || ""}|${entry.amount}|${entry.dateKey || ""}`;
     }
     function latestHistoryAt(list) {
-      return (list || []).reduce((max, item) => Math.max(max, Date.parse(item.at) || 0), 0);
+      return (list || []).reduce((max, item) => Math.max(max, stampMs(item.at)), 0);
     }
     function compactHistory(list) {
       return (list || []).slice(0, 12).map((e) => ([
@@ -2511,7 +2577,7 @@
           const dayRef = item[2];
           return {
             id: `h-${item[0]}-${item[1]}`,
-            at: fromUnix(item[0]) || new Date().toISOString(),
+            at: fromUnix(item[0]) || estNowIso(),
             dateKey: canonicalDateKey(typeof dayRef === "number" ? dayRef : dayRef),
             amount: Number(item[1]) || 0,
             parts: [],
@@ -2520,7 +2586,7 @@
         const [id, unix, dateKey, amount, parts] = item;
         return {
           id: id || uid(),
-          at: fromUnix(unix) || new Date().toISOString(),
+          at: fromUnix(unix) || estNowIso(),
             dateKey: canonicalDateKey(dateKey),
             amount: Number(amount) || 0,
           parts: (parts || []).map((p) => {
@@ -2546,7 +2612,7 @@
             : [{ k: "lesson", amount }];
           return {
             id: `day-${profileId || "x"}-${d.date}-${d.runsCompleted || 1}`,
-            at: d.completedAt || `${d.date}T12:00:00.000Z`,
+            at: d.completedAt || `${d.date}T12:00:00`,
             dateKey: d.date,
             amount,
             parts,
@@ -2590,7 +2656,7 @@
       if (!p || !(Number(p.cost) > 0)) return null;
       return {
         id: `buy-${p.id || p.prizeId || toUnix(p.at)}`,
-        at: p.at || new Date().toISOString(),
+        at: p.at || estNowIso(),
         dateKey: "",
         amount: -(Number(p.cost) || 0),
         kind: "prize",
@@ -2660,7 +2726,7 @@
         if (!map.has(key)) map.set(key, entry);
       });
       return dedupeHistory([...map.values()]
-        .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+        .sort((a, b) => stampMs(b.at) - stampMs(a.at))
         .slice(0, 80));
     }
     function mergePurchases(local, remote) {
@@ -2671,7 +2737,7 @@
         map.set(key, purchaseRicher(map.get(key), item));
       });
       return [...map.values()]
-        .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+        .sort((a, b) => stampMs(b.at) - stampMs(a.at))
         .slice(0, 40);
     }
     function purchaseSpend(list) {
@@ -2795,7 +2861,7 @@
         titleRu: String(raw.titleRu || raw.r || known?.titleRu || "").trim().slice(0, 80),
         titleEn: String(raw.titleEn || raw.e || known?.titleEn || "").trim().slice(0, 80),
         status,
-        createdAt: raw.createdAt || new Date().toISOString(),
+        createdAt: raw.createdAt || estNowIso(),
         decidedAt: raw.decidedAt || null,
         paid: !!raw.paid,
         reason: String(raw.reason || "").trim().slice(0, 80),
@@ -2855,7 +2921,7 @@
       const rank = { new: 0, rejected: 1, approved: 2 };
       const next = (rank[b.status] || 0) !== (rank[a.status] || 0)
         ? ((rank[b.status] || 0) > (rank[a.status] || 0) ? b : a)
-        : ((Date.parse(b.decidedAt || b.createdAt) || 0) >= (Date.parse(a.decidedAt || a.createdAt) || 0) ? b : a);
+        : (stampMs(b.decidedAt || b.createdAt) >= stampMs(a.decidedAt || a.createdAt) ? b : a);
       next.paid = !!(a.paid || b.paid || next.paid);
       next.profileId = next.profileId || a.profileId || b.profileId || "";
       next.reason = next.reason || a.reason || b.reason || "";
@@ -2869,7 +2935,7 @@
         map.set(item.id, mergeClaim(map.get(item.id), item));
       });
       return [...map.values()]
-        .sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
+        .sort((a, b) => stampMs(b.createdAt) - stampMs(a.createdAt))
         .slice(0, 60);
     }
     function isPapa() { return profileId === "papa"; }
@@ -2972,15 +3038,15 @@
       return (familyClaims || []).find((claim) => {
         if (!claim?.paid || (claim.profileId && claim.profileId !== profileId)) return false;
         if (entry.id && (entry.id === claim.id || entry.id === `claim-${claim.id}`)) return true;
-        const a = Date.parse(entry.at) || 0;
-        const b = Date.parse(claim.decidedAt) || 0;
+        const a = stampMs(entry.at);
+        const b = stampMs(claim.decidedAt);
         return a && b && Math.abs(a - b) < 180000 && Number(entry.amount) === Number(claim.amount);
       }) || null;
     }
     function claimHistoryEntry(claim) {
       return {
         id: `claim-${claim.id}`,
-        at: claim.decidedAt || new Date().toISOString(),
+        at: claim.decidedAt || estNowIso(),
         dateKey: "",
         amount: claim.amount,
         parts: [{
@@ -3091,8 +3157,9 @@
       return [...offsets].sort((a, b) => a - b);
     }
     function trainedKeyFromAt(iso) {
-      if (!iso) return "";
-      const key = estDateKey(new Date(iso));
+      const d = parseStamp(iso);
+      if (!d) return "";
+      const key = estDateKey(d);
       return key >= PROGRAM_START ? key : "";
     }
     function unionOffsetCsv(...lists) {
@@ -3125,7 +3192,7 @@
         answered: Number(extra.answered) || Number(extra.correct) || 0,
         completed: true,
         sessionDone: true,
-        completedAt: extra.completedAt || `${key}T12:00:00.000Z`,
+        completedAt: extra.completedAt || `${key}T12:00:00`,
         startedAt: extra.startedAt || null,
         runsCompleted: Math.max(1, Number(extra.runsCompleted) || 1),
         totalCoins: Number(extra.totalCoins) || Number(extra.coinsAwarded) || 0,
@@ -3143,7 +3210,7 @@
       if (store[key].completed) return false;
       store[key].completed = true;
       store[key].sessionDone = true;
-      store[key].completedAt = store[key].completedAt || extra.completedAt || `${key}T12:00:00.000Z`;
+      store[key].completedAt = store[key].completedAt || extra.completedAt || `${key}T12:00:00`;
       store[key].runsCompleted = Math.max(1, store[key].runsCompleted || 0);
       if (extra.totalCoins || extra.coinsAwarded) {
         store[key].totalCoins = Math.max(Number(store[key].totalCoins) || 0, Number(extra.totalCoins) || Number(extra.coinsAwarded) || 0);
@@ -3457,14 +3524,13 @@
     function sbUnix(value) {
       if (!value) return 0;
       if (typeof value === "number") return value > 1e12 ? Math.floor(value / 1000) : value;
-      const n = Date.parse(value);
-      return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
+      const d = parseStamp(value);
+      return d ? Math.floor(d.getTime() / 1000) : 0;
     }
     function sbIso(value) {
       if (!value) return null;
-      if (typeof value === "number") return new Date((value > 1e12 ? value : value * 1000)).toISOString();
-      const n = Date.parse(value);
-      return Number.isFinite(n) ? new Date(n).toISOString() : null;
+      const d = parseStamp(value);
+      return d ? toEstWall(d) : null;
     }
     async function sbGetKey(key) {
       if (key === "cfg") {
@@ -3627,14 +3693,14 @@
         const spend = id === profileId ? purchaseSpend(coins.purchases) : (Number(value?.s) || 0);
         const nextB = id === profileId ? ledgerSum() : (Number(value?.b) || 0);
         if (id !== profileId && starsWriteAllowed <= 0) return true;
-        return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend, updated_at: new Date().toISOString() }]);
+        return sbUpsert("balances", [{ profile_id: id, stars: nextB, spend, updated_at: estNowIso() }]);
       }
       if (m[1] === "p") {
         return sbUpsert("profiles", [{
           id,
           question_count: Number(value?.q) || 20,
           tables_max: Number(value?.m) || 0,
-          updated_at: new Date().toISOString(),
+          updated_at: estNowIso(),
         }]);
       }
       if (m[1] === "h") {
@@ -4760,7 +4826,7 @@
       dayState.queue = makeQueue(dayState.startCount, tables, dayState.date);
       dayState.correct = 0; dayState.fails = 0; dayState.answered = 0;
       dayState.sessionDone = false;
-      dayState.startedAt = new Date().toISOString();
+      dayState.startedAt = estNowIso();
       dayState.completedAt = null;
       dayState.coinsAwarded = 0; dayState.coinParts = null;
       return dayState;
@@ -4814,7 +4880,8 @@
     }
     function isLate(dayState) {
       if (!dayState?.completed || !dayState.completedAt) return false;
-      return estDateKey(new Date(dayState.completedAt)) > dayState.date;
+      const done = parseStamp(dayState.completedAt);
+      return !!done && estDateKey(done) > dayState.date;
     }
     function dayMark(key, store, today) {
       if (key < PROGRAM_START) return "before";
@@ -5250,7 +5317,7 @@
       return profile ? profileLabel(profile) : (claim.profileId || "");
     }
     function claimTime(claim) {
-      return Date.parse(claim?.decidedAt || claim?.createdAt) || 0;
+      return stampMs(claim?.decidedAt || claim?.createdAt);
     }
     function sortClaimsByTime(list) {
       return (list || []).slice().sort((a, b) => claimTime(b) - claimTime(a));
@@ -5390,7 +5457,7 @@
         id: uid(),
         profileId,
         status: "new",
-        createdAt: new Date().toISOString(),
+        createdAt: estNowIso(),
         decidedAt: null,
         paid: false,
       }, kind));
@@ -5460,7 +5527,7 @@
         setAdminFlash(flashId, t("adminClaimsNoneSelected"), false);
         return;
       }
-      const now = new Date().toISOString();
+      const now = estNowIso();
       const chosen = [];
       familyClaims.forEach((claim) => {
         if (!ids.has(claim.id) || claim.status !== "new") return;
@@ -5497,7 +5564,7 @@
         return;
       }
       const title = prizeTitle(prize);
-      const at = new Date().toISOString();
+      const at = estNowIso();
       if (!coins.purchases) coins.purchases = [];
       coins.purchases.unshift({
         id: uid(),
@@ -5766,7 +5833,8 @@
     function calcRewards(dayState) {
       const parts = [];
       let total = 0;
-      const completedDay = dayState.completedAt ? estDateKey(new Date(dayState.completedAt)) : todayKey();
+      const finished = parseStamp(dayState.completedAt);
+      const completedDay = finished ? estDateKey(finished) : todayKey();
       const onTime = completedDay === dayState.date;
       if (onTime) { parts.push({ k: "onTime", label: t("rewardOnTime"), amount: 1 }); total += 1; }
       const failRate = dayState.answered ? (dayState.fails / dayState.answered) * 100 : 100;
@@ -5835,7 +5903,7 @@
         showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
-      if (!state.startedAt) { state.startedAt = new Date().toISOString(); persist(); }
+      if (!state.startedAt) { state.startedAt = estNowIso(); persist(); }
       setHero(t("heroTrain"));
       show("train");
       showCurrentProblem();
@@ -5912,7 +5980,7 @@
     }
     function finishTraining() {
       state.sessionDone = true; state.completed = true;
-      state.completedAt = new Date().toISOString();
+      state.completedAt = estNowIso();
       state.queue = [];
       state.runsCompleted = (state.runsCompleted || 0) + 1;
       const reward = calcRewards(state);
@@ -6461,6 +6529,8 @@
     answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
 
     const startMonth = monthStart(parseKey(PROGRAM_START));
+    const [estYear, estMonth] = estDateKey().split("-").map(Number);
+    calMonth = monthStart(new Date(estYear, estMonth - 1, 1));
     if (calMonth < startMonth) calMonth = startMonth;
     applyEstTheme();
     window.setInterval(applyEstTheme, 60 * 1000);

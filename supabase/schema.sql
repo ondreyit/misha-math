@@ -1,18 +1,19 @@
 -- Mishcoin family database
+-- All timestamps are America/New_York wall time (no UTC).
 create table if not exists profiles (
   id text primary key,
   name_ru text default '',
   name_en text default '',
   question_count int not null default 20,
   tables_max int not null default 0,
-  updated_at timestamptz not null default now()
+  updated_at timestamp not null default timezone('America/New_York', now())
 );
 
 create table if not exists balances (
   profile_id text primary key,
   stars int not null default 0,
   spend int not null default 0,
-  updated_at timestamptz not null default now()
+  updated_at timestamp not null default timezone('America/New_York', now())
 );
 
 create table if not exists days (
@@ -25,7 +26,7 @@ create table if not exists days (
   coins int not null default 0,
   total_coins int not null default 0,
   runs int not null default 0,
-  completed_at timestamptz,
+  completed_at timestamp,
   payload text default '',
   primary key (profile_id, date)
 );
@@ -33,7 +34,7 @@ create table if not exists days (
 create table if not exists history (
   id text primary key,
   profile_id text not null,
-  at timestamptz,
+  at timestamp,
   delta int not null default 0,
   kind text default 'lesson',
   note text default '',
@@ -44,7 +45,7 @@ create table if not exists history (
 create table if not exists purchases (
   id text primary key,
   profile_id text not null,
-  at timestamptz,
+  at timestamp,
   prize_id text default '',
   title_ru text default '',
   title_en text default '',
@@ -57,8 +58,8 @@ create table if not exists claims (
   profile_id text not null,
   kind_id text default '',
   status text not null default 'new',
-  at timestamptz,
-  decided_at timestamptz,
+  at timestamp,
+  decided_at timestamp,
   coins int not null default 0,
   paid boolean not null default false,
   reason text default '',
@@ -72,7 +73,7 @@ create table if not exists claim_kinds (
   title_en text default '',
   coins int not null default 4,
   archived boolean not null default false,
-  updated_at timestamptz not null default now()
+  updated_at timestamp not null default timezone('America/New_York', now())
 );
 
 create table if not exists catalog (
@@ -80,7 +81,7 @@ create table if not exists catalog (
   title_ru text default '',
   title_en text default '',
   cost int not null default 0,
-  updated_at timestamptz not null default now()
+  updated_at timestamp not null default timezone('America/New_York', now())
 );
 
 create table if not exists config (
@@ -90,7 +91,7 @@ create table if not exists config (
 
 create table if not exists photos (
   profile_id text primary key,
-  updated_at timestamptz not null default now(),
+  updated_at timestamp not null default timezone('America/New_York', now()),
   data_url text default ''
 );
 
