@@ -2692,12 +2692,17 @@
       const map = new Map();
       filtered.forEach((entry) => {
         if (isClaimHistory(entry) && entry.id) {
-          map.set(entry.id, entry);
+          map.set(`claim:${entry.id}`, entry);
           return;
         }
-        const stamp = `${toUnix(entry.at)}|${Number(entry.amount) || 0}`;
-        const prev = map.get(stamp);
-        if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(stamp, entry);
+        const day = canonicalDateKey(entry.dateKey);
+        const amount = Number(entry.amount) || 0;
+        const isPrize = entry.kind === "prize" || amount < 0;
+        const key = isPrize
+          ? `prize:${toUnix(entry.at)}|${amount}`
+          : (day && amount > 0 ? `lesson:${day}` : (entry.id || `${toUnix(entry.at)}|${amount}`));
+        const prev = map.get(key);
+        if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(key, entry);
       });
       const collapsed = [];
       const daySeen = new Set();
@@ -3810,7 +3815,7 @@
       }
       if (m[1] === "h") {
         const rows = sbExpandHistory(value?.h || value?.history || [], id);
-        return rows.length ? sbReplace("history", `profile_id=eq.${encodeURIComponent(id)}`, rows) : true;
+        return rows.length ? sbUpsert("history", rows) : true;
       }
       if (m[1] === "d") {
         const rows = sbExpandDays(value, id);
@@ -3818,7 +3823,7 @@
       }
       if (m[1] === "y") {
         const rows = sbExpandPurchases(value?.y || value?.purchases || [], id);
-        return rows.length ? sbReplace("purchases", `profile_id=eq.${encodeURIComponent(id)}`, rows) : true;
+        return rows.length ? sbUpsert("purchases", rows) : true;
       }
       if (m[1] === "r") {
         const incoming = sbExpandClaims(value?.r || value?.claims || [], id);
@@ -4752,10 +4757,10 @@
       if (daysRaw?.c || daysRaw?.completed) applyCompletedOffsets(daysRaw.c || daysRaw.completed);
       const mergedBuys = mergePurchases(payload.coins.purchases, buyRaw?.y || buyRaw?.purchases || []);
       coins.purchases = mergePurchases(coins.purchases, mergedBuys);
-      const mergedHist = mergeHistory(
+      const mergedHist = dedupeHistory(mergeHistory(
         mergeHistory(payload.coins.history, expandHistory(histRaw?.h || histRaw?.history || [])),
-        historyFromPurchases(mergedBuys)
-      );
+        [...historyFromPurchases(mergedBuys), ...historyFromDays(Object.values(dayStore))]
+      ));
       coins.history = mergedHist;
       const mergedClaims = mergeClaims(payload.coins.claims || coins.claims || [], claimRaw?.r || claimRaw?.claims || [], profileId);
       const hist = { u: updatedAt, h: cloudUsesSupabase() ? mergedHist : compactMiniHistory(mergedHist) };
