@@ -2270,7 +2270,17 @@
     function clearDeviceProfileData() {
       const keys = [CATALOG_KEY, KINDS_KEY, KINDS_PENDING_KEY, PROFILE_KEY, STORAGE_KEY_BASE, SETTINGS_KEY_BASE, COINS_KEY_BASE, CLOUD_META_KEY_BASE];
       PROFILES.forEach((p) => {
-        keys.push(`${STORAGE_KEY_BASE}:${p.id}`, `${SETTINGS_KEY_BASE}:${p.id}`, `${COINS_KEY_BASE}:${p.id}`, `${CLOUD_META_KEY_BASE}:${p.id}`, `${DAYS_KEY_BASE}:${p.id}`, `${HIST_KEY_BASE}:${p.id}`, `${BUY_KEY_BASE}:${p.id}`);
+        keys.push(
+          `${STORAGE_KEY_BASE}:${p.id}`,
+          `${SETTINGS_KEY_BASE}:${p.id}`,
+          `${COINS_KEY_BASE}:${p.id}`,
+          `${CLOUD_META_KEY_BASE}:${p.id}`,
+          `${DAYS_KEY_BASE}:${p.id}`,
+          `${HIST_KEY_BASE}:${p.id}`,
+          `${BUY_KEY_BASE}:${p.id}`,
+          `${BAL_KEY_BASE}:${p.id}`,
+          `${PENDING_KEY_BASE}:${p.id}`
+        );
       });
       keys.forEach((key) => localStorage.removeItem(key));
     }
@@ -2620,6 +2630,7 @@
             at: item.at,
             dateKey: canonicalDateKey(item.dateKey),
             amount: Number(item.amount) || 0,
+            kind: item.kind || "",
             parts: Array.isArray(item.parts) ? item.parts : [],
           };
         }
@@ -2742,6 +2753,7 @@
     function fillHistoryLedger() {
       const fromDays = fillHistoryFromDays();
       const fromBuys = fillHistoryFromPurchases();
+      const fromClaims = syncHistoryClaimAmounts();
       coins.history = (coins.history || [])
         .filter(isMoneyEvent)
         .map((entry) => ({
@@ -2749,7 +2761,7 @@
           dateKey: canonicalDateKey(entry.dateKey),
           amount: Number(entry.amount) || 0,
         }));
-      return fromDays || fromBuys;
+      return fromDays || fromBuys || fromClaims;
     }
     function applyLedgerBalance() {
       fillHistoryLedger();
@@ -3108,11 +3120,33 @@
         }],
       };
     }
+    function syncHistoryClaimAmounts() {
+      let changed = false;
+      myClaims().forEach((claim) => {
+        if (!claim || claim.status !== "approved") return;
+        const amount = Number(claim.amount) || 0;
+        if (!amount) return;
+        const histId = `claim-${claim.id}`;
+        const entry = (coins.history || []).find((item) => item.id === histId || item.id === claim.id);
+        if (entry && (Number(entry.amount) || 0) !== amount) {
+          entry.amount = amount;
+          if (entry.parts && entry.parts[0]) entry.parts[0].amount = amount;
+          changed = true;
+        }
+      });
+      return changed;
+    }
     function creditClaim(claim) {
       if (!claim || claim.status !== "approved") return false;
       if (claim.profileId && claim.profileId !== profileId) return false;
       const histId = `claim-${claim.id}`;
-      if ((coins.history || []).some((item) => item.id === histId || historyKey(item) === histId)) {
+      const existing = (coins.history || []).find((item) => item.id === histId || item.id === claim.id || historyKey(item) === histId);
+      const amount = Number(claim.amount) || 0;
+      if (existing) {
+        if (amount && (Number(existing.amount) || 0) !== amount) {
+          existing.amount = amount;
+          if (existing.parts && existing.parts[0]) existing.parts[0].amount = amount;
+        }
         claim.paid = true;
         return false;
       }
