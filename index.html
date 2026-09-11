@@ -2461,15 +2461,10 @@
       ]));
     }
     function compactMiniHistory(list) {
-      const lessons = [];
-      const other = [];
-      (list || []).forEach((entry) => {
-        if ((entry?.amount || 0) > 0 && entry.dateKey && !isClaimHistory(entry)) lessons.push(entry);
-        else other.push(entry);
-      });
-      return [...lessons, ...other].slice(0, 12).map((e) => {
-        const off = dateOffset(e.dateKey);
-        return [toUnix(e.at), Number(e.amount) || 0, off >= 0 ? off : (e.dateKey || "")];
+      return (list || []).slice(0, 40).map((e) => {
+        const dateKey = canonicalDateKey(e.dateKey);
+        const off = dateOffset(dateKey);
+        return [toUnix(e.at), Number(e.amount) || 0, off >= 0 ? dateKey : dateKey];
       });
     }
     function expandHistory(list) {
@@ -2479,7 +2474,7 @@
           return {
             id: item.id || uid(),
             at: item.at,
-            dateKey: item.dateKey || "",
+            dateKey: canonicalDateKey(item.dateKey),
             amount: Number(item.amount) || 0,
             parts: Array.isArray(item.parts) ? item.parts : [],
           };
@@ -2490,7 +2485,7 @@
           return {
             id: `h-${item[0]}-${item[1]}`,
             at: fromUnix(item[0]) || new Date().toISOString(),
-            dateKey: typeof dayRef === "number" ? keyFromOffset(dayRef) : (dayRef || ""),
+            dateKey: canonicalDateKey(typeof dayRef === "number" ? dayRef : dayRef),
             amount: Number(item[1]) || 0,
             parts: [],
           };
@@ -2499,8 +2494,8 @@
         return {
           id: id || uid(),
           at: fromUnix(unix) || new Date().toISOString(),
-          dateKey: dateKey || "",
-          amount: Number(amount) || 0,
+            dateKey: canonicalDateKey(dateKey),
+            amount: Number(amount) || 0,
           parts: (parts || []).map((p) => {
             if (Array.isArray(p)) return { k: p[0], amount: Number(p[1]) || 0, r: p[2] || "", e: p[3] || "" };
             return p;
@@ -2523,7 +2518,7 @@
             ? reward.parts.filter((p) => p.amount > 0)
             : [{ k: "lesson", amount }];
           return {
-            id: `day-${d.date}-${d.runsCompleted || 1}`,
+            id: `day-${profileId || "x"}-${d.date}-${d.runsCompleted || 1}`,
             at: d.completedAt || `${d.date}T12:00:00.000Z`,
             dateKey: d.date,
             amount,
@@ -2549,7 +2544,70 @@
         const prev = map.get(stamp);
         if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(stamp, entry);
       });
-      return [...map.values()];
+      const collapsed = [];
+      const daySeen = new Set();
+      [...map.values()].forEach((entry) => {
+        const day = canonicalDateKey(entry.dateKey);
+        const lesson = (Number(entry.amount) || 0) > 0 && !isClaimHistory(entry) && entry.kind !== "prize" && entry.kind !== "adjust";
+        if (lesson && day) {
+          if (daySeen.has(day)) return;
+          daySeen.add(day);
+          collapsed.push({ ...entry, dateKey: day });
+          return;
+        }
+        collapsed.push({ ...entry, dateKey: day || entry.dateKey || "" });
+      });
+      return collapsed;
+    }
+    function purchaseHistoryEntry(p) {
+      if (!p || !(Number(p.cost) > 0)) return null;
+      return {
+        id: `buy-${p.id || p.prizeId || toUnix(p.at)}`,
+        at: p.at || new Date().toISOString(),
+        dateKey: "",
+        amount: -(Number(p.cost) || 0),
+        kind: "prize",
+        parts: [{
+          k: "prize",
+          r: p.titleRu || "",
+          e: p.titleEn || "",
+          amount: -(Number(p.cost) || 0),
+        }],
+      };
+    }
+    function historyFromPurchases(list = coins.purchases) {
+      return expandPurchases(list).map(purchaseHistoryEntry).filter(Boolean);
+    }
+    function ledgerSum(list = coins.history) {
+      return (list || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    }
+    function fillHistoryFromPurchases() {
+      const generated = historyFromPurchases();
+      if (!generated.length) return false;
+      const existing = coins.history || [];
+      const extra = generated.filter((item) => !existing.some((entry) => entry.id === item.id));
+      if (!extra.length) return false;
+      coins.history = dedupeHistory(mergeHistory(existing, extra));
+      return true;
+    }
+    function fillHistoryLedger() {
+      const fromDays = fillHistoryFromDays();
+      const fromBuys = fillHistoryFromPurchases();
+      coins.history = (coins.history || []).map((entry) => ({
+        ...entry,
+        dateKey: canonicalDateKey(entry.dateKey),
+        amount: Number(entry.amount) || 0,
+      }));
+      return fromDays || fromBuys;
+    }
+    function applyLedgerBalance() {
+      fillHistoryLedger();
+      const next = ledgerSum();
+      if (next === coins.balance) return false;
+      coins.balance = next;
+      forceRememberedBalance(next);
+      renderCoins();
+      return true;
     }
     function fillHistoryFromDays() {
       const existing = coins.history || [];
@@ -2569,7 +2627,7 @@
       });
       return dedupeHistory([...map.values()]
         .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
-        .slice(0, 40));
+        .slice(0, 80));
     }
     function mergePurchases(local, remote) {
       const map = new Map();
@@ -2936,8 +2994,7 @@
         return false;
       }
       const remoteMeta = await fetchBalanceCloudMeta(claim.profileId);
-      const remembered = readRememberedBalance(claim.profileId);
-      const nextB = Math.max(remoteMeta.b, remembered) + claim.amount;
+      const nextB = (Number(remoteMeta.b) || 0) + claim.amount;
       const okBal = await putKvRaw(cloudBalKey(claim.profileId), encodeBalanceCloud(nextB, remoteMeta.s));
       if (!okBal) return false;
       writeRememberedBalance(nextB, claim.profileId);
@@ -2966,6 +3023,16 @@
     }
     function keyFromOffset(n) {
       return todayKey(dayOffset(parseKey(PROGRAM_START), n));
+    }
+    function canonicalDateKey(raw) {
+      if (raw == null || raw === "") return "";
+      const text = String(raw).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+      if (/^\d+$/.test(text)) {
+        const n = Number(text);
+        return n >= 0 && n < 400 ? keyFromOffset(n) : "";
+      }
+      return "";
     }
     function addCompletedOffset(offsets, key) {
       const n = dateOffset(key);
@@ -3298,7 +3365,8 @@
         if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
         applyRememberedLocalProfile();
         fillDaysFromHistory();
-        fillHistoryFromDays();
+        fillHistoryLedger();
+        applyLedgerBalance();
         cloudMeta.updatedAt = Number(remote.updatedAt) || 0;
         renderCoins();
         return true;
@@ -3424,12 +3492,14 @@
           h: rows.map((r) => ({
             id: r.id,
             at: r.at,
-            dateKey: r.date_key || "",
+            dateKey: canonicalDateKey(r.date_key),
             amount: Number(r.delta) || 0,
             kind: r.kind || "lesson",
             parts: r.kind === "claim" || String(r.id || "").startsWith("claim-")
               ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
-              : [],
+              : (r.kind === "prize" || Number(r.delta) < 0)
+                ? [{ k: "prize", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+                : [],
           })),
         };
       }
@@ -3568,7 +3638,7 @@
               at: sbIso(item[0]),
               delta: Number(item[1]) || 0,
               kind: (Number(item[1]) || 0) < 0 ? "prize" : "lesson",
-              date_key: dateKey,
+              date_key: canonicalDateKey(dateKey),
             };
           }
           return {
@@ -3577,7 +3647,8 @@
             at: sbIso(item[1]),
             delta: Number(item[3]) || 0,
             kind: "lesson",
-            date_key: item[2] || "",
+            date_key: canonicalDateKey(item[2]),
+            kind: Number(item[3]) < 0 ? "prize" : "lesson",
           };
         }
         return {
@@ -3585,8 +3656,8 @@
           profile_id: id,
           at: item.at,
           delta: Number(item.amount || item.delta) || 0,
-          kind: item.kind || (isClaimHistory(item) ? "claim" : "lesson"),
-          date_key: item.dateKey || item.date_key || "",
+          kind: item.kind || (isClaimHistory(item) ? "claim" : ((Number(item.amount || item.delta) || 0) < 0 ? "prize" : "lesson")),
+          date_key: canonicalDateKey(item.dateKey || item.date_key),
           note: item.note || item.parts?.[0]?.r || item.parts?.[0]?.e || "",
         };
       }).filter((r) => r.id);
@@ -4447,14 +4518,16 @@
         if (merged < rememberedB || merged < remoteB) {
           forceRememberedBalance(merged);
           profileDirty = true;
-          fillHistoryFromDays();
+          fillHistoryLedger();
+          applyLedgerBalance();
           refreshAfterCloudApply();
           flushCloudNow();
           setSyncState("busy");
           return true;
         }
         writeRememberedBalance(merged);
-        fillHistoryFromDays();
+        fillHistoryLedger();
+        applyLedgerBalance();
         const unionC = unionOffsetCsv(remote.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         if (unionC !== String(remote.completedOffsets || "")) {
@@ -4501,13 +4574,17 @@
         fetchKvRaw(cloudBuyKey()),
         fetchKvRaw(cloudClaimKey()),
       ]);
-      const mergedHist = mergeHistory(payload.coins.history, expandHistory(histRaw?.h || histRaw?.history || []));
       if (daysRaw?.d || daysRaw?.days) mergeRemoteDays(expandDays(daysRaw.d || daysRaw.days));
       if (daysRaw?.c || daysRaw?.completed) applyCompletedOffsets(daysRaw.c || daysRaw.completed);
       const mergedBuys = mergePurchases(payload.coins.purchases, buyRaw?.y || buyRaw?.purchases || []);
       coins.purchases = mergePurchases(coins.purchases, mergedBuys);
+      const mergedHist = mergeHistory(
+        mergeHistory(payload.coins.history, expandHistory(histRaw?.h || histRaw?.history || [])),
+        historyFromPurchases(mergedBuys)
+      );
+      coins.history = mergedHist;
       const mergedClaims = mergeClaims(payload.coins.claims || coins.claims || [], claimRaw?.r || claimRaw?.claims || [], profileId);
-      const hist = { u: updatedAt, h: compactMiniHistory(mergedHist) };
+      const hist = { u: updatedAt, h: cloudUsesSupabase() ? mergedHist : compactMiniHistory(mergedHist) };
       const buys = {
         u: updatedAt,
         y: compactPurchasesCloud(mergedBuys),
@@ -4914,6 +4991,8 @@
         }
         coins.history = dedupeHistory(mergeHistory(coins.history, readRememberedHistory()));
         fillDaysFromHistory();
+        fillHistoryLedger();
+        applyLedgerBalance();
         const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         persistRememberedProgress();
@@ -4926,7 +5005,8 @@
         const legacy = readLegacyDeviceProfile(profileId);
         if (!remoteB && legacyRicherThanCloud(legacy, remote)) {
           applyLegacyDeviceProfile(legacy);
-          fillHistoryFromDays();
+          fillHistoryLedger();
+          applyLedgerBalance();
           renderCoins();
           profileDirty = true;
           cloudMeta.updatedAt = Date.now();
@@ -5529,7 +5609,14 @@
         at,
       });
       if (coins.purchases.length > 50) coins.purchases.length = 50;
-      spendCoins(prize.cost);
+      spendCoins(prize.cost, purchaseHistoryEntry({
+        id: coins.purchases[0].id,
+        prizeId: prize.id,
+        titleRu: prize.titleRu,
+        titleEn: prize.titleEn,
+        cost: prize.cost,
+        at,
+      }));
       showToast("ok", t("redeemSuccess", title), t("redeemSuccessHint"), "🎁");
       renderRedeem();
     }
@@ -5541,6 +5628,9 @@
     }
     function inferredHistoryParts(item) {
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
+      if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) {
+        return [{ k: "adjust", amount: item.amount }];
+      }
       if (isClaimHistory(item) || matchedPaidClaim(item)) {
         const claim = matchedPaidClaim(item);
         const ru = stored[0]?.r || claim?.titleRu || knownKindById(claim?.kind)?.titleRu || "";
@@ -5769,6 +5859,7 @@
       if (part.k === "lesson") return t("rewardLesson");
       if (part.k === "prize") return t("redeemSpend", lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || ""));
       if (part.k === "claim") return lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || "");
+      if (part.k === "adjust") return lang === "en" ? "Opening balance" : "Остаток до журнала";
       return part.label || "";
     }
     function calcRewards(dayState) {
