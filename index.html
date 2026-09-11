@@ -1684,6 +1684,10 @@
         return { c: "", d: [] };
       }
     }
+    function rememberedOffsetHas(key, id = profileId) {
+      const n = dateOffset(key);
+      return n >= 0 && parseOffsetString(readRememberedDaysRaw(id).c).includes(n);
+    }
     function writeRememberedDays(store = dayStore, id = profileId) {
       if (!id) return;
       const prev = readRememberedDaysRaw(id);
@@ -2908,6 +2912,7 @@
       const day = store?.[key];
       if (day?.completed) return true;
       if (historyEarnsForDay(key).length > 0) return true;
+      if (rememberedOffsetHas(key)) return true;
       return (coins.history || []).some((entry) => {
         if ((entry.amount || 0) <= 0 || isClaimHistory(entry)) return false;
         return trainedKeyFromAt(entry.at) === key;
@@ -2936,12 +2941,11 @@
       if (changed) saveStore(store, { quiet: true });
       return changed;
     }
-    function compactDays(store) {
-      return Object.keys(store || {})
+    function compactDays(store, maxRows = 0) {
+      const rows = Object.keys(store || {})
         .sort()
         .map((key) => store[key])
         .filter(dayHasProgress)
-        .slice(-8)
         .map((day) => ([
           day.date,
           day.completed ? 1 : 0,
@@ -2953,6 +2957,7 @@
           toUnix(day.completedAt),
           Number(day.totalCoins) || 0,
         ]));
+      return maxRows > 0 ? rows.slice(-maxRows) : rows;
     }
     function expandDayRow(row) {
       if (!row) return null;
@@ -3143,6 +3148,7 @@
         if (remote.settings) settings = parseSettings(remote.settings);
         mergeRemoteDays(remote.days || []);
         if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
+        applyRememberedLocalProfile();
         fillDaysFromHistory();
         fillHistoryFromDays();
         cloudMeta.updatedAt = Number(remote.updatedAt) || 0;
@@ -3150,6 +3156,7 @@
         return true;
       } finally {
         suppressCloudPush = false;
+        persistRememberedProgress();
         creditApprovedClaims();
       }
     }
@@ -3847,7 +3854,7 @@
     function encodeDaysHex(updatedAt, extraC = "") {
       const key = cloudDaysKey();
       const limit = cloudHexBudget(key);
-      const c = unionOffsetCsv(completedOffsetList(dayStore), extraC);
+      const c = unionOffsetCsv(completedOffsetList(dayStore), extraC, readRememberedDaysRaw().c);
       let d = compactDays(dayStore);
       let obj = { u: updatedAt, c, d };
       let hex = bytesToHex(JSON.stringify(obj));
@@ -4241,6 +4248,7 @@
     async function hydrateProfileFromCloud() {
       setSyncState("busy");
       try {
+        applyRememberedLocalProfile();
         await pullCatalogSync();
         await pullKindsSync();
         await pullFamilyClaims();
