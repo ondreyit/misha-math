@@ -3345,7 +3345,20 @@
       Object.entries(RECOVERED_LESSONS[profileId] || {}).forEach(([key, extra]) => {
         if (markDayCompleted(store, key, extra)) changed = true;
         else if (store[key] && !dayHasLessonWork(store[key])) {
-          store[key] = { ...store[key], ...stubCompletedDay(key, extra) };
+          const stub = stubCompletedDay(key, extra);
+          const cur = store[key];
+          store[key] = {
+            ...stub,
+            ...cur,
+            completed: true,
+            sessionDone: true,
+            correct: Math.max(Number(cur.correct) || 0, Number(stub.correct) || 0),
+            fails: Math.max(Number(cur.fails) || 0, Number(stub.fails) || 0),
+            answered: Math.max(Number(cur.answered) || 0, Number(stub.answered) || 0),
+            totalCoins: Math.max(Number(cur.totalCoins) || 0, Number(stub.totalCoins) || 0),
+            coinsAwarded: Math.max(Number(cur.coinsAwarded) || 0, Number(stub.coinsAwarded) || 0),
+            runsCompleted: Math.max(Number(cur.runsCompleted) || 0, Number(stub.runsCompleted) || 1),
+          };
           changed = true;
         }
       });
@@ -3435,16 +3448,26 @@
     function mergeDayState(local, remote) {
       if (!remote) return local;
       if (!local) return remote;
-      if (remote.completed && !local.completed) return { ...local, ...remote, queue: local.queue && local.completed ? local.queue : remote.queue };
-      if (local.completed && !remote.completed) return local;
-      if (remote.completed && local.completed) {
-        if ((remote.runsCompleted || 0) > (local.runsCompleted || 0)) {
-          return { ...local, ...remote, queue: [] };
-        }
-        return local;
-      }
-      if ((remote.answered || 0) > (local.answered || 0)) return { ...local, ...remote };
-      return local;
+      const richer = (a, b) => {
+        const score = (d) => (Number(d.answered) || 0) * 4 + (Number(d.correct) || 0) * 3
+          + (Number(d.fails) || 0) + (Number(d.runsCompleted) || 0);
+        return score(b) > score(a) ? b : a;
+      };
+      const pick = richer(local, remote);
+      const other = pick === remote ? local : remote;
+      return {
+        ...other,
+        ...pick,
+        queue: (pick.queue && pick.queue.length) ? pick.queue : (other.queue || []),
+        completed: !!(local.completed || remote.completed),
+        sessionDone: !!(local.sessionDone || remote.sessionDone),
+        correct: Math.max(Number(local.correct) || 0, Number(remote.correct) || 0),
+        fails: Math.max(Number(local.fails) || 0, Number(remote.fails) || 0),
+        answered: Math.max(Number(local.answered) || 0, Number(remote.answered) || 0),
+        totalCoins: Math.max(Number(local.totalCoins) || 0, Number(remote.totalCoins) || 0),
+        coinsAwarded: Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
+        runsCompleted: Math.max(Number(local.runsCompleted) || 0, Number(remote.runsCompleted) || 0),
+      };
     }
     function mergeRemoteDays(remoteDays) {
       if (!remoteDays || !remoteDays.length) return false;
@@ -3455,6 +3478,7 @@
         const next = mergeDayState(store[remote.date], remote);
         const prev = store[remote.date];
         const same = prev && prev.completed === next.completed && prev.answered === next.answered
+          && prev.correct === next.correct && prev.fails === next.fails
           && prev.runsCompleted === next.runsCompleted && prev.coinsAwarded === next.coinsAwarded;
         if (!same) {
           store[remote.date] = next;
@@ -5392,7 +5416,6 @@
       profileId = id;
       resetProfileMemory();
       applyRememberedLocalProfile();
-      fillDaysFromHistory();
       profileModal.classList.add("hidden");
       updateProfileChrome();
       applyI18n();
