@@ -2734,9 +2734,7 @@
       return expandPurchases(list).map(purchaseHistoryEntry).filter(Boolean);
     }
     function isMoneyEvent(entry) {
-      if (!entry) return false;
-      if (entry.kind === "adjust" || String(entry.id || "").startsWith("open-")) return false;
-      return true;
+      return !!entry;
     }
     function ledgerSum(list = coins.history) {
       return (list || []).filter(isMoneyEvent).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -2745,7 +2743,14 @@
       const generated = historyFromPurchases();
       if (!generated.length) return false;
       const existing = coins.history || [];
-      const extra = generated.filter((item) => !existing.some((entry) => entry.id === item.id));
+      const extra = generated.filter((item) => !existing.some((entry) => (
+        entry.id === item.id
+        || (
+          (entry.kind === "prize" || Number(entry.amount) < 0)
+          && Number(entry.amount) === Number(item.amount)
+          && toUnix(entry.at) === toUnix(item.at)
+        )
+      )));
       if (!extra.length) return false;
       coins.history = dedupeHistory(mergeHistory(existing, extra));
       return true;
@@ -3805,7 +3810,7 @@
       }
       if (m[1] === "h") {
         const rows = sbExpandHistory(value?.h || value?.history || [], id);
-        return rows.length ? sbUpsert("history", rows) : true;
+        return rows.length ? sbReplace("history", `profile_id=eq.${encodeURIComponent(id)}`, rows) : true;
       }
       if (m[1] === "d") {
         const rows = sbExpandDays(value, id);
@@ -3813,7 +3818,7 @@
       }
       if (m[1] === "y") {
         const rows = sbExpandPurchases(value?.y || value?.purchases || [], id);
-        return rows.length ? sbUpsert("purchases", rows) : true;
+        return rows.length ? sbReplace("purchases", `profile_id=eq.${encodeURIComponent(id)}`, rows) : true;
       }
       if (m[1] === "r") {
         const incoming = sbExpandClaims(value?.r || value?.claims || [], id);
@@ -5968,7 +5973,7 @@
         return `<div class="empty-state"><div class="empty-icon">${COIN_SYMBOL}</div><p>${t("coinHistoryEmpty")}</p></div>`;
       }
       const earned = (coins.history || []).reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
-      const spent = (coins.history || []).reduce((sum, item) => sum + Math.max(0, -(Number(item.amount) || 0)), 0) + purchaseSpend(coins.purchases);
+      const spent = (coins.history || []).reduce((sum, item) => sum + Math.max(0, -(Number(item.amount) || 0)), 0);
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
         <p class="note" style="margin-bottom:12px;">${t("coinHistoryLedger", earned, spent)}</p>
         <div class="history-list">${coins.history.map((item) => {
