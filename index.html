@@ -5857,6 +5857,7 @@
       const sparks = [];
       const bolts = [];
       const booms = [];
+      const shards = [];
       const dust = [];
       const trail = [];
       let dpr = 1, w = 800, h = 520;
@@ -5965,7 +5966,7 @@
         shotCd = 0; rocketCd = 0; wantShot = false; wantRocket = false;
         aimX = 1; aimY = 0;
         cam.x = -w / 2; cam.y = -h / 2;
-        trail.length = 0; sparks.length = 0; bolts.length = 0; booms.length = 0;
+        trail.length = 0; sparks.length = 0; bolts.length = 0; booms.length = 0; shards.length = 0;
         populateCharges();
         overlay.hidden = true;
         playing = true;
@@ -6202,11 +6203,32 @@
         playHtml(kind);
       }
 
-      function burst(x, y, color, n, speed) {
+      function burst(x, y, color, n, speed, life) {
+        const max = life || 0.8;
         for (let i = 0; i < n; i++) {
           const a = rand(0, Math.PI * 2);
           const s = rand(20, speed);
-          sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.35, 0.8), max: 0.8, r: rand(1.2, 3.2), color });
+          sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(max * 0.45, max), max, r: rand(1.2, 3.6), color });
+        }
+      }
+
+      function minusDeathFx(x, y) {
+        beep("boom");
+        shake = Math.max(shake, 8);
+        booms.push({ x, y, life: 0.58, max: 0.58, r: 86, tint: "violet" });
+        booms.push({ x, y, life: 0.34, max: 0.34, r: 48, tint: "white" });
+        burst(x, y, "#f4c8ff", 28, 380, 0.7);
+        burst(x, y, "#b46bff", 22, 300, 0.65);
+        burst(x, y, "#ffffff", 12, 220, 0.4);
+        burst(x, y, "#ff7ad8", 14, 260, 0.55);
+        for (let i = 0; i < 8; i++) {
+          const a = rand(0, Math.PI * 2);
+          const s = rand(70, 220);
+          shards.push({
+            x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+            rot: rand(0, Math.PI * 2), spin: rand(-8, 8),
+            life: rand(0.45, 0.85), max: 0.85, text: "−",
+          });
         }
       }
 
@@ -6235,7 +6257,7 @@
           y: player.y + aimY * (player.r + 6),
           vx: player.vx * 0.25 + aimX * spd,
           vy: player.vy * 0.25 + aimY * spd,
-          life: 0.72, r: 3.1,
+          life: 0.9, r: 4.4,
         });
         player.vx -= aimX * 10;
         player.vy -= aimY * 10;
@@ -6262,9 +6284,9 @@
 
       function explode(x, y, radius) {
         beep("boom");
-        burst(x, y, "#ffb45a", 26, 320);
-        burst(x, y, "#fff2c8", 10, 180);
-        booms.push({ x, y, life: 0.38, max: 0.38, r: radius });
+        burst(x, y, "#ffb45a", 22, 320, 0.55);
+        burst(x, y, "#fff2c8", 10, 180, 0.4);
+        booms.push({ x, y, life: 0.42, max: 0.42, r: radius, tint: "orange" });
         shake = Math.max(shake, 7);
         for (let i = charges.length - 1; i >= 0; i--) {
           const c = charges[i];
@@ -6276,9 +6298,29 @@
       function smashMinus(i) {
         const c = charges[i];
         if (!c || c.sign >= 0) return;
-        burst(c.x, c.y, "#d080ff", 14, 240);
+        minusDeathFx(c.x, c.y);
         charges.splice(i, 1);
         spawnCharge(-1, true);
+      }
+
+      function hitMinus(x1, y1, x2, y2, rad) {
+        for (let j = charges.length - 1; j >= 0; j--) {
+          const c = charges[j];
+          if (c.sign >= 0 || c.absorbing) continue;
+          const r = c.r + rad + 10;
+          const dx = x2 - x1, dy = y2 - y1;
+          const fx = x1 - c.x, fy = y1 - c.y;
+          const a = dx * dx + dy * dy;
+          let hit = false;
+          if (a < 1) hit = Math.hypot(fx, fy) <= r;
+          else {
+            let t = -(fx * dx + fy * dy) / a;
+            t = clamp(t, 0, 1);
+            hit = Math.hypot(fx + dx * t, fy + dy * t) <= r;
+          }
+          if (hit) return j;
+        }
+        return -1;
       }
 
       function addForce(body, fx, fy) {
@@ -6429,33 +6471,38 @@
 
         for (let i = bolts.length - 1; i >= 0; i--) {
           const b = bolts[i];
+          const ox = b.x, oy = b.y;
           b.life -= dt;
           b.x += b.vx * dt;
           b.y += b.vy * dt;
           if (b.kind === "rocket") {
             sparks.push({ x: b.x - b.vx * 0.02, y: b.y - b.vy * 0.02, vx: rand(-20, 20), vy: rand(-20, 20), life: 0.18, max: 0.18, r: rand(1.4, 2.6), color: "#ffb060" });
           }
-          if (b.life <= 0) {
-            if (b.kind === "rocket") explode(b.x, b.y, 78);
+          const j = hitMinus(ox, oy, b.x, b.y, b.r);
+          if (j >= 0) {
+            if (b.kind === "rocket") explode(b.x, b.y, 96);
+            else smashMinus(j);
             bolts.splice(i, 1);
             continue;
           }
-          let hit = false;
-          for (let j = charges.length - 1; j >= 0; j--) {
-            const c = charges[j];
-            if (c.sign >= 0 || c.absorbing) continue;
-            if (Math.hypot(c.x - b.x, c.y - b.y) < c.r + b.r + 4) {
-              if (b.kind === "rocket") explode(b.x, b.y, 92);
-              else smashMinus(j);
-              hit = true;
-              break;
-            }
+          if (b.life <= 0) {
+            if (b.kind === "rocket") explode(b.x, b.y, 78);
+            bolts.splice(i, 1);
           }
-          if (hit) bolts.splice(i, 1);
         }
         for (let i = booms.length - 1; i >= 0; i--) {
           booms[i].life -= dt;
           if (booms[i].life <= 0) booms.splice(i, 1);
+        }
+        for (let i = shards.length - 1; i >= 0; i--) {
+          const s = shards[i];
+          s.life -= dt;
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.vx *= 0.96;
+          s.vy *= 0.96;
+          s.rot += s.spin * dt;
+          if (s.life <= 0) shards.splice(i, 1);
         }
 
         if (playing) {
@@ -6818,11 +6865,40 @@
         }
         for (const boom of booms) {
           const t = 1 - boom.life / boom.max;
-          ctx.strokeStyle = `rgba(255,200,120,${1 - t})`;
-          ctx.lineWidth = 3 - t * 2;
+          const alpha = 1 - t;
+          const tint = boom.tint || "orange";
+          const col = tint === "violet"
+            ? `rgba(210,120,255,${alpha})`
+            : tint === "white"
+              ? `rgba(255,255,255,${alpha})`
+              : `rgba(255,200,120,${alpha})`;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 4 - t * 2.6;
           ctx.beginPath();
-          ctx.arc(boom.x - cam.x, boom.y - cam.y, boom.r * (0.25 + t * 0.9), 0, Math.PI * 2);
+          ctx.arc(boom.x - cam.x, boom.y - cam.y, boom.r * (0.18 + t * 0.95), 0, Math.PI * 2);
           ctx.stroke();
+          if (tint === "violet") {
+            const flash = ctx.createRadialGradient(boom.x - cam.x, boom.y - cam.y, 0, boom.x - cam.x, boom.y - cam.y, boom.r * (0.3 + t * 0.5));
+            flash.addColorStop(0, `rgba(255,210,255,${0.45 * alpha})`);
+            flash.addColorStop(0.45, `rgba(170,80,255,${0.22 * alpha})`);
+            flash.addColorStop(1, "rgba(80,0,120,0)");
+            ctx.fillStyle = flash;
+            ctx.beginPath();
+            ctx.arc(boom.x - cam.x, boom.y - cam.y, boom.r * (0.3 + t * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.font = "900 18px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const s of shards) {
+          const a = Math.max(0, s.life / s.max);
+          ctx.save();
+          ctx.translate(s.x - cam.x, s.y - cam.y);
+          ctx.rotate(s.rot);
+          ctx.fillStyle = `rgba(255,190,255,${a})`;
+          ctx.fillText(s.text, 0, 0);
+          ctx.restore();
         }
         ctx.restore();
         const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.28, w / 2, h / 2, Math.max(w, h) * 0.72);
