@@ -102,11 +102,22 @@ create table if not exists sessions (
   updated_at timestamp not null default timezone('America/New_York', now())
 );
 
+create table if not exists penalties (
+  id text primary key,
+  profile_id text not null,
+  coins int not null default 0,
+  reason text default '',
+  status text not null default 'active',
+  at timestamp,
+  updated_at timestamp not null default timezone('America/New_York', now())
+);
+
 create index if not exists days_profile_idx on days (profile_id);
 create index if not exists history_profile_idx on history (profile_id);
 create index if not exists purchases_profile_idx on purchases (profile_id);
 create index if not exists claims_profile_idx on claims (profile_id);
 create index if not exists sessions_device_idx on sessions (device_id);
+create index if not exists penalties_profile_idx on penalties (profile_id);
 
 alter table profiles enable row level security;
 alter table balances enable row level security;
@@ -119,6 +130,7 @@ alter table catalog enable row level security;
 alter table config enable row level security;
 alter table photos enable row level security;
 alter table sessions enable row level security;
+alter table penalties enable row level security;
 
 drop policy if exists family_all on profiles;
 drop policy if exists family_all on balances;
@@ -131,6 +143,7 @@ drop policy if exists family_all on catalog;
 drop policy if exists family_all on config;
 drop policy if exists family_all on photos;
 drop policy if exists family_all on sessions;
+drop policy if exists family_all on penalties;
 
 create policy family_all on profiles for all to anon, authenticated using (true) with check (true);
 create policy family_all on balances for all to anon, authenticated using (true) with check (true);
@@ -143,6 +156,7 @@ create policy family_all on catalog for all to anon, authenticated using (true) 
 create policy family_all on config for all to anon, authenticated using (true) with check (true);
 create policy family_all on photos for all to anon, authenticated using (true) with check (true);
 create policy family_all on sessions for all to anon, authenticated using (true) with check (true);
+create policy family_all on penalties for all to anon, authenticated using (true) with check (true);
 
 create or replace function claim_profile_session(
   p_id text,

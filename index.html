@@ -533,6 +533,15 @@
     .claim-badge.new { color: #c67a00; }
     .claim-badge.approved { color: var(--ok-ink); }
     .claim-badge.rejected { color: var(--bad); }
+    .claim-badge.penalty { color: var(--bad); }
+    .claim-badge.cancelled { color: var(--muted); }
+    .claim-row.penalty { background: var(--bad-bg); border-color: #ffb0c0; }
+    .claim-row.cancelled { opacity: 0.7; }
+    .earn-penalty-block { margin-top: 18px; padding-top: 4px; }
+    .modal-card select {
+      width: 100%; min-height: 48px; border: 2px solid var(--line-strong); border-radius: 14px;
+      background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; padding: 0 12px;
+    }
     .claim-kind-list { display: grid; gap: 10px; }
     .claim-kind {
       display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start;
@@ -878,6 +887,30 @@
       <button class="btn btn-ghost" id="rejectCancelBtn" type="button" data-i18n="cancel">Cancel</button>
     </div>
   </div>
+  <div class="modal hidden" id="penaltyModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="penaltyModalTitle" data-i18n="penaltyCreate">Create penalty</h2>
+        <button class="modal-close" id="penaltyCloseBtn" type="button" aria-label="Close">&times;</button>
+      </div>
+      <p class="note" data-i18n="penaltyHint">Stars are taken off that profile right away.</p>
+      <div class="admin-row">
+        <span class="label" data-i18n="penaltyWho">Who</span>
+        <select id="penaltyProfile"></select>
+      </div>
+      <div class="admin-row">
+        <span class="label" data-i18n="penaltyReason">Reason</span>
+        <textarea id="penaltyReason" maxlength="80" data-i18n-placeholder="penaltyReasonPh"></textarea>
+      </div>
+      <div class="admin-row">
+        <span class="label" data-i18n="penaltyAmount">Mishcoins to take off</span>
+        <input id="penaltyAmount" type="number" min="1" max="999" step="1" />
+      </div>
+      <p class="note" id="penaltyError" style="color:var(--bad);min-height:18px;"></p>
+      <button class="btn btn-accent" id="penaltySaveBtn" type="button" data-i18n="save">Save</button>
+      <button class="btn btn-ghost" id="penaltyCancelBtn" type="button" data-i18n="cancel">Cancel</button>
+    </div>
+  </div>
   <div class="modal toast-modal hidden" id="toastModal">
     <div class="modal-card">
       <div class="toast-emoji" id="toastEmoji">🪙</div>
@@ -1021,6 +1054,7 @@
               <p class="subtitle" id="earnSubtitle" data-i18n="earnSubtitle">Send a schedule request. Dad will approve it.</p>
             </div>
             <button class="btn btn-accent earn-create-btn hidden" id="earnCreateBtn" type="button" data-i18n="earnCreate">Create request</button>
+            <button class="btn btn-accent earn-create-btn hidden" id="earnPenaltyBtn" type="button" data-i18n="penaltyCreate">Create penalty</button>
           </div>
           <div class="earn-tabs hidden" id="earnTabs">
             <button class="earn-tab on" id="earnTabPending" type="button" data-tab="pending" data-i18n="earnTabPending">Review</button>
@@ -1399,6 +1433,26 @@
         earnPapaTitle: "Заявки на согласование",
         earnPapaSubtitle: "Все заявки семьи. Отметь нужные и согласуй или отклони.",
         earnPapaEmpty: "Пока нет заявок на согласование.",
+        penaltyCreate: "Создать штраф",
+        penaltyList: "Штрафы",
+        penaltyEdit: "Изменить штраф",
+        penaltyHint: "Звёзды сразу снимутся у выбранного профиля.",
+        penaltyWho: "Для кого",
+        penaltyReason: "Причина",
+        penaltyReasonPh: "Почему штраф",
+        penaltyAmount: "Сколько Мишкоинов снять",
+        penaltyNeedWho: "Выбери, кому штраф",
+        penaltyNeedReason: "Напиши причину",
+        penaltyNeedAmount: "Укажи сколько снять",
+        penaltySaveFail: "Не получилось сохранить штраф",
+        penaltySaved: "Штраф записан",
+        penaltyUpdated: "Штраф обновлён",
+        penaltyCancelled: "Штраф отменён",
+        penaltyEmpty: "Штрафов пока нет.",
+        penaltyCancel: "Отменить",
+        penaltyStatus_active: "Штраф",
+        penaltyStatus_cancelled: "Отменён",
+        historyPenalty: "Штраф",
         earnEdit: "Изменить",
         earnDelete: "Удалить",
         earnEdited: "Заявка обновлена",
@@ -1617,6 +1671,26 @@
         earnPapaTitle: "Requests to approve",
         earnPapaSubtitle: "All family requests. Check the ones you want, then approve or reject.",
         earnPapaEmpty: "No requests waiting for approval.",
+        penaltyCreate: "Create penalty",
+        penaltyList: "Penalties",
+        penaltyEdit: "Edit penalty",
+        penaltyHint: "Stars are taken off that profile right away.",
+        penaltyWho: "Who",
+        penaltyReason: "Reason",
+        penaltyReasonPh: "Why this penalty",
+        penaltyAmount: "Mishcoins to take off",
+        penaltyNeedWho: "Choose who gets the penalty",
+        penaltyNeedReason: "Write a reason",
+        penaltyNeedAmount: "Enter how many stars to take off",
+        penaltySaveFail: "Could not save the penalty",
+        penaltySaved: "Penalty saved",
+        penaltyUpdated: "Penalty updated",
+        penaltyCancelled: "Penalty cancelled",
+        penaltyEmpty: "No penalties yet.",
+        penaltyCancel: "Cancel penalty",
+        penaltyStatus_active: "Penalty",
+        penaltyStatus_cancelled: "Cancelled",
+        historyPenalty: "Penalty",
         earnEdit: "Edit",
         earnDelete: "Delete",
         earnEdited: "Request updated",
@@ -1716,6 +1790,9 @@
     let familyClaimsDirty = false;
     let familyClaimsPushing = false;
     let familyClaimsPushQueued = false;
+    let familyPenalties = [];
+    let editingPenaltyId = null;
+    let penaltyBusy = false;
     let editingClaimId = null;
     let earnTab = "pending";
     let earnApprovedOnly = false;
@@ -2695,9 +2772,13 @@
           map.set(`claim:${entry.id}`, entry);
           return;
         }
+        if (isPenaltyHistory(entry) && entry.id) {
+          map.set(`pen:${entry.id}`, entry);
+          return;
+        }
         const day = canonicalDateKey(entry.dateKey);
         const amount = Number(entry.amount) || 0;
-        const isPrize = entry.kind === "prize" || amount < 0;
+        const isPrize = !isPenaltyHistory(entry) && (entry.kind === "prize" || amount < 0);
         const key = isPrize
           ? `prize:${toUnix(entry.at)}|${amount}`
           : (day && amount > 0 ? `lesson:${day}` : (entry.id || `${toUnix(entry.at)}|${amount}`));
@@ -2751,7 +2832,8 @@
       const extra = generated.filter((item) => !existing.some((entry) => (
         entry.id === item.id
         || (
-          (entry.kind === "prize" || Number(entry.amount) < 0)
+          !isPenaltyHistory(entry)
+          && (entry.kind === "prize" || Number(entry.amount) < 0)
           && Number(entry.amount) === Number(item.amount)
           && toUnix(entry.at) === toUnix(item.at)
         )
@@ -3012,6 +3094,120 @@
         .slice(0, 60);
     }
     function isPapa() { return profileId === "papa"; }
+    function isPenaltyHistory(entry) {
+      return String(entry?.id || "").startsWith("penalty-")
+        || entry?.kind === "penalty"
+        || (entry?.parts || []).some((part) => part && part.k === "penalty");
+    }
+    function dropCancelledPenalties(list, remote) {
+      if (!Array.isArray(remote)) return list || [];
+      const ids = new Set(remote.filter(isPenaltyHistory).map((entry) => entry.id).filter(Boolean));
+      return (list || []).filter((entry) => !isPenaltyHistory(entry) || !entry.id || ids.has(entry.id));
+    }
+    function penaltyHistoryEntry(item) {
+      const coins = Math.abs(Number(item.coins) || 0);
+      const reason = String(item.reason || "").trim();
+      return {
+        id: `penalty-${item.id}`,
+        at: item.at || estNowIso(),
+        dateKey: "",
+        amount: -coins,
+        kind: "penalty",
+        parts: [{ k: "penalty", r: reason, e: reason, amount: -coins }],
+      };
+    }
+    function normalizePenalty(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const coins = Math.abs(Number(raw.coins) || 0);
+      const status = raw.status === "cancelled" ? "cancelled" : "active";
+      const profile = String(raw.profileId || raw.profile_id || "");
+      if (!raw.id || !profile || !coins) return null;
+      return {
+        id: raw.id,
+        profileId: profile,
+        coins,
+        reason: String(raw.reason || "").trim().slice(0, 80),
+        status,
+        at: raw.at || estNowIso(),
+        updatedAt: raw.updatedAt || raw.updated_at || raw.at || estNowIso(),
+      };
+    }
+    async function pullPenalties() {
+      if (!cloudUsesSupabase()) return;
+      const rows = await sbSelect("penalties", "select=*&order=at.desc");
+      familyPenalties = (rows || []).map((row) => normalizePenalty({
+        id: row.id,
+        profileId: row.profile_id,
+        coins: row.coins,
+        reason: row.reason,
+        status: row.status,
+        at: row.at,
+        updatedAt: row.updated_at,
+      })).filter(Boolean);
+    }
+    async function refreshTargetLedger(id) {
+      if (!id || !cloudUsesSupabase()) return;
+      const rows = await sbSelect("history", `profile_id=eq.${encodeURIComponent(id)}&select=delta`);
+      const stars = (rows || []).reduce((sum, row) => sum + (Number(row.delta) || 0), 0);
+      const spend = (rows || []).reduce((sum, row) => sum + Math.max(0, -(Number(row.delta) || 0)), 0);
+      starsWriteAllowed += 1;
+      try {
+        await sbUpsert("balances", [{
+          profile_id: id,
+          stars,
+          spend,
+          updated_at: estNowIso(),
+        }]);
+      } finally {
+        starsWriteAllowed -= 1;
+      }
+      if (id === profileId) {
+        const hist = await sbSelect("history", `profile_id=eq.${encodeURIComponent(id)}&order=at.desc`);
+        coins.history = (hist || []).map((row) => ({
+          id: row.id,
+          at: row.at,
+          dateKey: canonicalDateKey(row.date_key),
+          amount: Number(row.delta) || 0,
+          kind: row.kind || "",
+          parts: row.kind === "penalty" || String(row.id || "").startsWith("penalty-")
+            ? [{ k: "penalty", r: row.note || "", e: row.note || "", amount: Number(row.delta) || 0 }]
+            : [],
+        }));
+        fillHistoryLedger();
+        applyLedgerBalance();
+        forceRememberedBalance(coins.balance);
+        renderCoins();
+        if (currentView === "history") renderCoinHistory();
+      }
+      notifyCloud("bal", { id });
+    }
+    async function writePenaltyHistory(item, action) {
+      if (!item?.id || !item.profileId || !cloudUsesSupabase()) return false;
+      const histId = `penalty-${item.id}`;
+      if (action === "cancel") {
+        const deleted = await sbRest(`history?id=eq.${encodeURIComponent(histId)}`, {
+          method: "DELETE",
+          prefer: "return=minimal",
+          body: undefined,
+        });
+        if (deleted === null) return false;
+      } else {
+        const entry = penaltyHistoryEntry(item);
+        const ok = await sbUpsert("history", [{
+          id: histId,
+          profile_id: item.profileId,
+          at: item.at || estNowIso(),
+          delta: entry.amount,
+          kind: "penalty",
+          note: item.reason || "",
+          date_key: "",
+        }]);
+        if (!ok) return false;
+      }
+      await refreshTargetLedger(item.profileId);
+      notifyCloud("claim", { id: item.profileId });
+      return true;
+    }
     function myClaims() {
       return (familyClaims || []).filter((claim) => claim.profileId === profileId);
     }
@@ -3565,7 +3761,7 @@
       try {
         coins = {
           balance: 0,
-          history: mergeHistory(coins.history, remote.coins?.history),
+          history: dropCancelledPenalties(mergeHistory(coins.history, remote.coins?.history), remote.coins?.history),
           purchases: mergePurchases(coins.purchases, remote.coins?.purchases),
           claims: mergeClaims(coins.claims, remote.coins?.claims, profileId),
         };
@@ -3574,6 +3770,7 @@
         mergeRemoteDays(remote.days || []);
         if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
         applyRememberedLocalProfile();
+        coins.history = dropCancelledPenalties(coins.history, remote.coins?.history);
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
@@ -3674,6 +3871,10 @@
         const rows = await sbSelect("claims", "select=*&order=at.desc");
         return { u: Date.now(), r: rows.map(sbClaimRow) };
       }
+      if (key === "penalties") {
+        const rows = await sbSelect("penalties", "select=*&order=at.desc");
+        return { u: Date.now(), r: rows };
+      }
       if (/^a_/.test(key)) {
         const id = key.slice(2).split("_")[0];
         const rows = await sbSelect("photos", `profile_id=eq.${encodeURIComponent(id)}&select=data_url`);
@@ -3710,7 +3911,9 @@
             dateKey: canonicalDateKey(r.date_key),
             amount: Number(r.delta) || 0,
             kind: r.kind || "lesson",
-            parts: r.kind === "claim" || String(r.id || "").startsWith("claim-")
+            parts: r.kind === "penalty" || String(r.id || "").startsWith("penalty-")
+              ? [{ k: "penalty", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+              : r.kind === "claim" || String(r.id || "").startsWith("claim-")
               ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
               : (r.kind === "prize" || Number(r.delta) < 0)
                 ? [{ k: "prize", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
@@ -3827,7 +4030,9 @@
         }]);
       }
       if (m[1] === "h") {
-        const rows = sbExpandHistory(value?.h || value?.history || [], id);
+        const rows = sbExpandHistory(value?.h || value?.history || [], id).filter((row) => (
+          row.kind !== "penalty" && !String(row.id || "").startsWith("penalty-")
+        ));
         return rows.length ? sbUpsert("history", rows) : true;
       }
       if (m[1] === "d") {
@@ -3878,7 +4083,7 @@
           profile_id: id,
           at: item.at,
           delta: Number(item.amount || item.delta) || 0,
-          kind: item.kind || (isClaimHistory(item) ? "claim" : ((Number(item.amount || item.delta) || 0) < 0 ? "prize" : "lesson")),
+          kind: item.kind || (isPenaltyHistory(item) ? "penalty" : (isClaimHistory(item) ? "claim" : ((Number(item.amount || item.delta) || 0) < 0 ? "prize" : "lesson"))),
           date_key: canonicalDateKey(item.dateKey || item.date_key),
           note: item.note || item.parts?.[0]?.r || item.parts?.[0]?.e || "",
         };
@@ -3965,7 +4170,7 @@
       })).filter((c) => c.id);
     }
     async function sbPull(id) {
-      const shared = ["catalog", "kinds", "cfg", "claims"];
+      const shared = ["catalog", "kinds", "cfg", "claims", "penalties"];
       const mine = id ? ["b", "p", "h", "d", "y", "r"].map((p) => `${p}_${id}`) : [];
       const keys = {};
       await Promise.all([...shared, ...mine].map(async (key) => {
@@ -4630,7 +4835,8 @@
       if (!profileId) return;
       const histRaw = await fetchKvRaw(cloudHistKey());
       if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
-        coins.history = mergeHistory(coins.history, expandHistory(histRaw.h || histRaw.history));
+        const remoteHist = expandHistory(histRaw.h || histRaw.history);
+        coins.history = dropCancelledPenalties(mergeHistory(coins.history, remoteHist), remoteHist);
       }
       const buyRaw = await fetchKvRaw(cloudBuyKey());
       if (buyRaw && (Array.isArray(buyRaw.y) || Array.isArray(buyRaw.purchases))) {
@@ -4667,6 +4873,7 @@
       }
       if (data.k === "claim") {
         await pullFamilyClaims();
+        await pullPenalties();
         if (!data.id || data.id === profileId) {
           await pullBalanceOnly();
           creditApprovedClaims();
@@ -4711,6 +4918,7 @@
         await pullCatalogSync();
         await pullKindsSync();
         await pullFamilyClaims();
+        await pullPenalties();
         const remote = await fetchProfileCloud();
         if (!remote) {
           setSyncState(profileDirty ? "busy" : "ok");
@@ -5144,12 +5352,16 @@
         await pullCatalogSync();
         await pullKindsSync();
         await pullFamilyClaims();
+        await pullPenalties();
         const remote = await fetchProfileCloud();
         const pending = readPendingSnapshot();
         if (remote) replaceFromCloud(remote);
         applyRememberedLocalProfile();
         if (pending) applyPendingSnapshot(pending);
-        coins.history = dedupeHistory(mergeHistory(coins.history, readRememberedHistory()));
+        coins.history = dropCancelledPenalties(
+          dedupeHistory(mergeHistory(coins.history, readRememberedHistory())),
+          remote?.coins?.history
+        );
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
@@ -5707,6 +5919,134 @@
         <span class="claim-badge ${claim.status}">${escapeHtml(claimStatusLabel(claim.status))}</span>
       </${withPick ? "label" : "div"}>`;
     }
+    function penaltyOwnerName(item) {
+      const profile = PROFILES.find((p) => p.id === item.profileId);
+      return profile ? profileLabel(profile) : (item.profileId || "");
+    }
+    function penaltyRowHtml(item, withActions) {
+      const cls = item.status === "cancelled" ? "cancelled" : "penalty";
+      return `<div class="claim-row ${cls}">
+        <div>
+          <div class="claim-title">${escapeHtml(penaltyOwnerName(item))} · ${escapeHtml(item.reason || t("historyPenalty"))}</div>
+          <div class="claim-meta">-${item.coins} ${COIN_SYMBOL} · ${formatHistoryDate(item.updatedAt || item.at)}</div>
+        </div>
+        <span class="claim-badge ${cls}">${escapeHtml(t(`penaltyStatus_${item.status}`))}</span>
+        ${withActions ? `<div class="claim-row-actions">
+          <button class="btn btn-ink btn-sm penalty-edit" type="button" data-id="${escapeHtml(item.id)}">${t("earnEdit")}</button>
+          <button class="btn btn-ghost btn-sm penalty-cancel" type="button" data-id="${escapeHtml(item.id)}">${t("penaltyCancel")}</button>
+        </div>` : ""}
+      </div>`;
+    }
+    function fillPenaltyProfiles() {
+      const sel = document.getElementById("penaltyProfile");
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = PROFILES.map((p) => `<option value="${p.id}">${escapeHtml(profileLabel(p))}</option>`).join("");
+      if (current && PROFILES.some((p) => p.id === current)) sel.value = current;
+      else if (PROFILES.some((p) => p.id === "misha")) sel.value = "misha";
+    }
+    function openPenaltyModal(id = null) {
+      if (!isPapa()) return;
+      editingPenaltyId = id || null;
+      fillPenaltyProfiles();
+      const item = id ? familyPenalties.find((p) => p.id === id) : null;
+      document.getElementById("penaltyModalTitle").textContent = t(item ? "penaltyEdit" : "penaltyCreate");
+      document.getElementById("penaltyProfile").value = item?.profileId || "misha";
+      document.getElementById("penaltyProfile").disabled = !!item;
+      document.getElementById("penaltyReason").value = item?.reason || "";
+      document.getElementById("penaltyAmount").value = item ? String(item.coins) : "";
+      document.getElementById("penaltyError").textContent = "";
+      document.getElementById("penaltyModal").classList.remove("hidden");
+    }
+    function closePenaltyModal() {
+      editingPenaltyId = null;
+      document.getElementById("penaltyModal").classList.add("hidden");
+    }
+    async function savePenalty() {
+      if (!isPapa() || penaltyBusy) return;
+      const profile = document.getElementById("penaltyProfile").value;
+      const reason = document.getElementById("penaltyReason").value.trim();
+      const coins = Math.round(Number(document.getElementById("penaltyAmount").value) || 0);
+      const err = document.getElementById("penaltyError");
+      if (!PROFILES.some((p) => p.id === profile)) {
+        err.textContent = t("penaltyNeedWho");
+        return;
+      }
+      if (!reason) {
+        err.textContent = t("penaltyNeedReason");
+        return;
+      }
+      if (!(coins > 0)) {
+        err.textContent = t("penaltyNeedAmount");
+        return;
+      }
+      penaltyBusy = true;
+      try {
+        const now = estNowIso();
+        let item = editingPenaltyId ? familyPenalties.find((p) => p.id === editingPenaltyId) : null;
+        if (item && item.status !== "active") return;
+        if (item) {
+          item.coins = coins;
+          item.reason = reason.slice(0, 80);
+          item.updatedAt = now;
+        } else {
+          item = {
+            id: uid(),
+            profileId: profile,
+            coins,
+            reason: reason.slice(0, 80),
+            status: "active",
+            at: now,
+            updatedAt: now,
+          };
+          familyPenalties.unshift(item);
+        }
+        const ok = await sbUpsert("penalties", [{
+          id: item.id,
+          profile_id: item.profileId,
+          coins: item.coins,
+          reason: item.reason,
+          status: item.status,
+          at: item.at,
+          updated_at: item.updatedAt,
+        }]);
+        if (!ok || !(await writePenaltyHistory(item, "upsert"))) {
+          err.textContent = t("penaltySaveFail");
+          await pullPenalties();
+          return;
+        }
+        const edited = !!editingPenaltyId;
+        closePenaltyModal();
+        renderEarn();
+        showToast("ok", t(edited ? "penaltyUpdated" : "penaltySaved"), item.reason, "⚠️");
+      } finally {
+        penaltyBusy = false;
+      }
+    }
+    async function cancelPenalty(id) {
+      if (!isPapa() || penaltyBusy) return;
+      const item = familyPenalties.find((p) => p.id === id);
+      if (!item || item.status !== "active") return;
+      penaltyBusy = true;
+      try {
+        if (!(await writePenaltyHistory(item, "cancel"))) return;
+        item.status = "cancelled";
+        item.updatedAt = estNowIso();
+        await sbUpsert("penalties", [{
+          id: item.id,
+          profile_id: item.profileId,
+          coins: item.coins,
+          reason: item.reason,
+          status: "cancelled",
+          at: item.at,
+          updated_at: item.updatedAt,
+        }]);
+        renderEarn();
+        showToast("ok", t("penaltyCancelled"), item.reason, "⚠️");
+      } finally {
+        penaltyBusy = false;
+      }
+    }
     function renderEarn() {
       const box = document.getElementById("earnList");
       const title = document.getElementById("earnTitle");
@@ -5731,15 +6071,31 @@
         if (title) title.textContent = t("earnPapaTitle");
         if (subtitle) subtitle.textContent = history ? t("earnTabHistory") : t("earnPapaSubtitle");
         createBtn?.classList.add("hidden");
+        document.getElementById("earnPenaltyBtn")?.classList.remove("hidden");
         historyFilter?.classList.add("hidden");
         actions?.classList.toggle("hidden", history);
         flash?.classList.toggle("hidden", history);
         const claims = inboxClaims(history ? "history" : "pending");
-        box.innerHTML = claims.length
+        const pens = (familyPenalties || []).filter((item) => history || item.status === "active");
+        const claimsHtml = claims.length
           ? `<div class="admin-claim-list">${claims.map((claim) => inboxRowHtml(claim, !history)).join("")}</div>`
           : `<div class="empty-state"><div class="empty-icon">☀️</div><p>${t(history ? "earnPapaHistoryEmpty" : "earnPapaEmpty")}</p></div>`;
+        const pensHtml = `<div class="earn-penalty-block">
+          <span class="label">${t("penaltyList")}</span>
+          ${pens.length
+            ? `<div class="claim-list">${pens.map((item) => penaltyRowHtml(item, !history && item.status === "active")).join("")}</div>`
+            : `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${t("penaltyEmpty")}</p></div>`}
+        </div>`;
+        box.innerHTML = claimsHtml + pensHtml;
+        box.querySelectorAll(".penalty-edit").forEach((btn) => {
+          btn.addEventListener("click", () => openPenaltyModal(btn.getAttribute("data-id")));
+        });
+        box.querySelectorAll(".penalty-cancel").forEach((btn) => {
+          btn.addEventListener("click", () => cancelPenalty(btn.getAttribute("data-id")));
+        });
         return;
       }
+      document.getElementById("earnPenaltyBtn")?.classList.add("hidden");
       if (title) title.textContent = t("earnTitle");
       if (subtitle) subtitle.textContent = history ? t("earnTabHistory") : t("earnSubtitle");
       createBtn?.classList.remove("hidden");
@@ -5959,6 +6315,10 @@
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
       if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) {
         return [{ k: "adjust", amount: item.amount }];
+      }
+      if (isPenaltyHistory(item)) {
+        const reason = stored[0]?.r || stored[0]?.e || item.parts?.[0]?.r || "";
+        return [{ k: "penalty", r: reason, e: reason, amount: item.amount }];
       }
       if (isClaimHistory(item) || matchedPaidClaim(item)) {
         const claim = matchedPaidClaim(item);
@@ -6196,6 +6556,10 @@
       if (part.k === "lesson") return t("rewardLesson");
       if (part.k === "prize") return t("redeemSpend", lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || ""));
       if (part.k === "claim") return lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || "");
+      if (part.k === "penalty") {
+        const reason = lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || "");
+        return reason ? `${t("historyPenalty")}: ${reason}` : t("historyPenalty");
+      }
       if (part.k === "adjust") return lang === "en" ? "Opening balance" : "Остаток до журнала";
       return part.label || "";
     }
@@ -6842,6 +7206,11 @@
       btn.addEventListener("click", () => navigate(btn.getAttribute("data-view")));
     });
     document.getElementById("earnCreateBtn").addEventListener("click", () => openClaimModal());
+    document.getElementById("earnPenaltyBtn").addEventListener("click", () => openPenaltyModal());
+    document.getElementById("penaltyCloseBtn").addEventListener("click", closePenaltyModal);
+    document.getElementById("penaltyCancelBtn").addEventListener("click", closePenaltyModal);
+    document.getElementById("penaltySaveBtn").addEventListener("click", () => { savePenalty(); });
+    document.getElementById("penaltyModal").addEventListener("click", (e) => { if (e.target === document.getElementById("penaltyModal")) closePenaltyModal(); });
     document.getElementById("earnTabPending").addEventListener("click", () => { earnTab = "pending"; renderEarn(); });
     document.getElementById("earnTabHistory").addEventListener("click", () => { earnTab = "history"; renderEarn(); });
     document.getElementById("earnApprovedOnly").addEventListener("change", (e) => {
