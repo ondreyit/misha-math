@@ -1301,7 +1301,7 @@
                 <p class="gravity-kicker" data-i18n="navGame">Игра</p>
                 <h2 id="gravityOverlayTitle" data-i18n="gravityTitle">Гравитационная</h2>
                 <p class="gravity-over-score hidden" id="gravityOverlayScore"></p>
-                <p class="gravity-rules" id="gravityOverlayRules" data-i18n="gravityRules">Управляй атомом +. Лови золотые плюсы — они неспешно убегают. Фиолетовые минусы притягивают тебя — уворачивайся!</p>
+                <p class="gravity-rules" id="gravityOverlayRules" data-i18n="gravityRules">Управляй атомом +. Лови золотые плюсы — рядом они притягиваются к тебе. Фиолетовые минусы притягивают тебя — уворачивайся!</p>
                 <button class="btn btn-accent" id="gravityPlayBtn" type="button" data-i18n="gravityPlay">Играть</button>
               </div>
             </div>
@@ -1505,13 +1505,13 @@
         gravityTitle: "Гравитационная",
         gravityScore: "Счёт",
         gravityBest: (n) => `Рекорд: ${n}`,
-        gravityRules: "Управляй атомом + в космосе. Лови золотые плюсы — они неспешно убегают и уворачиваются. Фиолетовые минусы притягивают тебя гравитацией — уворачивайся!",
+        gravityRules: "Управляй атомом + в космосе. Лови золотые плюсы — чем ближе ты, тем сильнее они притягиваются. Фиолетовые минусы притягивают тебя — уворачивайся! Удерживай курсор, чтобы разгоняться.",
         gravityPlay: "Играть",
         gravityAgain: "Ещё раз",
         gravityOver: "Заряд погас",
         gravityCaught: (n) => `Поймано +: ${n}`,
         gravitySound: "Звук",
-        gravityHint: "Тяни палец или мышь — атом летит туда по инерции.",
+        gravityHint: "Удерживай палец или мышь — чем дольше, тем быстрее летит атом. У плюсов вблизи включается притяжение.",
         heroGravity: "Лови плюсы и не дай минусам притянуть тебя!",
         navCalendar: "Календарь",
         navPlan: "Все задания",
@@ -1796,7 +1796,7 @@
         gravityOver: "Charge gone",
         gravityCaught: (n) => `Caught +: ${n}`,
         gravitySound: "Sound",
-        gravityHint: "Drag with a finger or the mouse — the atom coasts that way.",
+        gravityHint: "Hold a finger or the mouse — the longer you hold, the faster the atom flies. Pluses start pulling in when you get close.",
         heroGravity: "Catch the pluses and don't let the minuses pull you in!",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
@@ -5722,7 +5722,7 @@
       const bestEl = document.getElementById("gravityBestLine");
       const livesEl = document.getElementById("gravityLives");
       if (!canvas || !wrap) {
-        return { enter() {}, leave() {}, syncLabels() {}, pauseVis() {} };
+        return { enter() {}, leave() {}, syncLabels() {}, pauseVis() {}, syncAvatar() {} };
       }
       const ctx = canvas.getContext("2d", { alpha: false });
       const keys = new Set();
@@ -5738,12 +5738,50 @@
       let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
       let audio = null;
       let pointer = null;
+      let hold = 0;
+      let avatarImg = null;
+      let avatarReady = false;
+      let avatarSrc = "";
       let score = 0, best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
       let lives = 3, invuln = 0, shake = 0, over = false;
       let shoot = null;
-      const player = { x: 0, y: 0, vx: 0, vy: 0, r: 18, mass: 14 };
+      const player = { x: 0, y: 0, vx: 0, vy: 0, r: 28, mass: 16 };
       const cam = { x: 0, y: 0 };
 
+      function parsePos(pos) {
+        let x = 0.5, y = 0.5;
+        if (!pos) return { x, y };
+        const parts = String(pos).trim().split(/\s+/);
+        const frac = (s) => {
+          if (s === "center") return 0.5;
+          if (s === "left" || s === "top") return 0;
+          if (s === "right" || s === "bottom") return 1;
+          if (/%$/.test(s)) return clamp(parseFloat(s) / 100, 0, 1);
+          return 0.5;
+        };
+        if (parts.length === 1) x = y = frac(parts[0]);
+        else { x = frac(parts[0]); y = frac(parts[1]); }
+        return { x, y };
+      }
+
+      function syncAvatar() {
+        let src = "";
+        let pos = "center";
+        try {
+          const p = currentProfile();
+          src = currentPhoto(p) || "";
+          pos = customPhotos[p.id] ? "center" : (p.pos || "center");
+        } catch { src = ""; }
+        player.facePos = parsePos(pos);
+        if (!src) { avatarImg = null; avatarReady = false; avatarSrc = ""; return; }
+        if (src === avatarSrc && avatarImg) return;
+        avatarSrc = src;
+        avatarReady = false;
+        const img = new Image();
+        img.onload = () => { avatarImg = img; avatarReady = true; };
+        img.onerror = () => { if (avatarSrc === src) { avatarReady = false; avatarImg = null; } };
+        img.src = src;
+      }
       function rand(a, b) { return a + Math.random() * (b - a); }
       function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
       function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -5794,6 +5832,7 @@
       function resetPlay() {
         score = 0; lives = 3; invuln = 0; shake = 0; over = false;
         player.x = 0; player.y = 0; player.vx = 0; player.vy = 0;
+        hold = 0;
         cam.x = -w / 2; cam.y = -h / 2;
         trail.length = 0; sparks.length = 0;
         populateCharges();
@@ -5980,19 +6019,25 @@
         invuln = Math.max(0, invuln - dt);
         shake *= Math.pow(0.04, dt);
         let thrustX = 0, thrustY = 0;
+        const keyThrust = playing && (keys.has("arrowleft") || keys.has("a") || keys.has("arrowright") || keys.has("d") || keys.has("arrowup") || keys.has("w") || keys.has("arrowdown") || keys.has("s"));
+        const thrusting = playing && (!!pointer || keyThrust);
+        if (thrusting) hold = Math.min(4.6, hold + dt);
+        else hold = Math.max(0, hold - dt * 1.8);
+        const power = 0.28 + Math.pow(hold / 4.6, 1.08) * 2.85;
         if (playing && pointer) {
           const wx = pointer.x + cam.x, wy = pointer.y + cam.y;
           const dx = wx - player.x, dy = wy - player.y;
           const d = len(dx, dy);
-          const pull = clamp(d / 90, 0.25, 1);
-          thrustX += (dx / d) * 560 * pull;
-          thrustY += (dy / d) * 560 * pull;
+          const accel = 420 * power;
+          thrustX += (dx / d) * accel;
+          thrustY += (dy / d) * accel;
         }
         if (playing) {
-          if (keys.has("arrowleft") || keys.has("a")) thrustX -= 520;
-          if (keys.has("arrowright") || keys.has("d")) thrustX += 520;
-          if (keys.has("arrowup") || keys.has("w")) thrustY -= 520;
-          if (keys.has("arrowdown") || keys.has("s")) thrustY += 520;
+          const keyAccel = 400 * power;
+          if (keys.has("arrowleft") || keys.has("a")) thrustX -= keyAccel;
+          if (keys.has("arrowright") || keys.has("d")) thrustX += keyAccel;
+          if (keys.has("arrowup") || keys.has("w")) thrustY -= keyAccel;
+          if (keys.has("arrowdown") || keys.has("s")) thrustY += keyAccel;
         } else {
           thrustX += Math.cos(time * 0.21) * 18;
           thrustY += Math.sin(time * 0.17) * 18;
@@ -6009,17 +6054,22 @@
             c.vx += Math.cos(time * 0.7 + c.pulse) * 6 * dt;
             c.vy += Math.sin(time * 0.55 + c.pulse) * 6 * dt;
           } else if (!c.absorbing) {
-            couple(player, c, 240000, false, dt);
             const dx = c.x - player.x, dy = c.y - player.y;
             const d = len(dx, dy);
-            c.dodgeT -= dt;
-            if (c.dodgeT <= 0) { c.dodge = rand(0, Math.PI * 2); c.dodgeT = rand(0.45, 1.15); }
-            if (d < 280) {
-              const flee = 220 * (1 - d / 280);
-              c.vx += (dx / d) * flee * dt;
-              c.vy += (dy / d) * flee * dt;
+            const captureR = 270;
+            if (d < captureR) {
+              const near = 1 - d / captureR;
+              const attractK = 260000 + near * near * 2600000;
+              couple(player, c, attractK, true, dt);
+              const suck = 120 + near * near * 1100;
+              c.vx -= (dx / d) * suck * dt;
+              c.vy -= (dy / d) * suck * dt;
+            } else {
+              couple(player, c, 90000, false, dt);
+              c.dodgeT -= dt;
+              if (c.dodgeT <= 0) { c.dodge = rand(0, Math.PI * 2); c.dodgeT = rand(0.45, 1.15); }
               const px = -dy / d, py = dx / d;
-              const juke = 160 * Math.sin(time * 3 + c.pulse);
+              const juke = 70 * Math.sin(time * 2.2 + c.pulse);
               c.vx += px * juke * dt;
               c.vy += py * juke * dt;
             }
@@ -6027,10 +6077,11 @@
         }
 
         const spd = Math.hypot(player.vx, player.vy);
-        const maxSpd = 390;
+        const maxSpd = 260 + hold * 155;
         if (spd > maxSpd) { player.vx *= maxSpd / spd; player.vy *= maxSpd / spd; }
-        player.vx *= Math.pow(0.78, dt);
-        player.vy *= Math.pow(0.78, dt);
+        const drag = thrusting ? Math.pow(0.97, dt) : Math.pow(0.82, dt);
+        player.vx *= drag;
+        player.vy *= drag;
         player.x += player.vx * dt;
         player.y += player.vy * dt;
         trail.push({ x: player.x, y: player.y, a: 0.45 });
@@ -6039,7 +6090,7 @@
 
         for (const c of charges) {
           const cspd = Math.hypot(c.vx, c.vy);
-          const cap = c.sign > 0 ? 150 : 210;
+          const cap = c.sign > 0 ? (Math.hypot(c.x - player.x, c.y - player.y) < 270 ? 280 : 150) : 210;
           if (cspd > cap) { c.vx *= cap / cspd; c.vy *= cap / cspd; }
           c.vx *= Math.pow(0.72, dt);
           c.vy *= Math.pow(0.72, dt);
@@ -6059,7 +6110,7 @@
           for (let i = charges.length - 1; i >= 0; i--) {
             const c = charges[i];
             const d = Math.hypot(c.x - player.x, c.y - player.y);
-            if (c.sign > 0 && (c.absorbing || d < player.r + c.r + 4)) {
+            if (c.sign > 0 && (c.absorbing || d < player.r + c.r + 10)) {
               if (!c.absorbing) { c.absorbing = 0.08; beep("plus"); }
               if (c.absorbing > 0.85 || c.r < 2.2) {
                 burst(player.x, player.y, "#ffdc78", 18, 220);
@@ -6228,6 +6279,15 @@
           for (let i = 1; i <= 3; i++) {
             ctx.beginPath(); ctx.arc(x, y, 16 * i * glow, 0, Math.PI * 2); ctx.stroke();
           }
+        } else {
+          const d = Math.hypot(c.x - player.x, c.y - player.y);
+          if (d < 270) {
+            const near = 1 - d / 270;
+            const px = player.x - cam.x, py = player.y - cam.y;
+            ctx.strokeStyle = `rgba(255,210,90,${0.12 + near * 0.45})`;
+            ctx.lineWidth = 1.2 + near * 2.4;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(px, py); ctx.stroke();
+          }
         }
         const col = c.sign > 0
           ? ["rgba(255,250,210,0.95)", "rgba(255,196,70,0.7)", "rgba(255,140,20,0)"]
@@ -6245,59 +6305,116 @@
         ctx.fillText(c.sign > 0 ? "+" : "−", x, y + 0.5);
       }
 
+      function drawAvatarFace(x, y, r) {
+        if (!avatarReady || !avatarImg) return false;
+        const img = avatarImg;
+        const iw = img.naturalWidth || img.width || 1;
+        const ih = img.naturalHeight || img.height || 1;
+        const size = r * 2;
+        const scale = Math.max(size / iw, size / ih);
+        const dw = iw * scale, dh = ih * scale;
+        const pos = player.facePos || { x: 0.5, y: 0.5 };
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, x - r + (size - dw) * pos.x, y - r + (size - dh) * pos.y, dw, dh);
+        const shade = ctx.createRadialGradient(x - r * 0.25, y - r * 0.35, r * 0.15, x, y, r);
+        shade.addColorStop(0, "rgba(255,255,255,0.18)");
+        shade.addColorStop(0.45, "rgba(80,160,255,0.05)");
+        shade.addColorStop(1, "rgba(8,16,48,0.38)");
+        ctx.fillStyle = shade;
+        ctx.fill();
+        ctx.restore();
+        return true;
+      }
+
       function drawPlayer() {
         const x = player.x - cam.x + (Math.random() - 0.5) * shake;
         const y = player.y - cam.y + (Math.random() - 0.5) * shake;
+        const pulse = 1 + Math.sin(time * 3.1) * 0.04;
+        const flash = invuln > 0 && Math.sin(invuln * 24) > 0 ? 0.4 : 1;
+        const boost = hold / 4.6;
         ctx.save();
         for (const p of trail) {
-          ctx.fillStyle = `rgba(120,210,255,${p.a * 0.35})`;
-          ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = `rgba(120,210,255,${p.a * (0.28 + boost * 0.25)})`;
+          ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 6 + boost * 5, 0, Math.PI * 2); ctx.fill();
         }
         if (playing && pointer) {
-          ctx.strokeStyle = "rgba(160,220,255,0.28)";
-          ctx.setLineDash([5, 7]); ctx.lineWidth = 1.2;
+          ctx.strokeStyle = `rgba(160,220,255,${0.22 + boost * 0.35})`;
+          ctx.setLineDash([5, 7]); ctx.lineWidth = 1.2 + boost * 2;
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(pointer.x, pointer.y); ctx.stroke();
           ctx.setLineDash([]);
         }
+        if (hold > 0.05 && (Math.abs(player.vx) + Math.abs(player.vy)) > 8) {
+          const sp = Math.hypot(player.vx, player.vy) || 1;
+          ctx.globalCompositeOperation = "lighter";
+          const tx = x - (player.vx / sp) * (22 + boost * 28);
+          const ty = y - (player.vy / sp) * (22 + boost * 28);
+          const jet = ctx.createRadialGradient(tx, ty, 0, tx, ty, 18 + boost * 22);
+          jet.addColorStop(0, `rgba(180,240,255,${0.35 + boost * 0.45})`);
+          jet.addColorStop(0.4, `rgba(80,180,255,${0.18 + boost * 0.25})`);
+          jet.addColorStop(1, "rgba(20,40,120,0)");
+          ctx.fillStyle = jet;
+          ctx.beginPath(); ctx.arc(tx, ty, 18 + boost * 22, 0, Math.PI * 2); ctx.fill();
+          ctx.globalCompositeOperation = "source-over";
+        }
         ctx.globalCompositeOperation = "lighter";
-        const pulse = 1 + Math.sin(time * 3.1) * 0.05;
-        const flash = invuln > 0 && Math.sin(invuln * 24) > 0 ? 0.35 : 1;
         ctx.globalAlpha = flash;
-        const halo = ctx.createRadialGradient(x, y, 0, x, y, 78);
-        halo.addColorStop(0, "rgba(200,245,255,0.85)");
-        halo.addColorStop(0.22, "rgba(80,190,255,0.35)");
+        const haloR = (72 + boost * 36) * pulse;
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+        halo.addColorStop(0, "rgba(200,245,255,0.78)");
+        halo.addColorStop(0.22, "rgba(80,190,255,0.32)");
         halo.addColorStop(1, "rgba(20,40,120,0)");
         ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(x, y, 78 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, haloR, 0, Math.PI * 2); ctx.fill();
         const electrons = [
-          { rx: 28, ry: 11, rot: 0.4, sp: 2.3 },
-          { rx: 24, ry: 13, rot: -0.8, sp: -1.7 },
-          { rx: 20, ry: 9, rot: 1.2, sp: 2.8 },
+          { rx: 38, ry: 15, rot: 0.4, sp: 2.15 },
+          { rx: 34, ry: 17, rot: -0.85, sp: -1.55 },
+          { rx: 30, ry: 12, rot: 1.15, sp: 2.6 },
         ];
         electrons.forEach((el, i) => {
           const a = time * el.sp + i;
           ctx.save();
           ctx.translate(x, y); ctx.rotate(el.rot);
-          ctx.strokeStyle = "rgba(160,220,255,0.28)"; ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(160,220,255,0.32)"; ctx.lineWidth = 1.1;
           ctx.beginPath(); ctx.ellipse(0, 0, el.rx, el.ry, 0, 0, Math.PI * 2); ctx.stroke();
           const ex = Math.cos(a) * el.rx, ey = Math.sin(a) * el.ry;
           ctx.fillStyle = "#d8f6ff";
-          ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(ex, ey, 2.5, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         });
-        const core = ctx.createRadialGradient(x - 4, y - 5, 2, x, y, player.r);
-        core.addColorStop(0, "#ffffff");
-        core.addColorStop(0.28, "#9be7ff");
-        core.addColorStop(0.7, "#2f6fed");
-        core.addColorStop(1, "#122056");
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = flash;
-        ctx.fillStyle = core;
-        ctx.beginPath(); ctx.arc(x, y, player.r * pulse, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-        ctx.font = "900 16px Segoe UI, sans-serif";
+        const faceR = player.r * pulse;
+        ctx.beginPath();
+        ctx.arc(x, y, faceR + 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#16305c";
+        ctx.fill();
+        if (!drawAvatarFace(x, y, faceR)) {
+          const core = ctx.createRadialGradient(x - 4, y - 5, 2, x, y, faceR);
+          core.addColorStop(0, "#ffffff");
+          core.addColorStop(0.28, "#9be7ff");
+          core.addColorStop(0.7, "#2f6fed");
+          core.addColorStop(1, "#122056");
+          ctx.fillStyle = core;
+          ctx.beginPath(); ctx.arc(x, y, faceR, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, faceR + 1.2, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(190,240,255,0.85)";
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x - faceR * 0.28, y - faceR * 0.32, faceR * 0.55, 0.9, 4.4);
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.font = "900 13px Segoe UI, sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("+", x, y + 1);
+        ctx.fillText("+", x + faceR * 0.62, y - faceR * 0.62);
         ctx.restore();
       }
 
@@ -6380,6 +6497,7 @@
         resize();
         if (!stars[0].length) initSky();
         if (!charges.length) populateCharges();
+        syncAvatar();
         syncHud();
         if (!playing) showOverlay(over ? "over" : "start");
         cancelAnimationFrame(raf);
@@ -6396,6 +6514,7 @@
         entered = false;
         playing = false;
         pointer = null;
+        hold = 0;
         keys.clear();
         cancelAnimationFrame(raf);
         if (audio) {
@@ -6416,7 +6535,7 @@
         }
       }
 
-      return { enter, leave, syncLabels, pauseVis };
+      return { enter, leave, syncLabels, pauseVis, syncAvatar };
     })();
 
     function updateBackButton() {
@@ -6527,6 +6646,7 @@
       document.getElementById("profileChipName").textContent = profileLabel(p);
       document.getElementById("profileChip").title = t("profileSwitch");
       updateEarnNav();
+      GravityGame.syncAvatar();
     }
     function updateEarnNav() {
       const el = document.getElementById("navEarnLabel");
