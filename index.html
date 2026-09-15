@@ -6141,7 +6141,7 @@
             const d = len(dx, dy);
             nearestNeg = Math.min(nearestNeg, d);
             const nx = dx / d, ny = dy / d;
-            const chase = 340 / (1 + (d / 130) * (d / 130));
+            const chase = 240 / (1 + (d / 150) * (d / 150));
             c.vx -= nx * chase * dt;
             c.vy -= ny * chase * dt;
             c.vx += Math.cos(time * 0.7 + c.pulse) * 8 * dt;
@@ -6197,7 +6197,7 @@
 
         for (const c of charges) {
           const cspd = Math.hypot(c.vx, c.vy);
-          const cap = c.sign > 0 ? (Math.hypot(c.x - player.x, c.y - player.y) < 270 ? 280 : 150) : 210;
+          const cap = c.sign > 0 ? (Math.hypot(c.x - player.x, c.y - player.y) < 270 ? 280 : 150) : 170;
           if (cspd > cap) { c.vx *= cap / cspd; c.vy *= cap / cspd; }
           c.vx *= Math.pow(0.72, dt);
           c.vy *= Math.pow(0.72, dt);
