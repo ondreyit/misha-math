@@ -6275,18 +6275,58 @@
         if (!playing || rocketCd > 0) return;
         rocketCd = 0.58;
         updateAim();
-        const spd = 390;
+        const spd = 360;
         bolts.push({
           kind: "rocket",
           x: player.x + aimX * (player.r + 10),
           y: player.y + aimY * (player.r + 10),
           vx: player.vx * 0.2 + aimX * spd,
           vy: player.vy * 0.2 + aimY * spd,
-          life: 1.35, r: 6.5,
+          life: 2.4, r: 6.5, lock: null,
         });
         player.vx -= aimX * 26;
         player.vy -= aimY * 26;
         beep("rocket");
+      }
+
+      function nearestMinus(x, y, vx, vy) {
+        let best = null;
+        let bestScore = Infinity;
+        const pL = Math.hypot(vx, vy) || 1;
+        for (const c of charges) {
+          if (c.sign >= 0 || c.absorbing) continue;
+          const dx = c.x - x, dy = c.y - y;
+          const d = Math.hypot(dx, dy) || 1;
+          const fwd = (dx * vx + dy * vy) / (d * pL);
+          const score = d * (fwd > 0.1 ? 0.5 : 1.2);
+          if (score < bestScore) {
+            bestScore = score;
+            best = c;
+          }
+        }
+        return best;
+      }
+
+      function steerRocket(b, dt) {
+        if (b.lock && (b.lock.sign >= 0 || b.lock.absorbing || charges.indexOf(b.lock) < 0)) b.lock = null;
+        if (!b.lock) b.lock = nearestMinus(b.x, b.y, b.vx, b.vy);
+        const tgt = b.lock;
+        if (!tgt) return;
+        const cruise = 430;
+        const lead = Math.hypot(tgt.x - b.x, tgt.y - b.y) / cruise;
+        const tx = tgt.x + tgt.vx * lead * 0.55;
+        const ty = tgt.y + tgt.vy * lead * 0.55;
+        const dx = tx - b.x, dy = ty - b.y;
+        const d = len(dx, dy);
+        const wantX = dx / d, wantY = dy / d;
+        const sp = Math.hypot(b.vx, b.vy) || cruise;
+        let nx = b.vx / sp, ny = b.vy / sp;
+        const turn = 1 - Math.pow(0.012, dt);
+        nx += (wantX - nx) * turn;
+        ny += (wantY - ny) * turn;
+        const nl = len(nx, ny);
+        b.vx = (nx / nl) * cruise;
+        b.vy = (ny / nl) * cruise;
       }
 
       function explode(x, y, radius) {
@@ -6480,6 +6520,7 @@
           const b = bolts[i];
           const ox = b.x, oy = b.y;
           b.life -= dt;
+          if (b.kind === "rocket") steerRocket(b, dt);
           b.x += b.vx * dt;
           b.y += b.vy * dt;
           if (b.kind === "rocket") {
@@ -6847,6 +6888,17 @@
           const sp = Math.hypot(b.vx, b.vy) || 1;
           const ux = b.vx / sp, uy = b.vy / sp;
           if (b.kind === "rocket") {
+            if (b.lock && charges.indexOf(b.lock) >= 0) {
+              const lx = b.lock.x - cam.x, ly = b.lock.y - cam.y;
+              ctx.setLineDash([4, 6]);
+              ctx.strokeStyle = "rgba(255,180,80,0.45)";
+              ctx.lineWidth = 1.2;
+              ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lx, ly); ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.strokeStyle = "rgba(255,210,120,0.7)";
+              ctx.lineWidth = 1.4;
+              ctx.strokeRect(lx - 10, ly - 10, 20, 20);
+            }
             const g = ctx.createRadialGradient(x, y, 0, x, y, 18);
             g.addColorStop(0, "rgba(255,230,160,0.95)");
             g.addColorStop(0.45, "rgba(255,120,40,0.7)");
