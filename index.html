@@ -1019,6 +1019,35 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     }
     .gravity-sound[aria-pressed="false"] { opacity: 0.7; }
+    .gravity-fire {
+      position: absolute; right: calc(14px + env(safe-area-inset-right));
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      z-index: 3; display: flex; align-items: flex-end; gap: 12px;
+      pointer-events: none;
+    }
+    .gravity-fire-btn {
+      pointer-events: auto; border: 1px solid rgba(170, 210, 255, 0.35);
+      color: #eef6ff; backdrop-filter: blur(12px); cursor: pointer;
+      display: grid; place-items: center; user-select: none; -webkit-user-select: none;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+    .gravity-fire-btn:active, .gravity-fire-btn.on {
+      transform: scale(0.96);
+      filter: brightness(1.15);
+    }
+    .gravity-shot-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #9be7ff, #2f6fed 62%, #122056);
+      font-size: 13px; font-weight: 900; letter-spacing: 0.04em;
+    }
+    .gravity-rocket-btn {
+      width: 72px; height: 72px; border-radius: 22px;
+      background: radial-gradient(circle at 35% 28%, #ffe29a, #ff7a2b 58%, #7a2208);
+      font-size: 22px;
+    }
+    .gravity-fire-key {
+      display: block; font-size: 10px; font-weight: 800; opacity: 0.8; margin-top: 1px;
+    }
     .gravity-overlay {
       position: absolute; inset: 0; z-index: 4;
       display: grid; place-items: center; padding: 20px;
@@ -1383,12 +1412,20 @@
                 </button>
               </div>
             </div>
+            <div class="gravity-fire" id="gravityFire">
+              <button type="button" class="gravity-fire-btn gravity-shot-btn" id="gravityShotBtn">
+                •<span class="gravity-fire-key">Space</span>
+              </button>
+              <button type="button" class="gravity-fire-btn gravity-rocket-btn" id="gravityRocketBtn">
+                🚀<span class="gravity-fire-key">B</span>
+              </button>
+            </div>
             <div class="gravity-overlay" id="gravityOverlay">
               <div class="gravity-panel">
                 <p class="gravity-kicker" data-i18n="navGame">Игра</p>
                 <h2 id="gravityOverlayTitle" data-i18n="gravityTitle">Гравитационная</h2>
                 <p class="gravity-over-score hidden" id="gravityOverlayScore"></p>
-                <p class="gravity-rules" id="gravityOverlayRules" data-i18n="gravityRules">Управляй атомом +. Лови золотые плюсы — рядом они притягиваются к тебе. Фиолетовые минусы притягивают тебя — уворачивайся!</p>
+                <p class="gravity-rules" id="gravityOverlayRules" data-i18n="gravityRules">Лови золотые плюсы. Минусы тянут — уворачивайся или стреляй. Пробел — мелкие выстрелы, B — ракеты.</p>
                 <button class="btn btn-accent" id="gravityPlayBtn" type="button" data-i18n="gravityPlay">Играть</button>
               </div>
             </div>
@@ -1592,13 +1629,13 @@
         gravityTitle: "Гравитационная",
         gravityScore: "Счёт",
         gravityBest: (n) => `Рекорд: ${n}`,
-        gravityRules: "Управляй атомом + в космосе. Лови золотые плюсы — чем ближе ты, тем сильнее они притягиваются. Фиолетовые минусы притягивают тебя — уворачивайся! Удерживай курсор, чтобы разгоняться.",
+        gravityRules: "Лови золотые плюсы. Минусы тянут — уворачивайся или стреляй. Пробел — мелкие выстрелы, B — ракеты. Стреляет вперёд, против хвоста. Удерживай курсор, чтобы разгоняться.",
         gravityPlay: "Играть",
         gravityAgain: "Ещё раз",
         gravityOver: "Заряд погас",
         gravityCaught: (n) => `Поймано +: ${n}`,
         gravitySound: "Звук",
-        gravityHint: "Удерживай палец или мышь — чем дольше, тем быстрее летит атом. У плюсов вблизи включается притяжение.",
+        gravityHint: "Пробел — мелкие выстрелы, B — ракеты. Стреляет против хвоста. Удерживай курсор, чтобы разгоняться.",
         heroGravity: "Лови плюсы и не дай минусам притянуть тебя!",
         navCalendar: "Календарь",
         navPlan: "Все задания",
@@ -1877,13 +1914,13 @@
         gravityTitle: "Gravitational",
         gravityScore: "Score",
         gravityBest: (n) => `Best: ${n}`,
-        gravityRules: "Steer your + atom through space. Catch the golden pluses — the closer you get, the stronger they pull toward you. Violet minuses pull you in — stay clear! Hold to build speed.",
+        gravityRules: "Catch golden pluses. Minuses pull you in — dodge or shoot. Space: small shots. B: rockets. Fires forward, opposite the tail. Hold to build speed.",
         gravityPlay: "Play",
         gravityAgain: "Play again",
         gravityOver: "Charge gone",
         gravityCaught: (n) => `Caught +: ${n}`,
         gravitySound: "Sound",
-        gravityHint: "Hold a finger or the mouse — the longer you hold, the faster the atom flies. Pluses start pulling in when you get close.",
+        gravityHint: "Space: small shots. B: rockets. Fires opposite the tail. Hold to build speed.",
         heroGravity: "Catch the pluses and don't let the minuses pull you in!",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
@@ -5818,6 +5855,8 @@
       const planets = [];
       const charges = [];
       const sparks = [];
+      const bolts = [];
+      const booms = [];
       const dust = [];
       const trail = [];
       let dpr = 1, w = 800, h = 520;
@@ -5832,6 +5871,8 @@
       let score = 0, best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
       let lives = 3, invuln = 0, shake = 0, over = false;
       let shoot = null;
+      let shotCd = 0, rocketCd = 0, wantShot = false, wantRocket = false;
+      let aimX = 1, aimY = 0;
       const player = { x: 0, y: 0, vx: 0, vy: 0, r: 28, mass: 16 };
       const cam = { x: 0, y: 0 };
 
@@ -5920,8 +5961,10 @@
         score = 0; lives = 3; invuln = 0; shake = 0; over = false;
         player.x = 0; player.y = 0; player.vx = 0; player.vy = 0;
         hold = 0;
+        shotCd = 0; rocketCd = 0; wantShot = false; wantRocket = false;
+        aimX = 1; aimY = 0;
         cam.x = -w / 2; cam.y = -h / 2;
-        trail.length = 0; sparks.length = 0;
+        trail.length = 0; sparks.length = 0; bolts.length = 0; booms.length = 0;
         populateCharges();
         overlay.hidden = true;
         playing = true;
@@ -6061,6 +6104,31 @@
           g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
           const f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 420;
           o.connect(f); f.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.42);
+        } else if (kind === "shot") {
+          const o = actx.createOscillator(); o.type = "square"; o.frequency.setValueAtTime(920, t0);
+          o.frequency.exponentialRampToValueAtTime(420, t0 + 0.08);
+          const g = actx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+          o.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.12);
+        } else if (kind === "rocket") {
+          const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(220, t0);
+          o.frequency.exponentialRampToValueAtTime(90, t0 + 0.28);
+          const g = actx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+          const f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700;
+          o.connect(f); f.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.34);
+        } else if (kind === "boom") {
+          const o = actx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(180, t0);
+          o.frequency.exponentialRampToValueAtTime(48, t0 + 0.35);
+          const g = actx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+          o.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.42);
         }
       }
 
@@ -6070,6 +6138,77 @@
           const s = rand(20, speed);
           sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.35, 0.8), max: 0.8, r: rand(1.2, 3.2), color });
         }
+      }
+
+      function updateAim() {
+        const sp = Math.hypot(player.vx, player.vy);
+        if (sp > 16) {
+          aimX = player.vx / sp;
+          aimY = player.vy / sp;
+        } else if (pointer) {
+          const dx = pointer.x + cam.x - player.x;
+          const dy = pointer.y + cam.y - player.y;
+          const d = len(dx, dy);
+          aimX = dx / d;
+          aimY = dy / d;
+        }
+      }
+
+      function firePellet() {
+        if (!playing || shotCd > 0) return;
+        shotCd = 0.11;
+        updateAim();
+        const spd = 680;
+        bolts.push({
+          kind: "pellet",
+          x: player.x + aimX * (player.r + 6),
+          y: player.y + aimY * (player.r + 6),
+          vx: player.vx * 0.25 + aimX * spd,
+          vy: player.vy * 0.25 + aimY * spd,
+          life: 0.72, r: 3.1,
+        });
+        player.vx -= aimX * 10;
+        player.vy -= aimY * 10;
+        beep("shot");
+      }
+
+      function fireRocket() {
+        if (!playing || rocketCd > 0) return;
+        rocketCd = 0.58;
+        updateAim();
+        const spd = 390;
+        bolts.push({
+          kind: "rocket",
+          x: player.x + aimX * (player.r + 10),
+          y: player.y + aimY * (player.r + 10),
+          vx: player.vx * 0.2 + aimX * spd,
+          vy: player.vy * 0.2 + aimY * spd,
+          life: 1.35, r: 6.5,
+        });
+        player.vx -= aimX * 26;
+        player.vy -= aimY * 26;
+        beep("rocket");
+      }
+
+      function explode(x, y, radius) {
+        beep("boom");
+        burst(x, y, "#ffb45a", 26, 320);
+        burst(x, y, "#fff2c8", 10, 180);
+        booms.push({ x, y, life: 0.38, max: 0.38, r: radius });
+        shake = Math.max(shake, 7);
+        for (let i = charges.length - 1; i >= 0; i--) {
+          const c = charges[i];
+          if (c.sign >= 0 || c.absorbing) continue;
+          if (Math.hypot(c.x - x, c.y - y) <= radius) smashMinus(i);
+        }
+      }
+
+      function smashMinus(i) {
+        const c = charges[i];
+        if (!c || c.sign >= 0) return;
+        burst(c.x, c.y, "#d080ff", 14, 240);
+        charges.splice(i, 1);
+        spawnCharge(-1, true);
       }
 
       function addForce(body, fx, fy) {
@@ -6191,6 +6330,11 @@
         player.vy *= drag;
         player.x += player.vx * dt;
         player.y += player.vy * dt;
+        updateAim();
+        shotCd = Math.max(0, shotCd - dt);
+        rocketCd = Math.max(0, rocketCd - dt);
+        if (playing && (keys.has(" ") || wantShot)) firePellet();
+        if (playing && (keys.has("b") || wantRocket)) fireRocket();
         trail.push({ x: player.x, y: player.y, a: 0.45 });
         if (trail.length > 18) trail.shift();
         for (const p of trail) p.a *= 0.92;
@@ -6211,6 +6355,37 @@
             c.y += c.vy * dt;
           }
           keepAround(c);
+        }
+
+        for (let i = bolts.length - 1; i >= 0; i--) {
+          const b = bolts[i];
+          b.life -= dt;
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+          if (b.kind === "rocket") {
+            sparks.push({ x: b.x - b.vx * 0.02, y: b.y - b.vy * 0.02, vx: rand(-20, 20), vy: rand(-20, 20), life: 0.18, max: 0.18, r: rand(1.4, 2.6), color: "#ffb060" });
+          }
+          if (b.life <= 0) {
+            if (b.kind === "rocket") explode(b.x, b.y, 78);
+            bolts.splice(i, 1);
+            continue;
+          }
+          let hit = false;
+          for (let j = charges.length - 1; j >= 0; j--) {
+            const c = charges[j];
+            if (c.sign >= 0 || c.absorbing) continue;
+            if (Math.hypot(c.x - b.x, c.y - b.y) < c.r + b.r + 4) {
+              if (b.kind === "rocket") explode(b.x, b.y, 92);
+              else smashMinus(j);
+              hit = true;
+              break;
+            }
+          }
+          if (hit) bolts.splice(i, 1);
+        }
+        for (let i = booms.length - 1; i >= 0; i--) {
+          booms[i].life -= dt;
+          if (booms[i].life <= 0) booms.splice(i, 1);
         }
 
         if (playing) {
@@ -6541,6 +6716,45 @@
           ctx.fillRect(d.x - cam.x, d.y - cam.y, 1.4, 1.4);
         }
         ctx.restore();
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const b of bolts) {
+          const x = b.x - cam.x, y = b.y - cam.y;
+          const sp = Math.hypot(b.vx, b.vy) || 1;
+          const ux = b.vx / sp, uy = b.vy / sp;
+          if (b.kind === "rocket") {
+            const g = ctx.createRadialGradient(x, y, 0, x, y, 18);
+            g.addColorStop(0, "rgba(255,230,160,0.95)");
+            g.addColorStop(0.45, "rgba(255,120,40,0.7)");
+            g.addColorStop(1, "rgba(120,20,0,0)");
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#ffe7b0";
+            ctx.lineWidth = 3.4;
+            ctx.beginPath();
+            ctx.moveTo(x - ux * 8, y - uy * 8);
+            ctx.lineTo(x + ux * 12, y + uy * 12);
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = "rgba(170,240,255,0.95)";
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.moveTo(x - ux * 7, y - uy * 7);
+            ctx.lineTo(x + ux * 9, y + uy * 9);
+            ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        for (const boom of booms) {
+          const t = 1 - boom.life / boom.max;
+          ctx.strokeStyle = `rgba(255,200,120,${1 - t})`;
+          ctx.lineWidth = 3 - t * 2;
+          ctx.beginPath();
+          ctx.arc(boom.x - cam.x, boom.y - cam.y, boom.r * (0.25 + t * 0.9), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
         const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.28, w / 2, h / 2, Math.max(w, h) * 0.72);
         vig.addColorStop(0, "rgba(0,0,0,0)");
         vig.addColorStop(1, "rgba(0,0,0,0.42)");
@@ -6568,7 +6782,17 @@
           e.preventDefault();
           if (down) keys.add(k); else keys.delete(k);
         }
-        if (down && (k === " " || k === "enter") && !overlay.hidden) {
+        if (k === " " || k === "spacebar") {
+          e.preventDefault();
+          if (down && overlay && !overlay.hidden) resetPlay();
+          else if (down) keys.add(" ");
+          else keys.delete(" ");
+        }
+        if (k === "b") {
+          e.preventDefault();
+          if (down) keys.add("b"); else keys.delete("b");
+        }
+        if (down && k === "enter" && overlay && !overlay.hidden) {
           e.preventDefault();
           resetPlay();
         }
@@ -6592,6 +6816,17 @@
         canvas.addEventListener("pointermove", (e) => { if (pointer) pointer = pointFromEvent(e); });
         canvas.addEventListener("pointerup", () => { pointer = null; });
         canvas.addEventListener("pointercancel", () => { pointer = null; });
+        const holdBtn = (el, setOn) => {
+          if (!el) return;
+          const start = (e) => { e.preventDefault(); e.stopPropagation(); setOn(true); ensureAudio(); };
+          const end = (e) => { e.preventDefault(); setOn(false); };
+          el.addEventListener("pointerdown", start);
+          el.addEventListener("pointerup", end);
+          el.addEventListener("pointerleave", end);
+          el.addEventListener("pointercancel", end);
+        };
+        holdBtn(document.getElementById("gravityShotBtn"), (v) => { wantShot = v; });
+        holdBtn(document.getElementById("gravityRocketBtn"), (v) => { wantRocket = v; });
         window.addEventListener("keydown", (e) => onKey(e, true));
         window.addEventListener("keyup", (e) => onKey(e, false));
         window.addEventListener("resize", resize);
@@ -6630,6 +6865,8 @@
         playing = false;
         pointer = null;
         hold = 0;
+        wantShot = false;
+        wantRocket = false;
         keys.clear();
         cancelAnimationFrame(raf);
         const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
