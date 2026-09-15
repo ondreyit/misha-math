@@ -4,11 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2f6fed" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Мишкоин" />
+  <meta name="application-name" content="Мишкоин" />
+  <meta name="format-detection" content="telephone=no" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Мишкоин</title>
   <script>
     (function () {
+      try {
+        var standalone = window.matchMedia("(display-mode: standalone)").matches
+          || window.matchMedia("(display-mode: fullscreen)").matches
+          || window.navigator.standalone === true;
+        if (standalone) document.documentElement.classList.add("standalone");
+      } catch (e) { /* ignore */ }
       try {
         var pref = localStorage.getItem("misha-theme-pref-v1") || "auto";
         var dark;
@@ -25,9 +36,38 @@
       } catch (e) { /* keep light */ }
     })();
   </script>
+  <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="assets/favicon.ico" sizes="any" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-640x1136.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-1136x640.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-750x1334.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-1334x750.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-828x1792.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-1792x828.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1125x2436.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2436x1125.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1170x2532.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2532x1170.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1179x2556.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2556x1179.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1206x2622.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2622x1206.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1284x2778.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2778x1284.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1290x2796.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2796x1290.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="assets/pwa/splash-1320x2868.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="assets/pwa/splash-2868x1320.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-1536x2048.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-2048x1536.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-1640x2360.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-2360x1640.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-1668x2388.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-2388x1668.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="assets/pwa/splash-2048x2732.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/pwa/splash-2732x2048.png" />
   <style>
     :root {
       --ink: #1a2450;
@@ -122,6 +162,10 @@
         var(--page-grad);
       background-attachment: fixed;
     }
+    html.standalone, html.standalone body { min-height: 100dvh; }
+    html.standalone .sidebar {
+      padding-top: calc(16px + env(safe-area-inset-top));
+    }
     body { overflow-x: hidden; }
     .app { display: flex; min-height: 100vh; }
     .sidebar {
@@ -174,9 +218,10 @@
     }
     .theme-switch button { padding: 0 8px; }
     .bottom-docks {
-      position: fixed; left: 12px; width: 360px; max-width: calc(100% - 24px);
+      position: fixed; left: 12px; width: min(420px, calc(100% - 24px)); max-width: calc(100% - 24px);
       bottom: calc(12px + env(safe-area-inset-bottom));
       z-index: 120; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      flex-wrap: wrap;
     }
     .theme-dock { box-shadow: var(--shadow); flex-shrink: 0; }
     .reload-dock {
@@ -187,6 +232,39 @@
       font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
     }
     .reload-dock:active { transform: scale(0.97); }
+    .install-dock { display: none; }
+    .install-dock.show { display: inline-flex; align-items: center; }
+    .install-banner {
+      position: fixed; left: 12px; right: 12px; width: auto; max-width: 520px;
+      bottom: calc(62px + env(safe-area-inset-bottom));
+      z-index: 118; display: none; align-items: center; gap: 8px;
+      padding: 8px 8px 8px 12px; border-radius: 18px;
+      background: var(--card); border: 2px solid var(--line-strong); box-shadow: var(--shadow);
+    }
+    .install-banner.show { display: flex; }
+    .install-banner-main {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      border: 0; background: transparent; color: var(--ink); text-align: left;
+      font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; padding: 4px 0;
+    }
+    .install-banner-icon {
+      width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+      display: grid; place-items: center; font-size: 18px;
+      background: linear-gradient(135deg, #2f6fed, #6a4dff); color: #fff;
+    }
+    .install-banner-x {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      border: 2px solid var(--line-strong); background: var(--surface);
+      color: var(--ink); font-size: 20px; font-weight: 900; cursor: pointer;
+    }
+    .install-steps { margin: 12px 0 16px; padding-left: 22px; display: grid; gap: 8px; }
+    .install-steps li { font-size: 15px; font-weight: 700; line-height: 1.4; }
+    .install-share {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; vertical-align: -4px; margin: 0 2px;
+      color: var(--sky);
+    }
+    .modal.install-modal { z-index: 128; }
     @media (min-width: 721px) {
       .bottom-docks { right: 12px; width: auto; max-width: none; }
     }
@@ -759,6 +837,7 @@
       .nav-btn { width: auto; flex-shrink: 0; min-height: 38px; padding: 0 12px; font-size: 13px; }
       .nav-icon { font-size: 16px; width: 18px; }
       .main { margin-left: 0; max-height: none; padding: 14px 12px calc(68px + env(safe-area-inset-bottom)); }
+      html.standalone .sidebar { padding-top: calc(10px + env(safe-area-inset-top)); }
     }
     @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -788,6 +867,111 @@
     html[data-theme="dark"] .cal-cell.progress,
     html[data-theme="dark"] .status-pill.progress { background: #3a2c10; color: #ffd27a; }
     html[data-theme="dark"] .plan-item.progress { background: linear-gradient(180deg, #3a2c10, #2d2410); }
+    body.gravity-on .main-inner { max-width: none; }
+    body.gravity-on .main {
+      padding-top: 12px;
+      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    }
+    body.gravity-on .page-back { margin-bottom: 8px; }
+    .gravity-view { margin: 0; }
+    .gravity-stage {
+      position: relative;
+      height: calc(100vh - 88px);
+      min-height: 460px;
+      border-radius: 28px;
+      overflow: hidden;
+      isolation: isolate;
+      background: #02010a;
+      box-shadow:
+        0 0 0 1px rgba(140, 190, 255, 0.18),
+        0 22px 60px rgba(4, 8, 28, 0.55),
+        inset 0 0 80px rgba(40, 70, 160, 0.18);
+    }
+    .gravity-stage canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .gravity-hud {
+      position: absolute; inset: 0 0 auto 0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 14px 16px; pointer-events: none; z-index: 3;
+    }
+    .gravity-hud-left { display: grid; gap: 8px; }
+    .gravity-score-box {
+      display: inline-flex; align-items: baseline; gap: 8px;
+      padding: 8px 14px 8px 12px; border-radius: 999px;
+      background: rgba(8, 12, 32, 0.55); border: 1px solid rgba(170, 210, 255, 0.28);
+      backdrop-filter: blur(12px); color: #eef6ff; pointer-events: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+    .gravity-score-label { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #9db7e8; }
+    .gravity-score-box strong {
+      font-size: 28px; line-height: 1; font-weight: 900;
+      background: linear-gradient(180deg, #fff, #7ad7ff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 0 18px rgba(120, 220, 255, 0.45);
+    }
+    .gravity-score-plus { color: #8cf0ff; font-weight: 900; font-size: 18px; }
+    .gravity-best {
+      font-size: 12px; font-weight: 800; color: #c9dcff; padding-left: 12px;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+    }
+    .gravity-lives { display: flex; gap: 6px; padding-left: 12px; }
+    .gravity-life {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff, #7af0ff 42%, #2f6fed);
+      box-shadow: 0 0 10px rgba(90, 220, 255, 0.85);
+    }
+    .gravity-life.off { opacity: 0.22; filter: grayscale(1); box-shadow: none; }
+    .gravity-sound {
+      pointer-events: auto;
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 1px solid rgba(170, 210, 255, 0.32);
+      background: rgba(8, 12, 32, 0.55); color: #eef6ff;
+      backdrop-filter: blur(12px); cursor: pointer;
+      font-size: 20px; display: grid; place-items: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+    .gravity-sound[aria-pressed="false"] { opacity: 0.7; }
+    .gravity-overlay {
+      position: absolute; inset: 0; z-index: 4;
+      display: grid; place-items: center; padding: 20px;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(40, 70, 160, 0.28), rgba(2, 1, 10, 0.72) 62%);
+      backdrop-filter: blur(6px);
+    }
+    .gravity-overlay[hidden] { display: none !important; }
+    .gravity-panel {
+      width: min(460px, 100%); text-align: center; color: #eef6ff;
+      padding: 28px 22px 24px; border-radius: 24px;
+      background: linear-gradient(180deg, rgba(16, 22, 54, 0.78), rgba(6, 8, 24, 0.86));
+      border: 1px solid rgba(160, 200, 255, 0.28);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .gravity-kicker {
+      margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #8ec8ff;
+    }
+    .gravity-panel h2 {
+      margin: 0 0 12px; font-size: 34px; font-weight: 900; letter-spacing: -0.04em;
+      background: linear-gradient(90deg, #9be7ff, #fff, #c9a6ff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .gravity-rules {
+      margin: 0 0 18px; font-size: 15px; line-height: 1.45; font-weight: 700; color: #c9dcff;
+    }
+    .gravity-panel .btn { width: auto; min-width: 180px; margin: 0 auto; }
+    .gravity-over-score {
+      margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #8cf0ff;
+    }
+    @media (max-width: 720px) {
+      .gravity-stage { height: calc(100vh - 250px); min-height: 380px; border-radius: 20px; }
+      .gravity-panel h2 { font-size: 28px; }
+      .gravity-score-box strong { font-size: 22px; }
+    }
   </style>
 </head>
 <body>
@@ -926,6 +1110,19 @@
       <div class="profile-grid" id="profileGrid"></div>
     </div>
   </div>
+  <div class="modal install-modal hidden" id="installModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="installTitle">Мишкоин на экран Домой</h2>
+      </div>
+      <p class="note" id="installLead"></p>
+      <ol class="install-steps" id="installSteps"></ol>
+      <p class="note" id="installSafariNote"></p>
+      <button class="btn btn-accent hidden" id="installAndroidBtn" type="button">Установить</button>
+      <button class="btn btn-ink" id="installOkBtn" type="button">Понятно</button>
+      <button class="btn btn-ghost" id="installLaterBtn" type="button">Позже</button>
+    </div>
+  </div>
   <div class="modal session-modal hidden" id="sessionBusyModal">
     <div class="modal-card">
       <div class="modal-head">
@@ -965,6 +1162,7 @@
       </div>
       <nav class="sidebar-nav" id="sidebarNav">
         <button class="nav-btn on" data-view="home" type="button"><span class="nav-icon">🏠</span><span data-i18n="navHome">Training</span></button>
+        <button class="nav-btn" data-view="gravity" type="button"><span class="nav-icon">⚛️</span><span data-i18n="navGame">Игра</span></button>
         <button class="nav-btn" data-view="calendar" type="button"><span class="nav-icon">📅</span><span data-i18n="navCalendar">Calendar</span></button>
         <button class="nav-btn" data-view="plan" type="button"><span class="nav-icon">🗺️</span><span data-i18n="navPlan">All missions</span></button>
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
@@ -1081,6 +1279,34 @@
           <p class="subtitle" data-i18n="heroHistory">See where your Mishcoins came from!</p>
           <div class="card" id="historyPage"></div>
         </section>
+        <section id="gravityView" class="hidden gravity-view">
+          <div class="gravity-stage" id="gravityStage">
+            <canvas id="gravityCanvas"></canvas>
+            <div class="gravity-hud">
+              <div class="gravity-hud-left">
+                <div class="gravity-score-box">
+                  <span class="gravity-score-label" data-i18n="gravityScore">Счёт</span>
+                  <strong id="gravityScoreValue">0</strong>
+                  <span class="gravity-score-plus">+</span>
+                </div>
+                <div class="gravity-best" id="gravityBestLine"></div>
+                <div class="gravity-lives" id="gravityLives"></div>
+              </div>
+              <button type="button" class="gravity-sound" id="gravitySoundBtn" aria-pressed="true" data-i18n-title="gravitySound">
+                <span id="gravitySoundIcon">🔊</span>
+              </button>
+            </div>
+            <div class="gravity-overlay" id="gravityOverlay">
+              <div class="gravity-panel">
+                <p class="gravity-kicker" data-i18n="navGame">Игра</p>
+                <h2 id="gravityOverlayTitle" data-i18n="gravityTitle">Гравитационная</h2>
+                <p class="gravity-over-score hidden" id="gravityOverlayScore"></p>
+                <p class="gravity-rules" id="gravityOverlayRules" data-i18n="gravityRules">Управляй атомом +. Лови золотые плюсы — они неспешно убегают. Фиолетовые минусы притягивают тебя — уворачивайся!</p>
+                <button class="btn btn-accent" id="gravityPlayBtn" type="button" data-i18n="gravityPlay">Играть</button>
+              </div>
+            </div>
+          </div>
+        </section>
         <section id="trainView" class="hidden">
           <p class="subtitle" id="trainDateLabel">Mission</p>
           <div class="train-tables-wrap">
@@ -1175,12 +1401,20 @@
       </div>
     </main>
   </div>
+  <div class="install-banner" id="installBanner">
+    <button type="button" class="install-banner-main" id="installBannerBtn">
+      <span class="install-banner-icon" aria-hidden="true">★</span>
+      <span id="installBannerText">Сделать иконку на телефоне</span>
+    </button>
+    <button type="button" class="install-banner-x" id="installBannerClose" aria-label="Close">×</button>
+  </div>
   <div class="bottom-docks">
     <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
       <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
       <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
       <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
     </div>
+    <button class="reload-dock install-dock" id="installDockBtn" type="button">На экран Домой</button>
     <button class="reload-dock" id="hardReloadBtn" type="button" data-i18n="hardReload" data-i18n-title="hardReloadHint">Обновить</button>
   </div>
   <script>
@@ -1210,6 +1444,8 @@
     const FAMILY_CLAIMS_KEY = "misha-family-claims-v1";
     const LANG_KEY = "misha-lang-v1";
     const THEME_KEY = "misha-theme-pref-v1";
+    const INSTALL_DISMISS_KEY = "misha-install-dismiss-v1";
+    const INSTALL_SEEN_KEY = "misha-install-seen-v1";
     const ADMIN_KEY = "misha-admin-session-v1";
     const PROFILE_KEY = "misha-profile-v1";
     const DEVICE_KEY = "misha-device-id-v1";
@@ -1232,7 +1468,7 @@
       { id: "evening", titleRu: "Вечерний график", titleEn: "Evening schedule", amount: 4 },
       { id: "eveningOnTime", titleRu: "Вечерний график вовремя", titleEn: "Evening schedule on time", amount: 6 },
     ];
-    const MAIN_NAV = ["home", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
+    const MAIN_NAV = ["home", "gravity", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -1265,6 +1501,18 @@
         pythHintIdle: "Наведи на число — увидишь пример",
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Тренировка",
+        navGame: "Игра",
+        gravityTitle: "Гравитационная",
+        gravityScore: "Счёт",
+        gravityBest: (n) => `Рекорд: ${n}`,
+        gravityRules: "Управляй атомом + в космосе. Лови золотые плюсы — они неспешно убегают и уворачиваются. Фиолетовые минусы притягивают тебя гравитацией — уворачивайся!",
+        gravityPlay: "Играть",
+        gravityAgain: "Ещё раз",
+        gravityOver: "Заряд погас",
+        gravityCaught: (n) => `Поймано +: ${n}`,
+        gravitySound: "Звук",
+        gravityHint: "Тяни палец или мышь — атом летит туда по инерции.",
+        heroGravity: "Лови плюсы и не дай минусам притянуть тебя!",
         navCalendar: "Календарь",
         navPlan: "Все задания",
         navTables: "Таблицы",
@@ -1479,6 +1727,25 @@
         mishcoin: "Мишкоин", mishcoins: "Мишкоины",
         hardReload: "Обновить",
         hardReloadHint: "Сбросить кэш этого телефона и загрузить сайт заново",
+        installTitle: "Открывай как приложение",
+        installLead: "Тогда Мишкоин запускается с иконки ★ — без Safari и без строки браузера.",
+        installStepsIos: [
+          "Открой эту страницу в Safari (не в Chrome).",
+          "Нажми Поделиться — квадрат со стрелкой вверх.",
+          "Прокрути вниз и нажми «На экран Домой».",
+          "Нажми «Добавить», закрой Safari и открой иконку Мишкоин."
+        ],
+        installStepsAndroid: [
+          "Нажми «Установить приложение» ниже.",
+          "Если кнопки нет: меню браузера → «Добавить на главный экран».",
+          "Потом открывай Мишкоин с иконки, не из Chrome."
+        ],
+        installSafariNote: "На iPhone и iPad это работает только из Safari.",
+        installOk: "Понятно",
+        installLater: "Позже",
+        installBanner: "Сделать иконку на телефоне",
+        installDock: "На экран Домой",
+        installAndroidBtn: "Установить приложение",
         sessionBusyTitle: "Уже открыто на другом устройстве",
         sessionBusyHint: "Закрыть там? Данные там не сохранятся.",
         sessionBusyClose: "Закрыть там",
@@ -1518,7 +1785,20 @@
         profileSwitch: "Switch profile",
         pythHintIdle: "Hover a number to see the example",
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
-        navHome: "Training", navCalendar: "Calendar", navPlan: "All missions",
+        navHome: "Training",
+        navGame: "Game",
+        gravityTitle: "Gravitational",
+        gravityScore: "Score",
+        gravityBest: (n) => `Best: ${n}`,
+        gravityRules: "Steer your + atom through space. Catch the golden pluses — they slowly flee and dodge. Violet minuses pull you in with gravity — stay clear!",
+        gravityPlay: "Play",
+        gravityAgain: "Play again",
+        gravityOver: "Charge gone",
+        gravityCaught: (n) => `Caught +: ${n}`,
+        gravitySound: "Sound",
+        gravityHint: "Drag with a finger or the mouse — the atom coasts that way.",
+        heroGravity: "Catch the pluses and don't let the minuses pull you in!",
+        navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
         navEarn: "More Mishcoins",
         navEarnPapa: "Approve requests",
@@ -1727,6 +2007,25 @@
         mishcoin: "Mishcoin", mishcoins: "Mishcoins",
         hardReload: "Reload",
         hardReloadHint: "Clear this phone’s cache and reload the site",
+        installTitle: "Open it as an app",
+        installLead: "Then Mishcoin launches from the ★ icon — no Safari, no browser bar.",
+        installStepsIos: [
+          "Open this page in Safari (not Chrome).",
+          "Tap Share — the square with the arrow up.",
+          "Scroll down and tap Add to Home Screen.",
+          "Tap Add, close Safari, and open the Mishcoin icon."
+        ],
+        installStepsAndroid: [
+          "Tap Install app below.",
+          "If there is no button: browser menu → Add to Home screen.",
+          "Then open Mishcoin from the icon, not from Chrome."
+        ],
+        installSafariNote: "On iPhone and iPad this only works from Safari.",
+        installOk: "Got it",
+        installLater: "Later",
+        installBanner: "Add the icon to this phone",
+        installDock: "Add to Home Screen",
+        installAndroidBtn: "Install app",
         sessionBusyTitle: "Already open on another device",
         sessionBusyHint: "Close it there? Data on that device will not be saved.",
         sessionBusyClose: "Close there",
@@ -1956,6 +2255,7 @@
       earn: document.getElementById("earnView"),
       guide: document.getElementById("guideView"),
       history: document.getElementById("historyView"),
+      gravity: document.getElementById("gravityView"),
       train: document.getElementById("trainView"),
       done: document.getElementById("doneView"),
       admin: document.getElementById("adminView"),
@@ -1981,6 +2281,117 @@
       return String(s || "").replace(/[&<>"']/g, (c) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[c]));
+    }
+    const INSTALL_DISMISS_MS = 14 * 24 * 60 * 60 * 1000;
+    let androidInstallPrompt = null;
+    function isStandaloneApp() {
+      return document.documentElement.classList.contains("standalone")
+        || window.matchMedia("(display-mode: standalone)").matches
+        || window.matchMedia("(display-mode: fullscreen)").matches
+        || window.navigator.standalone === true;
+    }
+    function isAppleTouchDevice() {
+      const ua = navigator.userAgent || "";
+      return /iPad|iPhone|iPod/.test(ua)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+    function isAndroidDevice() {
+      return /Android/i.test(navigator.userAgent || "");
+    }
+    function wantsHomeScreenApp() {
+      return !isStandaloneApp() && (isAppleTouchDevice() || isAndroidDevice());
+    }
+    function installDismissedRecently() {
+      try {
+        const at = Number(localStorage.getItem(INSTALL_DISMISS_KEY) || 0);
+        return at > 0 && (Date.now() - at) < INSTALL_DISMISS_MS;
+      } catch {
+        return false;
+      }
+    }
+    function markInstallDismissed() {
+      try { localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now())); } catch { /* ignore */ }
+    }
+    function shareIconSvg() {
+      return `<svg class="install-share" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2l3.3 3.3-1.4 1.4-1.4-1.4v8.3h-1.9V6.5L9.1 7.9 7.7 6.5 12 3.2zM6.5 10.2h1.9v8.1h7.2v-8.1h1.9V20H6.5v-9.8z"/></svg>`;
+    }
+    function fillInstallI18n() {
+      const title = document.getElementById("installTitle");
+      const lead = document.getElementById("installLead");
+      const note = document.getElementById("installSafariNote");
+      const ok = document.getElementById("installOkBtn");
+      const later = document.getElementById("installLaterBtn");
+      const androidBtn = document.getElementById("installAndroidBtn");
+      const bannerText = document.getElementById("installBannerText");
+      const dock = document.getElementById("installDockBtn");
+      if (title) title.textContent = t("installTitle");
+      if (lead) lead.textContent = t("installLead");
+      if (note) {
+        note.textContent = t("installSafariNote");
+        note.hidden = !isAppleTouchDevice();
+      }
+      if (ok) ok.textContent = t("installOk");
+      if (later) later.textContent = t("installLater");
+      if (androidBtn) androidBtn.textContent = t("installAndroidBtn");
+      if (bannerText) bannerText.textContent = t("installBanner");
+      if (dock) dock.textContent = t("installDock");
+      const steps = document.getElementById("installSteps");
+      if (steps) {
+        const list = isAppleTouchDevice() ? t("installStepsIos") : t("installStepsAndroid");
+        const items = Array.isArray(list) ? list : [];
+        steps.innerHTML = items.map((line, i) => {
+          let html = escapeHtml(line);
+          if (i === 1 && isAppleTouchDevice()) html += ` ${shareIconSvg()}`;
+          return `<li>${html}</li>`;
+        }).join("");
+      }
+    }
+    function syncInstallChrome() {
+      fillInstallI18n();
+      if (isStandaloneApp()) document.documentElement.classList.add("standalone");
+      const want = wantsHomeScreenApp();
+      const banner = document.getElementById("installBanner");
+      const dock = document.getElementById("installDockBtn");
+      const androidBtn = document.getElementById("installAndroidBtn");
+      if (banner) banner.classList.toggle("show", want && !installDismissedRecently());
+      if (dock) dock.classList.toggle("show", want);
+      if (androidBtn) androidBtn.classList.toggle("hidden", !(want && androidInstallPrompt));
+    }
+    function openInstallModal() {
+      if (!wantsHomeScreenApp()) return;
+      fillInstallI18n();
+      const androidBtn = document.getElementById("installAndroidBtn");
+      if (androidBtn) androidBtn.classList.toggle("hidden", !androidInstallPrompt);
+      document.getElementById("installModal")?.classList.remove("hidden");
+    }
+    function closeInstallModal(dismiss) {
+      document.getElementById("installModal")?.classList.add("hidden");
+      if (dismiss) {
+        markInstallDismissed();
+        document.getElementById("installBanner")?.classList.remove("show");
+      }
+    }
+    function maybeOfferInstall() {
+      if (!wantsHomeScreenApp()) return;
+      syncInstallChrome();
+      try {
+        if (sessionStorage.getItem(INSTALL_SEEN_KEY) === "1") return;
+        sessionStorage.setItem(INSTALL_SEEN_KEY, "1");
+      } catch { /* continue */ }
+      if (installDismissedRecently()) return;
+      openInstallModal();
+    }
+    async function promptAndroidInstall() {
+      if (!androidInstallPrompt) {
+        openInstallModal();
+        return;
+      }
+      try {
+        androidInstallPrompt.prompt();
+        await androidInstallPrompt.userChoice;
+      } catch { /* ignore */ }
+      androidInstallPrompt = null;
+      syncInstallChrome();
     }
 
     const EST_TZ = "America/New_York";
@@ -5294,6 +5705,720 @@
       return streak;
     }
 
+    const GravityGame = (() => {
+      const BEST_KEY = "misha-gravity-best-v1";
+      const SOUND_KEY = "misha-gravity-sound-v1";
+      const TILE = 2200;
+      const canvas = document.getElementById("gravityCanvas");
+      const wrap = document.getElementById("gravityStage");
+      const overlay = document.getElementById("gravityOverlay");
+      const overlayTitle = document.getElementById("gravityOverlayTitle");
+      const overlayRules = document.getElementById("gravityOverlayRules");
+      const overlayScore = document.getElementById("gravityOverlayScore");
+      const playBtn = document.getElementById("gravityPlayBtn");
+      const soundBtn = document.getElementById("gravitySoundBtn");
+      const soundIcon = document.getElementById("gravitySoundIcon");
+      const scoreEl = document.getElementById("gravityScoreValue");
+      const bestEl = document.getElementById("gravityBestLine");
+      const livesEl = document.getElementById("gravityLives");
+      if (!canvas || !wrap) {
+        return { enter() {}, leave() {}, syncLabels() {}, pauseVis() {} };
+      }
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const keys = new Set();
+      const stars = [[], [], []];
+      const nebulae = [];
+      const planets = [];
+      const charges = [];
+      const sparks = [];
+      const dust = [];
+      const trail = [];
+      let dpr = 1, w = 800, h = 520;
+      let raf = 0, lastT = 0, time = 0, entered = false, playing = false, bound = false;
+      let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+      let audio = null;
+      let pointer = null;
+      let score = 0, best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
+      let lives = 3, invuln = 0, shake = 0, over = false;
+      let shoot = null;
+      const player = { x: 0, y: 0, vx: 0, vy: 0, r: 18, mass: 14 };
+      const cam = { x: 0, y: 0 };
+
+      function rand(a, b) { return a + Math.random() * (b - a); }
+      function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+      function len(x, y) { return Math.hypot(x, y) || 0.0001; }
+
+      function initSky() {
+        stars[0].length = stars[1].length = stars[2].length = 0;
+        for (let i = 0; i < 140; i++) stars[0].push({ x: Math.random() * TILE, y: Math.random() * TILE, r: rand(0.4, 1.2), a: rand(0.35, 0.85), tw: rand(0.4, 1.6) });
+        for (let i = 0; i < 90; i++) stars[1].push({ x: Math.random() * TILE, y: Math.random() * TILE, r: rand(0.8, 1.8), a: rand(0.5, 1), tw: rand(0.5, 1.8) });
+        for (let i = 0; i < 48; i++) stars[2].push({ x: Math.random() * TILE, y: Math.random() * TILE, r: rand(1.2, 2.6), a: rand(0.7, 1), tw: rand(0.7, 2.2) });
+        nebulae.length = 0;
+        const cols = [
+          ["rgba(40,70,180,0.0)", "rgba(90,120,255,0.32)", "rgba(20,30,80,0)"],
+          ["rgba(120,30,110,0.0)", "rgba(220,70,170,0.28)", "rgba(40,10,50,0)"],
+          ["rgba(10,90,120,0.0)", "rgba(40,210,220,0.26)", "rgba(10,40,60,0)"],
+          ["rgba(90,40,20,0.0)", "rgba(255,140,70,0.18)", "rgba(40,20,10,0)"],
+        ];
+        for (let i = 0; i < 4; i++) {
+          nebulae.push({ x: rand(-900, 900), y: rand(-700, 700), r: rand(380, 720), c: cols[i] });
+        }
+        planets.length = 0;
+        planets.push({ x: 420, y: -260, r: 86, core: "#1a1638", mid: "#3a2a78", rim: "#8ab4ff", atm: "rgba(110,160,255,0.22)", ring: false });
+        planets.push({ x: -640, y: 380, r: 54, core: "#24140c", mid: "#8a4a22", rim: "#ffb07a", atm: "rgba(255,160,90,0.18)", ring: true });
+        planets.push({ x: 180, y: 240, r: 28, core: "#102018", mid: "#2a6a58", rim: "#7ee0c0", atm: "rgba(90,220,180,0.16)", ring: false });
+        dust.length = 0;
+        for (let i = 0; i < 90; i++) dust.push({ x: rand(-800, 800), y: rand(-600, 600), vx: rand(-8, 8), vy: rand(-8, 8), a: rand(0.12, 0.4) });
+      }
+
+      function spawnCharge(sign, far) {
+        const ang = rand(0, Math.PI * 2);
+        const dist = far ? rand(420, 780) : rand(240, 560);
+        charges.push({
+          sign, x: player.x + Math.cos(ang) * dist, y: player.y + Math.sin(ang) * dist,
+          vx: rand(-18, 18), vy: rand(-18, 18), r: sign > 0 ? rand(7.5, 10.5) : rand(8.5, 12),
+          mass: sign > 0 ? rand(2.2, 3.4) : rand(4.5, 7.2),
+          dodge: rand(0, Math.PI * 2), dodgeT: rand(0.4, 1.1), pulse: rand(0, Math.PI * 2),
+          absorbing: 0,
+        });
+      }
+
+      function populateCharges() {
+        charges.length = 0;
+        const neg = 6 + Math.min(8, Math.floor(score / 7));
+        for (let i = 0; i < 9; i++) spawnCharge(1, false);
+        for (let i = 0; i < neg; i++) spawnCharge(-1, false);
+      }
+
+      function resetPlay() {
+        score = 0; lives = 3; invuln = 0; shake = 0; over = false;
+        player.x = 0; player.y = 0; player.vx = 0; player.vy = 0;
+        cam.x = -w / 2; cam.y = -h / 2;
+        trail.length = 0; sparks.length = 0;
+        populateCharges();
+        overlay.hidden = true;
+        playing = true;
+        syncHud();
+        ensureAudio();
+      }
+
+      function showOverlay(kind) {
+        overlay.hidden = false;
+        overlayScore.classList.toggle("hidden", kind !== "over");
+        if (kind === "over") {
+          overlayTitle.removeAttribute("data-i18n");
+          overlayTitle.textContent = t("gravityOver");
+          overlayScore.textContent = t("gravityCaught", score);
+          overlayRules.textContent = t("gravityHint");
+          playBtn.textContent = t("gravityAgain");
+        } else {
+          overlayTitle.setAttribute("data-i18n", "gravityTitle");
+          overlayTitle.textContent = t("gravityTitle");
+          overlayRules.setAttribute("data-i18n", "gravityRules");
+          overlayRules.textContent = t("gravityRules");
+          playBtn.textContent = t("gravityPlay");
+        }
+      }
+
+      function syncHud() {
+        if (scoreEl) scoreEl.textContent = String(score);
+        if (bestEl) bestEl.textContent = t("gravityBest", best);
+        if (livesEl) {
+          livesEl.innerHTML = "";
+          for (let i = 0; i < 3; i++) {
+            const d = document.createElement("i");
+            d.className = "gravity-life" + (i < lives ? "" : " off");
+            livesEl.appendChild(d);
+          }
+        }
+        if (soundBtn) {
+          soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+          soundBtn.title = t("gravitySound");
+          if (soundIcon) soundIcon.textContent = soundOn ? "🔊" : "🔇";
+        }
+      }
+
+      function syncLabels() {
+        syncHud();
+        if (!overlay.hidden) showOverlay(over ? "over" : "start");
+      }
+
+      function resize() {
+        if (!wrap) return;
+        const rect = wrap.getBoundingClientRect();
+        dpr = Math.min(2, window.devicePixelRatio || 1);
+        w = Math.max(320, rect.width);
+        h = Math.max(280, rect.height);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function pointFromEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+      }
+
+      function ensureAudio() {
+        if (audio) {
+          if (audio.ctx.state === "suspended") audio.ctx.resume();
+          audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.05);
+          return;
+        }
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const actx = new Ctx();
+        const master = actx.createGain();
+        master.gain.value = soundOn ? 0.9 : 0;
+        master.connect(actx.destination);
+        const amb = actx.createGain();
+        amb.gain.value = 0.22;
+        amb.connect(master);
+        const n = Math.floor(actx.sampleRate * 3);
+        const buf = actx.createBuffer(1, n, actx.sampleRate);
+        const data = buf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < n; i++) {
+          last = last * 0.985 + (Math.random() * 2 - 1) * 0.015;
+          data[i] = last;
+        }
+        const noise = actx.createBufferSource();
+        noise.buffer = buf; noise.loop = true;
+        const filter = actx.createBiquadFilter();
+        filter.type = "lowpass"; filter.frequency.value = 240; filter.Q.value = 0.7;
+        const noiseGain = actx.createGain(); noiseGain.gain.value = 0.18;
+        noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(amb);
+        noise.start();
+        const pad = (freq, gain, type) => {
+          const o = actx.createOscillator();
+          o.type = type || "sine"; o.frequency.value = freq;
+          const g = actx.createGain(); g.gain.value = gain;
+          o.connect(g); g.connect(amb); o.start();
+          return { o, g };
+        };
+        const p1 = pad(55, 0.045);
+        const p2 = pad(82.4, 0.028);
+        const p3 = pad(164.8, 0.012, "triangle");
+        const lfo = actx.createOscillator();
+        lfo.frequency.value = 0.06;
+        const lfoG = actx.createGain(); lfoG.gain.value = 90;
+        lfo.connect(lfoG); lfoG.connect(filter.frequency); lfo.start();
+        const prox = actx.createOscillator();
+        prox.type = "sine"; prox.frequency.value = 92;
+        const proxG = actx.createGain(); proxG.gain.value = 0;
+        prox.connect(proxG); proxG.connect(master); prox.start();
+        audio = { ctx: actx, master, filter, p1, p2, p3, prox, proxG, noiseGain };
+        if (actx.state === "suspended") actx.resume();
+      }
+
+      function beep(kind) {
+        if (!audio || !soundOn) return;
+        const actx = audio.ctx;
+        const t0 = actx.currentTime;
+        if (kind === "plus") {
+          [660, 880, 1320].forEach((f, i) => {
+            const o = actx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+            const g = actx.createGain();
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(0.09 / (i + 1), t0 + 0.02 + i * 0.03);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28 + i * 0.05);
+            o.connect(g); g.connect(audio.master); o.start(t0 + i * 0.03); o.stop(t0 + 0.4);
+          });
+        } else if (kind === "hit") {
+          const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(140, t0);
+          o.frequency.exponentialRampToValueAtTime(42, t0 + 0.35);
+          const g = actx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+          const f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 420;
+          o.connect(f); f.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.42);
+        }
+      }
+
+      function burst(x, y, color, n, speed) {
+        for (let i = 0; i < n; i++) {
+          const a = rand(0, Math.PI * 2);
+          const s = rand(20, speed);
+          sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.35, 0.8), max: 0.8, r: rand(1.2, 3.2), color });
+        }
+      }
+
+      function addForce(body, fx, fy) {
+        body.vx += fx / body.mass;
+        body.vy += fy / body.mass;
+      }
+
+      function couple(a, b, k, attract, dt) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = len(dx, dy);
+        const soft = 70;
+        const mag = k * a.mass * b.mass / (d * d + soft * soft);
+        const s = (attract ? 1 : -1) * mag / d;
+        const fx = dx * s * dt, fy = dy * s * dt;
+        addForce(a, fx, fy);
+        addForce(b, -fx, -fy);
+        return d;
+      }
+
+      function keepAround(c) {
+        const dx = c.x - player.x, dy = c.y - player.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 980) {
+          const ang = rand(0, Math.PI * 2);
+          const dist = rand(480, 760);
+          c.x = player.x + Math.cos(ang) * dist;
+          c.y = player.y + Math.sin(ang) * dist;
+          c.vx *= 0.3; c.vy *= 0.3; c.absorbing = 0;
+        }
+      }
+
+      function step(dt) {
+        time += dt;
+        invuln = Math.max(0, invuln - dt);
+        shake *= Math.pow(0.04, dt);
+        let thrustX = 0, thrustY = 0;
+        if (playing && pointer) {
+          const wx = pointer.x + cam.x, wy = pointer.y + cam.y;
+          const dx = wx - player.x, dy = wy - player.y;
+          const d = len(dx, dy);
+          const pull = clamp(d / 90, 0.25, 1);
+          thrustX += (dx / d) * 560 * pull;
+          thrustY += (dy / d) * 560 * pull;
+        }
+        if (playing) {
+          if (keys.has("arrowleft") || keys.has("a")) thrustX -= 520;
+          if (keys.has("arrowright") || keys.has("d")) thrustX += 520;
+          if (keys.has("arrowup") || keys.has("w")) thrustY -= 520;
+          if (keys.has("arrowdown") || keys.has("s")) thrustY += 520;
+        } else {
+          thrustX += Math.cos(time * 0.21) * 18;
+          thrustY += Math.sin(time * 0.17) * 18;
+        }
+        player.vx += thrustX * dt;
+        player.vy += thrustY * dt;
+
+        let nearestNeg = 1400;
+        for (const c of charges) {
+          c.pulse += dt;
+          if (c.sign < 0) {
+            const d = couple(player, c, playing ? 720000 : 180000, true, dt);
+            nearestNeg = Math.min(nearestNeg, d);
+            c.vx += Math.cos(time * 0.7 + c.pulse) * 6 * dt;
+            c.vy += Math.sin(time * 0.55 + c.pulse) * 6 * dt;
+          } else if (!c.absorbing) {
+            couple(player, c, 240000, false, dt);
+            const dx = c.x - player.x, dy = c.y - player.y;
+            const d = len(dx, dy);
+            c.dodgeT -= dt;
+            if (c.dodgeT <= 0) { c.dodge = rand(0, Math.PI * 2); c.dodgeT = rand(0.45, 1.15); }
+            if (d < 280) {
+              const flee = 220 * (1 - d / 280);
+              c.vx += (dx / d) * flee * dt;
+              c.vy += (dy / d) * flee * dt;
+              const px = -dy / d, py = dx / d;
+              const juke = 160 * Math.sin(time * 3 + c.pulse);
+              c.vx += px * juke * dt;
+              c.vy += py * juke * dt;
+            }
+          }
+        }
+
+        const spd = Math.hypot(player.vx, player.vy);
+        const maxSpd = 390;
+        if (spd > maxSpd) { player.vx *= maxSpd / spd; player.vy *= maxSpd / spd; }
+        player.vx *= Math.pow(0.78, dt);
+        player.vy *= Math.pow(0.78, dt);
+        player.x += player.vx * dt;
+        player.y += player.vy * dt;
+        trail.push({ x: player.x, y: player.y, a: 0.45 });
+        if (trail.length > 18) trail.shift();
+        for (const p of trail) p.a *= 0.92;
+
+        for (const c of charges) {
+          const cspd = Math.hypot(c.vx, c.vy);
+          const cap = c.sign > 0 ? 150 : 210;
+          if (cspd > cap) { c.vx *= cap / cspd; c.vy *= cap / cspd; }
+          c.vx *= Math.pow(0.72, dt);
+          c.vy *= Math.pow(0.72, dt);
+          if (c.absorbing) {
+            c.absorbing += dt * 3.2;
+            c.x += (player.x - c.x) * clamp(c.absorbing, 0, 1);
+            c.y += (player.y - c.y) * clamp(c.absorbing, 0, 1);
+            c.r *= 0.88;
+          } else {
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+          }
+          keepAround(c);
+        }
+
+        if (playing) {
+          for (let i = charges.length - 1; i >= 0; i--) {
+            const c = charges[i];
+            const d = Math.hypot(c.x - player.x, c.y - player.y);
+            if (c.sign > 0 && (c.absorbing || d < player.r + c.r + 4)) {
+              if (!c.absorbing) { c.absorbing = 0.08; beep("plus"); }
+              if (c.absorbing > 0.85 || c.r < 2.2) {
+                burst(player.x, player.y, "#ffdc78", 18, 220);
+                score += 1;
+                if (score > best) { best = score; localStorage.setItem(BEST_KEY, String(best)); }
+                charges.splice(i, 1);
+                spawnCharge(1, true);
+                if (score % 7 === 0 && charges.filter((x) => x.sign < 0).length < 14) spawnCharge(-1, true);
+                syncHud();
+              }
+            } else if (c.sign < 0 && d < player.r + c.r - 1 && invuln <= 0) {
+              lives -= 1;
+              invuln = 1.35;
+              shake = 11;
+              beep("hit");
+              burst(player.x, player.y, "#c85aff", 22, 260);
+              const dx = player.x - c.x, dy = player.y - c.y, L = len(dx, dy);
+              player.vx += (dx / L) * 280;
+              player.vy += (dy / L) * 280;
+              c.vx -= (dx / L) * 90;
+              c.vy -= (dy / L) * 90;
+              syncHud();
+              if (lives <= 0) {
+                playing = false;
+                over = true;
+                showOverlay("over");
+              }
+            }
+          }
+        }
+
+        for (let i = sparks.length - 1; i >= 0; i--) {
+          const s = sparks[i];
+          s.life -= dt;
+          s.x += s.vx * dt; s.y += s.vy * dt;
+          s.vx *= 0.96; s.vy *= 0.96;
+          if (s.life <= 0) sparks.splice(i, 1);
+        }
+        for (const d of dust) {
+          let fx = 0, fy = 0;
+          for (const c of charges) {
+            if (c.sign >= 0) continue;
+            const dx = c.x - d.x, dy = c.y - d.y;
+            const dist = len(dx, dy);
+            const m = 1800 * c.mass / (dist * dist + 400);
+            fx += dx / dist * m;
+            fy += dy / dist * m;
+          }
+          d.vx = d.vx * 0.96 + fx * dt;
+          d.vy = d.vy * 0.96 + fy * dt;
+          d.x += d.vx * dt; d.y += d.vy * dt;
+          if (Math.hypot(d.x - player.x, d.y - player.y) > 1100) {
+            const ang = rand(0, Math.PI * 2);
+            d.x = player.x + Math.cos(ang) * rand(200, 700);
+            d.y = player.y + Math.sin(ang) * rand(200, 700);
+          }
+        }
+        if (!shoot || shoot.life <= 0) {
+          if (Math.random() < dt * 0.12) {
+            shoot = { x: cam.x + rand(0, w), y: cam.y + rand(0, h * 0.4), vx: rand(220, 380), vy: rand(40, 90), life: rand(0.7, 1.3) };
+          }
+        } else {
+          shoot.x += shoot.vx * dt; shoot.y += shoot.vy * dt; shoot.life -= dt;
+        }
+        const lookX = player.x - w / 2 + player.vx * 0.12;
+        const lookY = player.y - h / 2 + player.vy * 0.12;
+        cam.x += (lookX - cam.x) * (1 - Math.pow(0.02, dt));
+        cam.y += (lookY - cam.y) * (1 - Math.pow(0.02, dt));
+        if (audio && soundOn) {
+          const prox = playing ? clamp(1 - nearestNeg / 260, 0, 1) : 0;
+          audio.proxG.gain.setTargetAtTime(prox * 0.035, audio.ctx.currentTime, 0.12);
+          audio.prox.frequency.setTargetAtTime(72 + prox * 50, audio.ctx.currentTime, 0.12);
+        }
+      }
+
+      function starPos(s, parallax) {
+        let x = s.x - cam.x * parallax;
+        let y = s.y - cam.y * parallax;
+        x = ((x % TILE) + TILE) % TILE;
+        y = ((y % TILE) + TILE) % TILE;
+        return { x: x - (TILE - w) / 2, y: y - (TILE - h) / 2 };
+      }
+
+      function drawBg() {
+        const g = ctx.createRadialGradient(w * 0.5, h * 0.42, 20, w * 0.5, h * 0.5, Math.max(w, h) * 0.78);
+        g.addColorStop(0, "#1c2a68");
+        g.addColorStop(0.38, "#0c1234");
+        g.addColorStop(1, "#03010c");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const n of nebulae) {
+          const x = n.x - cam.x * 0.18, y = n.y - cam.y * 0.18;
+          const ng = ctx.createRadialGradient(x, y, 0, x, y, n.r);
+          ng.addColorStop(0, n.c[1]);
+          ng.addColorStop(0.55, n.c[0]);
+          ng.addColorStop(1, n.c[2]);
+          ctx.fillStyle = ng;
+          ctx.beginPath(); ctx.arc(x, y, n.r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        const milky = ctx.createLinearGradient(0, h * 0.18, w, h * 0.78);
+        milky.addColorStop(0, "rgba(0,0,0,0)");
+        milky.addColorStop(0.45, "rgba(170,200,255,0.10)");
+        milky.addColorStop(0.55, "rgba(255,210,180,0.08)");
+        milky.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = milky;
+        ctx.fillRect(0, 0, w, h);
+        const layers = [0.12, 0.28, 0.5];
+        for (let li = 0; li < 3; li++) {
+          for (const s of stars[li]) {
+            const p = starPos(s, layers[li]);
+            if (p.x < -4 || p.y < -4 || p.x > w + 4 || p.y > h + 4) continue;
+            const tw = 0.55 + 0.45 * Math.sin(time * s.tw + s.x);
+            ctx.fillStyle = `rgba(230,240,255,${s.a * tw})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, s.r, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        for (const pl of planets) {
+          const x = pl.x - cam.x * 0.35, y = pl.y - cam.y * 0.35;
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          const atm = ctx.createRadialGradient(x, y, pl.r * 0.7, x, y, pl.r * 1.7);
+          atm.addColorStop(0, pl.atm);
+          atm.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = atm;
+          ctx.beginPath(); ctx.arc(x, y, pl.r * 1.7, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+          if (pl.ring) {
+            ctx.save();
+            ctx.translate(x, y); ctx.rotate(-0.45); ctx.scale(1, 0.28);
+            ctx.strokeStyle = "rgba(255,210,160,0.28)";
+            ctx.lineWidth = 7;
+            ctx.beginPath(); ctx.arc(0, 0, pl.r * 1.55, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+          }
+          const body = ctx.createRadialGradient(x - pl.r * 0.35, y - pl.r * 0.4, pl.r * 0.1, x, y, pl.r);
+          body.addColorStop(0, pl.rim);
+          body.addColorStop(0.45, pl.mid);
+          body.addColorStop(1, pl.core);
+          ctx.fillStyle = body;
+          ctx.beginPath(); ctx.arc(x, y, pl.r, 0, Math.PI * 2); ctx.fill();
+        }
+        if (shoot && shoot.life > 0) {
+          const sx = shoot.x - cam.x, sy = shoot.y - cam.y;
+          ctx.strokeStyle = `rgba(255,255,255,${0.55 * shoot.life})`;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 42, sy - 12); ctx.stroke();
+        }
+      }
+
+      function drawCharge(c) {
+        const x = c.x - cam.x, y = c.y - cam.y;
+        const glow = 1 + Math.sin(time * 3 + c.pulse) * 0.08;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        if (c.sign < 0) {
+          const well = ctx.createRadialGradient(x, y, 0, x, y, 90);
+          well.addColorStop(0, "rgba(180,50,255,0.28)");
+          well.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = well;
+          ctx.beginPath(); ctx.arc(x, y, 90, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = `rgba(210,120,255,${0.18 + 0.12 * Math.sin(time * 2 + c.pulse)})`;
+          ctx.lineWidth = 1;
+          for (let i = 1; i <= 3; i++) {
+            ctx.beginPath(); ctx.arc(x, y, 16 * i * glow, 0, Math.PI * 2); ctx.stroke();
+          }
+        }
+        const col = c.sign > 0
+          ? ["rgba(255,250,210,0.95)", "rgba(255,196,70,0.7)", "rgba(255,140,20,0)"]
+          : ["rgba(255,210,255,0.9)", "rgba(190,70,255,0.65)", "rgba(80,20,140,0)"];
+        const g = ctx.createRadialGradient(x, y, 0, x, y, c.r * 3.4);
+        g.addColorStop(0, col[0]); g.addColorStop(0.32, col[1]); g.addColorStop(1, col[2]);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, c.r * 3.4 * glow, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = c.sign > 0 ? "#fff6c8" : "#f3e0ff";
+        ctx.beginPath(); ctx.arc(x, y, c.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = c.sign > 0 ? "#8a4a00" : "#5a1878";
+        ctx.font = `900 ${Math.max(10, c.r + 2)}px Segoe UI, sans-serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(c.sign > 0 ? "+" : "−", x, y + 0.5);
+      }
+
+      function drawPlayer() {
+        const x = player.x - cam.x + (Math.random() - 0.5) * shake;
+        const y = player.y - cam.y + (Math.random() - 0.5) * shake;
+        ctx.save();
+        for (const p of trail) {
+          ctx.fillStyle = `rgba(120,210,255,${p.a * 0.35})`;
+          ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, 7, 0, Math.PI * 2); ctx.fill();
+        }
+        if (playing && pointer) {
+          ctx.strokeStyle = "rgba(160,220,255,0.28)";
+          ctx.setLineDash([5, 7]); ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(pointer.x, pointer.y); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ctx.globalCompositeOperation = "lighter";
+        const pulse = 1 + Math.sin(time * 3.1) * 0.05;
+        const flash = invuln > 0 && Math.sin(invuln * 24) > 0 ? 0.35 : 1;
+        ctx.globalAlpha = flash;
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, 78);
+        halo.addColorStop(0, "rgba(200,245,255,0.85)");
+        halo.addColorStop(0.22, "rgba(80,190,255,0.35)");
+        halo.addColorStop(1, "rgba(20,40,120,0)");
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(x, y, 78 * pulse, 0, Math.PI * 2); ctx.fill();
+        const electrons = [
+          { rx: 28, ry: 11, rot: 0.4, sp: 2.3 },
+          { rx: 24, ry: 13, rot: -0.8, sp: -1.7 },
+          { rx: 20, ry: 9, rot: 1.2, sp: 2.8 },
+        ];
+        electrons.forEach((el, i) => {
+          const a = time * el.sp + i;
+          ctx.save();
+          ctx.translate(x, y); ctx.rotate(el.rot);
+          ctx.strokeStyle = "rgba(160,220,255,0.28)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.ellipse(0, 0, el.rx, el.ry, 0, 0, Math.PI * 2); ctx.stroke();
+          const ex = Math.cos(a) * el.rx, ey = Math.sin(a) * el.ry;
+          ctx.fillStyle = "#d8f6ff";
+          ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        });
+        const core = ctx.createRadialGradient(x - 4, y - 5, 2, x, y, player.r);
+        core.addColorStop(0, "#ffffff");
+        core.addColorStop(0.28, "#9be7ff");
+        core.addColorStop(0.7, "#2f6fed");
+        core.addColorStop(1, "#122056");
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = flash;
+        ctx.fillStyle = core;
+        ctx.beginPath(); ctx.arc(x, y, player.r * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.font = "900 16px Segoe UI, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("+", x, y + 1);
+        ctx.restore();
+      }
+
+      function drawSparks() {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const s of sparks) {
+          ctx.globalAlpha = Math.max(0, s.life / s.max);
+          ctx.fillStyle = s.color;
+          ctx.beginPath(); ctx.arc(s.x - cam.x, s.y - cam.y, s.r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        for (const d of dust) {
+          ctx.fillStyle = `rgba(200,220,255,${d.a})`;
+          ctx.fillRect(d.x - cam.x, d.y - cam.y, 1.4, 1.4);
+        }
+        ctx.restore();
+        const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.28, w / 2, h / 2, Math.max(w, h) * 0.72);
+        vig.addColorStop(0, "rgba(0,0,0,0)");
+        vig.addColorStop(1, "rgba(0,0,0,0.42)");
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      function frame(ts) {
+        if (!entered) return;
+        const dt = Math.min(0.033, (ts - lastT) / 1000 || 0.016);
+        lastT = ts;
+        step(dt);
+        drawBg();
+        const ordered = charges.slice().sort((a, b) => a.y - b.y);
+        for (const c of ordered) drawCharge(c);
+        drawPlayer();
+        drawSparks();
+        raf = requestAnimationFrame(frame);
+      }
+
+      function onKey(e, down) {
+        if (!entered) return;
+        const k = e.key.toLowerCase();
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) {
+          e.preventDefault();
+          if (down) keys.add(k); else keys.delete(k);
+        }
+        if (down && (k === " " || k === "enter") && !overlay.hidden) {
+          e.preventDefault();
+          resetPlay();
+        }
+      }
+
+      function bind() {
+        if (bound) return;
+        bound = true;
+        playBtn.addEventListener("click", () => { ensureAudio(); resetPlay(); });
+        soundBtn.addEventListener("click", () => {
+          soundOn = !soundOn;
+          localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+          ensureAudio();
+          syncHud();
+        });
+        canvas.addEventListener("pointerdown", (e) => {
+          canvas.setPointerCapture(e.pointerId);
+          pointer = pointFromEvent(e);
+          ensureAudio();
+        });
+        canvas.addEventListener("pointermove", (e) => { if (pointer) pointer = pointFromEvent(e); });
+        canvas.addEventListener("pointerup", () => { pointer = null; });
+        canvas.addEventListener("pointercancel", () => { pointer = null; });
+        window.addEventListener("keydown", (e) => onKey(e, true));
+        window.addEventListener("keyup", (e) => onKey(e, false));
+        window.addEventListener("resize", resize);
+        if (window.ResizeObserver) {
+          new ResizeObserver(resize).observe(wrap);
+        }
+      }
+
+      function enter() {
+        bind();
+        entered = true;
+        resize();
+        if (!stars[0].length) initSky();
+        if (!charges.length) populateCharges();
+        syncHud();
+        if (!playing) showOverlay(over ? "over" : "start");
+        cancelAnimationFrame(raf);
+        lastT = performance.now();
+        raf = requestAnimationFrame(frame);
+        requestAnimationFrame(resize);
+        if (audio) {
+          if (audio.ctx.state === "suspended") audio.ctx.resume();
+          audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.08);
+        }
+      }
+
+      function leave() {
+        entered = false;
+        playing = false;
+        pointer = null;
+        keys.clear();
+        cancelAnimationFrame(raf);
+        if (audio) {
+          audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
+          if (audio.ctx.state === "running") audio.ctx.suspend();
+        }
+      }
+
+      function pauseVis(hidden) {
+        if (!entered) return;
+        if (hidden) {
+          cancelAnimationFrame(raf);
+          if (audio && audio.ctx.state === "running") audio.ctx.suspend();
+        } else {
+          lastT = performance.now();
+          raf = requestAnimationFrame(frame);
+          if (audio && soundOn) audio.ctx.resume();
+        }
+      }
+
+      return { enter, leave, syncLabels, pauseVis };
+    })();
+
     function updateBackButton() {
       const btn = document.getElementById("pageBackBtn");
       if (!btn) return;
@@ -5312,6 +6437,9 @@
         const v = btn.getAttribute("data-view");
         btn.classList.toggle("on", v === view && MAIN_NAV.includes(view));
       });
+      document.body.classList.toggle("gravity-on", view === "gravity");
+      if (view === "gravity") GravityGame.enter();
+      else GravityGame.leave();
       updateBackButton();
     }
     function goBack() {
@@ -5341,6 +6469,7 @@
       if (view === "earn") { renderEarn(); setHero(isPapa() ? t("earnPapaTitle") : t("heroEarn")); show("earn", options); return; }
       if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide", options); return; }
       if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history", options); return; }
+      if (view === "gravity") { setHero(t("heroGravity")); show("gravity", options); return; }
     }
 
     async function hydrateProfileFromCloud() {
@@ -5623,6 +6752,7 @@
       renderCoins();
       viewStack = [];
       show("home", { replace: true });
+      maybeOfferInstall();
       await hydrateProfileFromCloud();
       updateProfileChrome();
       updateHome();
@@ -5669,6 +6799,7 @@
       });
       document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
       document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
+      fillInstallI18n();
       document.getElementById("repeatBtn").textContent = t("repeat");
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
@@ -5686,6 +6817,7 @@
       syncKindFormChrome();
       refreshKindsViews();
       renderWeekdays();
+      GravityGame.syncLabels();
     }
 
     function renderTodayTables(dateKey) {
@@ -7117,6 +8249,39 @@
     document.getElementById("themeAutoBtn").addEventListener("click", () => setThemePref("auto"));
     document.getElementById("themeNightBtn").addEventListener("click", () => setThemePref("dark"));
     document.getElementById("hardReloadBtn").addEventListener("click", hardReloadApp);
+    document.getElementById("installDockBtn").addEventListener("click", openInstallModal);
+    document.getElementById("installBannerBtn").addEventListener("click", openInstallModal);
+    document.getElementById("installBannerClose").addEventListener("click", () => closeInstallModal(true));
+    document.getElementById("installOkBtn").addEventListener("click", () => closeInstallModal(true));
+    document.getElementById("installLaterBtn").addEventListener("click", () => closeInstallModal(true));
+    document.getElementById("installAndroidBtn").addEventListener("click", promptAndroidInstall);
+    document.getElementById("installModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeInstallModal(false);
+    });
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      androidInstallPrompt = e;
+      syncInstallChrome();
+    });
+    window.addEventListener("appinstalled", () => {
+      androidInstallPrompt = null;
+      markInstallDismissed();
+      syncInstallChrome();
+    });
+    document.addEventListener("click", (e) => {
+      if (!isStandaloneApp()) return;
+      const a = e.target.closest?.("a[href]");
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+      try {
+        const url = new URL(a.href, location.href);
+        if (url.origin === location.origin) {
+          e.preventDefault();
+          if (url.href !== location.href) location.href = url.href;
+        }
+      } catch { /* ignore */ }
+    });
     document.getElementById("sessionBusyCloseBtn").addEventListener("click", () => {
       if (pendingSessionProfile) tryEnterProfile(pendingSessionProfile, { force: true });
     });
@@ -7286,9 +8451,11 @@
     window.setInterval(applyEstTheme, 60 * 1000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") applyEstTheme();
+      GravityGame.pauseVis(document.visibilityState !== "visible");
     });
     readLocalFamilyClaims();
     applyI18n();
+    syncInstallChrome();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
     restorePhotoCache();
     applyPendingCatalog();
