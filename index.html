@@ -5863,6 +5863,7 @@
       let raf = 0, lastT = 0, time = 0, entered = false, playing = false, bound = false;
       let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
       let audio = null;
+      let htmlSfx = { urls: null, pool: {}, unlock: null, ready: false };
       let pointer = null;
       let hold = 0;
       let avatarImg = null;
@@ -6030,22 +6031,101 @@
         return { x: src.clientX - rect.left, y: src.clientY - rect.top };
       }
 
-      function ensureAudio() {
-        if (audio) {
-          if (audio.ctx.state === "suspended") audio.ctx.resume();
-          audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.05);
-          return;
+      function encodeWav(samples, sampleRate) {
+        const n = samples.length;
+        const buf = new ArrayBuffer(44 + n * 2);
+        const v = new DataView(buf);
+        const ascii = (o, s) => { for (let i = 0; i < s.length; i += 1) v.setUint8(o + i, s.charCodeAt(i)); };
+        ascii(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); ascii(8, "WAVE"); ascii(12, "fmt ");
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+        v.setUint16(32, 2, true); v.setUint16(34, 16, true); ascii(36, "data"); v.setUint32(40, n * 2, true);
+        for (let i = 0; i < n; i += 1) {
+          const s = Math.max(-1, Math.min(1, samples[i]));
+          v.setInt16(44 + i * 2, s < 0 ? s * 32768 : s * 32767, true);
         }
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        const actx = new Ctx();
+        return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+      }
+      function toneWav(freq, dur, vol, type) {
+        const sr = 22050;
+        const n = Math.floor(sr * dur);
+        const samples = new Float32Array(n);
+        for (let i = 0; i < n; i += 1) {
+          const t = i / sr;
+          const env = Math.min(1, i / (sr * 0.012)) * Math.max(0, 1 - i / n);
+          const phase = t * freq;
+          let s = Math.sin(2 * Math.PI * phase);
+          if (type === "saw") s = 2 * (phase % 1) - 1;
+          if (type === "square") s = s >= 0 ? 1 : -1;
+          if (type === "down") s = Math.sin(2 * Math.PI * freq * Math.pow(1 - t / dur, 1.6) * t * 8);
+          samples[i] = s * env * vol;
+        }
+        return encodeWav(samples, sr);
+      }
+      function buildSfx() {
+        if (htmlSfx.urls) return;
+        htmlSfx.urls = {
+          plus: toneWav(880, 0.2, 0.55, "sine"),
+          hit: toneWav(110, 0.32, 0.5, "saw"),
+          shot: toneWav(720, 0.08, 0.4, "square"),
+          rocket: toneWav(180, 0.26, 0.48, "saw"),
+          boom: toneWav(90, 0.38, 0.55, "down"),
+          silent: toneWav(40, 0.08, 0.0004, "sine"),
+        };
+      }
+      function htmlAudioEl(url, loop) {
+        const el = new Audio(url);
+        el.playsInline = true;
+        el.preload = "auto";
+        el.loop = !!loop;
+        return el;
+      }
+      function playHtml(kind) {
+        if (!soundOn) return;
+        buildSfx();
+        const url = htmlSfx.urls[kind];
+        if (!url) return;
+        const pool = htmlSfx.pool[kind] || (htmlSfx.pool[kind] = []);
+        let el = pool.find((a) => a.paused);
+        if (!el) {
+          el = htmlAudioEl(url, false);
+          pool.push(el);
+        }
+        try { el.currentTime = 0; } catch { /* ignore */ }
+        el.volume = 1;
+        const p = el.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+      function unlockHtmlAudio() {
+        buildSfx();
+        if (!htmlSfx.unlock) {
+          htmlSfx.unlock = htmlAudioEl(htmlSfx.urls.silent, true);
+          htmlSfx.unlock.volume = 0.02;
+        }
+        const kick = htmlSfx.unlock.play();
+        if (kick && kick.catch) kick.catch(() => {});
+        ["plus", "hit", "shot", "rocket", "boom"].forEach((kind) => {
+          const pool = htmlSfx.pool[kind] || (htmlSfx.pool[kind] = []);
+          if (!pool.length) pool.push(htmlAudioEl(htmlSfx.urls[kind], false));
+          const a = pool[0];
+          const prev = a.volume;
+          a.volume = 0;
+          const p = a.play();
+          if (p && p.then) {
+            p.then(() => { a.pause(); a.currentTime = 0; a.volume = prev || 1; }).catch(() => { a.volume = 1; });
+          }
+        });
+        htmlSfx.ready = true;
+      }
+
+      function startWebGraph(actx) {
         const master = actx.createGain();
         master.gain.value = soundOn ? 0.9 : 0;
         master.connect(actx.destination);
         const amb = actx.createGain();
         amb.gain.value = 0.22;
         amb.connect(master);
-        const n = Math.floor(actx.sampleRate * 3);
+        const n = Math.floor(actx.sampleRate * 1.5);
         const buf = actx.createBuffer(1, n, actx.sampleRate);
         const data = buf.getChannelData(0);
         let last = 0;
@@ -6078,58 +6158,48 @@
         prox.type = "sine"; prox.frequency.value = 92;
         const proxG = actx.createGain(); proxG.gain.value = 0;
         prox.connect(proxG); proxG.connect(master); prox.start();
-        audio = { ctx: actx, master, filter, p1, p2, p3, prox, proxG, noiseGain };
-        if (actx.state === "suspended") actx.resume();
+        audio = { ctx: actx, master, filter, p1, p2, p3, prox, proxG, noiseGain, started: true };
+      }
+
+      function ensureAudio() {
+        unlockHtmlAudio();
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!audio) {
+          const actx = new Ctx({ latencyHint: "interactive" });
+          audio = { ctx: actx, started: false, master: null };
+          const resume = actx.resume();
+          const go = () => {
+            if (audio && !audio.started && actx.state !== "suspended" && actx.state !== "interrupted") {
+              startWebGraph(actx);
+            } else if (audio && audio.master) {
+              audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, actx.currentTime, 0.05);
+            }
+          };
+          if (resume && resume.then) resume.then(go).catch(go);
+          else go();
+          actx.onstatechange = () => {
+            if ((actx.state === "suspended" || actx.state === "interrupted") && entered && soundOn) {
+              actx.resume().catch(() => {});
+            }
+          };
+          return;
+        }
+        if (audio.ctx.state === "suspended" || audio.ctx.state === "interrupted") {
+          audio.ctx.resume().then(() => {
+            if (audio && !audio.started) startWebGraph(audio.ctx);
+            if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.05);
+          }).catch(() => {});
+        } else if (!audio.started) {
+          startWebGraph(audio.ctx);
+        } else if (audio.master) {
+          audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.05);
+        }
       }
 
       function beep(kind) {
-        if (!audio || !soundOn) return;
-        const actx = audio.ctx;
-        const t0 = actx.currentTime;
-        if (kind === "plus") {
-          [660, 880, 1320].forEach((f, i) => {
-            const o = actx.createOscillator(); o.type = "sine"; o.frequency.value = f;
-            const g = actx.createGain();
-            g.gain.setValueAtTime(0.0001, t0);
-            g.gain.exponentialRampToValueAtTime(0.09 / (i + 1), t0 + 0.02 + i * 0.03);
-            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28 + i * 0.05);
-            o.connect(g); g.connect(audio.master); o.start(t0 + i * 0.03); o.stop(t0 + 0.4);
-          });
-        } else if (kind === "hit") {
-          const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(140, t0);
-          o.frequency.exponentialRampToValueAtTime(42, t0 + 0.35);
-          const g = actx.createGain();
-          g.gain.setValueAtTime(0.0001, t0);
-          g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
-          const f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 420;
-          o.connect(f); f.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.42);
-        } else if (kind === "shot") {
-          const o = actx.createOscillator(); o.type = "square"; o.frequency.setValueAtTime(920, t0);
-          o.frequency.exponentialRampToValueAtTime(420, t0 + 0.08);
-          const g = actx.createGain();
-          g.gain.setValueAtTime(0.0001, t0);
-          g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
-          o.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.12);
-        } else if (kind === "rocket") {
-          const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(220, t0);
-          o.frequency.exponentialRampToValueAtTime(90, t0 + 0.28);
-          const g = actx.createGain();
-          g.gain.setValueAtTime(0.0001, t0);
-          g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
-          const f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700;
-          o.connect(f); f.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.34);
-        } else if (kind === "boom") {
-          const o = actx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(180, t0);
-          o.frequency.exponentialRampToValueAtTime(48, t0 + 0.35);
-          const g = actx.createGain();
-          g.gain.setValueAtTime(0.0001, t0);
-          g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
-          o.connect(g); g.connect(audio.master); o.start(t0); o.stop(t0 + 0.42);
-        }
+        if (!soundOn) return;
+        playHtml(kind);
       }
 
       function burst(x, y, color, n, speed) {
@@ -6463,7 +6533,7 @@
         const lookY = player.y - h / 2 + player.vy * 0.12;
         cam.x += (lookX - cam.x) * (1 - Math.pow(0.02, dt));
         cam.y += (lookY - cam.y) * (1 - Math.pow(0.02, dt));
-        if (audio && soundOn) {
+        if (audio && soundOn && audio.proxG && audio.prox) {
           const prox = playing ? clamp(1 - nearestNeg / 260, 0, 1) : 0;
           audio.proxG.gain.setTargetAtTime(prox * 0.035, audio.ctx.currentTime, 0.12);
           audio.prox.frequency.setTargetAtTime(72 + prox * 50, audio.ctx.currentTime, 0.12);
@@ -6801,11 +6871,25 @@
       function bind() {
         if (bound) return;
         bound = true;
-        playBtn.addEventListener("click", () => { ensureAudio(); resetPlay(); });
-        soundBtn.addEventListener("click", () => {
+        let playGuard = 0;
+        const startFromGesture = () => {
+          const now = Date.now();
+          if (now - playGuard < 400) return;
+          playGuard = now;
+          ensureAudio();
+          resetPlay();
+        };
+        playBtn.addEventListener("pointerup", (e) => { e.preventDefault(); startFromGesture(); });
+        playBtn.addEventListener("click", (e) => { e.preventDefault(); startFromGesture(); });
+        soundBtn.addEventListener("pointerup", (e) => {
+          e.preventDefault();
           soundOn = !soundOn;
           localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
           ensureAudio();
+          if (htmlSfx.unlock) {
+            if (soundOn) htmlSfx.unlock.play().catch(() => {});
+            else htmlSfx.unlock.pause();
+          }
           syncHud();
         });
         canvas.addEventListener("pointerdown", (e) => {
@@ -6839,6 +6923,7 @@
 
       function enter() {
         bind();
+        ensureAudio();
         entered = true;
         resize();
         if (!stars[0].length) initSky();
@@ -6855,9 +6940,10 @@
           Promise.resolve(req.call(wrap)).catch(() => {}).finally(() => requestAnimationFrame(resize));
         }
         if (audio) {
-          if (audio.ctx.state === "suspended") audio.ctx.resume();
-          audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.08);
+          audio.ctx.resume().catch(() => {});
+          if (audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.08);
         }
+        if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
       }
 
       function leave() {
@@ -6873,21 +6959,24 @@
         if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
           Promise.resolve(exitFs.call(document)).catch(() => {});
         }
-        if (audio) {
+        if (audio && audio.master) {
           audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
-          if (audio.ctx.state === "running") audio.ctx.suspend();
         }
+        if (htmlSfx.unlock) htmlSfx.unlock.pause();
       }
 
       function pauseVis(hidden) {
         if (!entered) return;
         if (hidden) {
           cancelAnimationFrame(raf);
-          if (audio && audio.ctx.state === "running") audio.ctx.suspend();
+          if (audio && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.05);
+          if (htmlSfx.unlock) htmlSfx.unlock.pause();
         } else {
           lastT = performance.now();
           raf = requestAnimationFrame(frame);
-          if (audio && soundOn) audio.ctx.resume();
+          ensureAudio();
+          if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.05);
+          if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
         }
       }
 
