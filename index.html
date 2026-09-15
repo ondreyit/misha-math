@@ -6018,12 +6018,19 @@
       function resize() {
         if (!wrap) return;
         const rect = wrap.getBoundingClientRect();
-        dpr = Math.min(2, window.devicePixelRatio || 1);
         w = Math.max(320, rect.width);
         h = Math.max(280, rect.height);
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
+        const native = window.devicePixelRatio || 1;
+        const uhdW = 3840;
+        const uhdH = 2160;
+        dpr = Math.max(native, uhdW / w, uhdH / h);
+        const maxPixels = uhdW * uhdH;
+        if (w * h * dpr * dpr > maxPixels) dpr = Math.sqrt(maxPixels / (w * h));
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
       }
 
       function pointFromEvent(e) {
