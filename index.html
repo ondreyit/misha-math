@@ -815,29 +815,90 @@
       pointer-events: none; box-shadow: 0 6px 14px rgba(200,132,0,0.45);
     }
     @media (max-width: 720px) {
-      .app { flex-direction: column; }
+      html, body {
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      .app {
+        flex-direction: column;
+        height: 100dvh;
+        max-height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+      }
       .sidebar {
-        position: sticky; top: 0; left: 0; right: 0; bottom: auto; width: 100%;
-        flex-direction: column; padding: 10px 12px; border-right: 0;
-        border-bottom: 2px solid var(--line); z-index: 30;
+        position: relative; top: 0; left: 0; right: 0; bottom: auto; width: 100%;
+        flex: 0 0 auto; flex-direction: column; padding: 6px 10px 4px; border-right: 0;
+        border-bottom: 2px solid var(--line); z-index: 30; overflow: hidden;
       }
-      .sidebar-title { margin-bottom: 4px; font-size: 18px; }
-      .profile-chip { margin: 0 0 8px; }
-      .sidebar-top { flex-direction: row; align-items: center; gap: 10px; width: 100%; }
-      .sidebar-avatar-wrap, .sidebar-avatar { width: 52px; height: 52px; }
+      html.standalone .sidebar { padding-top: calc(6px + env(safe-area-inset-top)); }
+      .sidebar-title { display: none; }
+      .hero-bubble { display: none; }
+      .profile-chip { margin: 0; font-size: 16px; text-align: left; width: auto; }
+      .sidebar-top { flex-direction: row; align-items: center; gap: 8px; width: 100%; }
+      .sidebar-avatar-wrap, .sidebar-avatar { width: 40px; height: 40px; }
+      .sidebar-avatar { border-width: 3px; }
       .sidebar-controls { flex: 1; justify-content: flex-end; }
-      .sidebar-nav { padding-bottom: 2px; }
-      .theme-switch button { padding: 0 7px; font-size: 11px; }
-      .hero-bubble { padding: 8px 10px; min-height: 64px; }
-      .hero-text { font-size: 12px; min-height: calc(1.35em * 2); -webkit-line-clamp: 2; }
       .sidebar-nav {
-        flex-direction: row; flex-wrap: nowrap; overflow-x: auto; margin-top: 8px;
-        gap: 6px; padding-bottom: 2px; -webkit-overflow-scrolling: touch;
+        flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+        margin-top: 6px; gap: 6px; padding-bottom: 2px; flex: none; min-height: 0;
+        -webkit-overflow-scrolling: touch;
       }
-      .nav-btn { width: auto; flex-shrink: 0; min-height: 38px; padding: 0 12px; font-size: 13px; }
-      .nav-icon { font-size: 16px; width: 18px; }
-      .main { margin-left: 0; max-height: none; padding: 14px 12px calc(68px + env(safe-area-inset-bottom)); }
-      html.standalone .sidebar { padding-top: calc(10px + env(safe-area-inset-top)); }
+      .nav-btn { width: auto; flex-shrink: 0; min-height: 34px; padding: 0 10px; font-size: 12px; }
+      .nav-icon { font-size: 14px; width: 16px; }
+      .theme-switch button { padding: 0 7px; font-size: 11px; }
+      .coins { min-height: 34px; font-size: 13px; padding: 3px 10px 3px 5px; }
+      .main {
+        margin-left: 0; flex: 1; min-height: 0; max-height: none;
+        overflow: hidden; padding: 8px 10px calc(52px + env(safe-area-inset-bottom));
+      }
+      .main-inner {
+        height: 100%; max-width: none; display: flex; flex-direction: column; min-height: 0;
+      }
+      .main-inner > .page-back { flex-shrink: 0; margin-bottom: 8px; min-height: 36px; }
+      .main-inner > section:not(.hidden) {
+        flex: 1; min-height: 0; overflow: hidden;
+        display: flex; flex-direction: column;
+      }
+      .view-title { font-size: 18px; margin-bottom: 2px; }
+      .subtitle { margin: 0 0 8px; font-size: 13px; }
+      .card { padding: 12px; margin-bottom: 8px; border-radius: 16px; }
+      .list-scroll {
+        flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      }
+      #homeView .card { flex: 1; min-height: 0; overflow: hidden; margin-bottom: 8px; }
+      #homeView [data-i18n="rulesNote"] {
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+      }
+      #homeView .btn, #trainView .btn, #doneView .btn, #tablesView .btn { flex-shrink: 0; }
+      .status-line { font-size: 18px; }
+      .status-line .status-emoji { font-size: 20px; }
+      .stats { margin-top: 8px; gap: 6px; }
+      .stat { padding: 6px 4px; }
+      .stat strong { font-size: 18px; }
+      .streak { margin-top: 4px; font-size: 13px; }
+      .tables-today { margin-top: 6px; gap: 6px; }
+      .btn { min-height: 46px; font-size: 16px; }
+      .problem { font-size: 36px; margin: 4px 0 12px; }
+      .cal-card {
+        flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;
+      }
+      .cal-grid { flex: 1; min-height: 0; gap: 4px; }
+      .cal-weekdays { gap: 4px; }
+      .cal-cell { aspect-ratio: auto; border-radius: 10px; font-size: 11px; }
+      .cal-cell .mark { font-size: 13px; }
+      .cal-legend { margin-top: 8px; font-size: 11px; }
+      .pyth-grid { flex: 1; min-height: 0; overflow: auto; }
+      #tablesView .card { flex: 1; min-height: 0; overflow: auto; }
+      #earnView .earn-head,
+      #earnView .earn-tabs,
+      #earnView .earn-history-filter,
+      #earnView .admin-claim-actions,
+      #adminView .view-title,
+      #adminView .admin-tabs { flex-shrink: 0; }
+      #pinInput { -webkit-text-security: disc; text-security: disc; }
     }
     @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -867,12 +928,33 @@
     html[data-theme="dark"] .cal-cell.progress,
     html[data-theme="dark"] .status-pill.progress { background: #3a2c10; color: #ffd27a; }
     html[data-theme="dark"] .plan-item.progress { background: linear-gradient(180deg, #3a2c10, #2d2410); }
-    body.gravity-on .main-inner { max-width: none; }
+    body.gravity-on .main-inner { max-width: none; height: 100%; }
     body.gravity-on .main {
-      padding-top: 12px;
-      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+      margin: 0;
+      padding: 0 !important;
+      max-height: none;
+      overflow: hidden;
+      height: 100dvh;
     }
-    body.gravity-on .page-back { margin-bottom: 8px; }
+    body.gravity-on .sidebar,
+    body.gravity-on .bottom-docks,
+    body.gravity-on .install-banner,
+    body.gravity-on .page-back { display: none !important; }
+    body.gravity-on .app { min-height: 100dvh; height: 100dvh; overflow: hidden; }
+    body.gravity-on .gravity-view {
+      position: fixed; inset: 0; z-index: 200; margin: 0;
+    }
+    body.gravity-on .gravity-stage {
+      height: 100%;
+      min-height: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body.gravity-on .gravity-hud {
+      padding-top: calc(12px + env(safe-area-inset-top));
+      padding-left: calc(12px + env(safe-area-inset-left));
+      padding-right: calc(12px + env(safe-area-inset-right));
+    }
     .gravity-view { margin: 0; }
     .gravity-stage {
       position: relative;
@@ -899,6 +981,7 @@
       display: flex; justify-content: space-between; align-items: flex-start;
       padding: 14px 16px; pointer-events: none; z-index: 3;
     }
+    .gravity-hud-actions { display: flex; gap: 8px; pointer-events: auto; }
     .gravity-hud-left { display: grid; gap: 8px; }
     .gravity-score-box {
       display: inline-flex; align-items: baseline; gap: 8px;
@@ -968,9 +1051,10 @@
       margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #8cf0ff;
     }
     @media (max-width: 720px) {
-      .gravity-stage { height: calc(100vh - 250px); min-height: 380px; border-radius: 20px; }
       .gravity-panel h2 { font-size: 28px; }
       .gravity-score-box strong { font-size: 22px; }
+      .gravity-rules { font-size: 14px; margin-bottom: 12px; }
+      .gravity-panel { max-height: min(80dvh, 100%); overflow-y: auto; padding: 20px 16px 18px; }
     }
   </style>
 </head>
@@ -1010,7 +1094,7 @@
     <div class="modal-card">
       <div class="label" data-i18n="adminPinTitle">Dad only</div>
       <p class="note" data-i18n="adminPinHint">Enter the secret PIN</p>
-      <input id="pinInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off" />
+      <input id="pinInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" enterkeyhint="done" />
       <p class="note" id="pinError" style="color:var(--bad);min-height:18px;"></p>
       <button class="btn btn-ink" id="pinOkBtn" type="button" data-i18n="open">Open</button>
       <button class="btn btn-ghost" id="pinCancelBtn" type="button" data-i18n="cancel">Cancel</button>
@@ -1201,7 +1285,7 @@
         <section id="calendarView" class="hidden">
           <h2 class="view-title" data-i18n="navCalendar">Calendar</h2>
           <p class="subtitle" data-i18n="calendarSubtitle">Your training progress</p>
-          <div class="card">
+          <div class="card cal-card">
             <div class="cal-head">
               <button class="cal-nav" id="calPrev" type="button" aria-label="Previous">‹</button>
               <strong id="calMonthLabel">September 2026</strong>
@@ -1219,7 +1303,7 @@
         <section id="planView" class="hidden">
           <h2 class="view-title" data-i18n="navPlan">All missions</h2>
           <p class="subtitle" data-i18n="planSubtitle">14 days: past, today, and upcoming</p>
-          <div class="card"><div class="plan-list" id="planList"></div></div>
+          <div class="card list-scroll"><div class="plan-list" id="planList"></div></div>
         </section>
         <section id="tablesView" class="hidden">
           <h2 class="view-title" data-i18n="tablesSettingsTitle">Table settings</h2>
@@ -1235,7 +1319,7 @@
         <section id="pythagorasView" class="hidden">
           <h2 class="view-title" data-i18n="pythagorasTitle">Pythagoras table</h2>
           <p class="subtitle" data-i18n="pythagorasSubtitle">Full multiplication grid — hover a cell</p>
-          <div class="card">
+          <div class="card list-scroll">
             <div class="pyth-hint muted" id="pythHint">Hover a number</div>
             <div class="pyth-grid" id="pythagorasGrid"></div>
           </div>
@@ -1243,7 +1327,7 @@
         <section id="redeemView" class="hidden">
           <h2 class="view-title" data-i18n="redeemTitle">Redeem prizes</h2>
           <p class="subtitle" data-i18n="redeemSubtitle">Spend Mishcoins on wishes!</p>
-          <div id="redeemContent"></div>
+          <div class="list-scroll" id="redeemContent"></div>
         </section>
         <section id="earnView" class="hidden">
           <div class="earn-head">
@@ -1262,7 +1346,7 @@
             <input type="checkbox" id="earnApprovedOnly" />
             <span data-i18n="earnHistoryApprovedOnly">Показать только согласованные</span>
           </label>
-          <div class="card" id="earnList"></div>
+          <div class="card list-scroll" id="earnList"></div>
           <div class="admin-claim-actions hidden" id="earnInboxActions">
             <button class="btn btn-accent btn-sm" id="earnApproveBtn" type="button" data-i18n="adminApproveClaims">Approve</button>
             <button class="btn btn-ghost btn-sm" id="earnRejectBtn" type="button" data-i18n="adminRejectClaims">Reject</button>
@@ -1272,12 +1356,12 @@
         <section id="guideView" class="hidden">
           <h2 class="view-title" data-i18n="guideTitle">Reward guide</h2>
           <p class="subtitle" data-i18n="guideSubtitle">What earns Mishcoins, and how many</p>
-          <div class="card" id="guidePage"></div>
+          <div class="card list-scroll" id="guidePage"></div>
         </section>
         <section id="historyView" class="hidden">
           <h2 class="view-title" data-i18n="coinHistoryTitle">Mishcoin history</h2>
           <p class="subtitle" data-i18n="heroHistory">See where your Mishcoins came from!</p>
-          <div class="card" id="historyPage"></div>
+          <div class="card list-scroll" id="historyPage"></div>
         </section>
         <section id="gravityView" class="hidden gravity-view">
           <div class="gravity-stage" id="gravityStage">
@@ -1292,9 +1376,12 @@
                 <div class="gravity-best" id="gravityBestLine"></div>
                 <div class="gravity-lives" id="gravityLives"></div>
               </div>
-              <button type="button" class="gravity-sound" id="gravitySoundBtn" aria-pressed="true" data-i18n-title="gravitySound">
-                <span id="gravitySoundIcon">🔊</span>
-              </button>
+              <div class="gravity-hud-actions">
+                <button type="button" class="gravity-sound" id="gravityExitBtn" data-i18n-title="back" aria-label="Back">‹</button>
+                <button type="button" class="gravity-sound" id="gravitySoundBtn" aria-pressed="true" data-i18n-title="gravitySound">
+                  <span id="gravitySoundIcon">🔊</span>
+                </button>
+              </div>
             </div>
             <div class="gravity-overlay" id="gravityOverlay">
               <div class="gravity-panel">
@@ -1354,7 +1441,7 @@
             <button class="earn-tab" id="adminTabKinds" type="button" data-tab="kinds" data-i18n="adminTabKinds">Типы заявок</button>
             <button class="earn-tab" id="adminTabClaims" type="button" data-tab="claims" data-i18n="adminTabClaims">Заявки на мишкоины</button>
           </div>
-          <div class="card admin-pane" id="adminPaneGeneral" data-pane="general">
+          <div class="card admin-pane list-scroll" id="adminPaneGeneral" data-pane="general">
             <div class="admin-row">
               <span class="label" data-i18n="adminQuestions">Questions per unfinished test</span>
               <input id="adminCountInput" type="number" min="5" max="200" step="1" />
@@ -1368,14 +1455,14 @@
             <p class="admin-flash" id="adminStatus"></p>
             <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
           </div>
-          <div class="card admin-pane hidden" id="adminPaneCatalog" data-pane="catalog">
+          <div class="card admin-pane list-scroll hidden" id="adminPaneCatalog" data-pane="catalog">
             <span class="label" data-i18n="adminWishlistTitle">Shared prize catalog</span>
             <p class="note" data-i18n="adminWishlistHint">Dad adds prizes once — any profile can buy them.</p>
             <div class="admin-prize-list" id="adminWishlistList"></div>
             <p class="admin-flash" id="adminCatalogStatus"></p>
             <button class="btn btn-accent btn-sm" id="adminAddPrizeBtn" type="button" data-i18n="adminAddPrizeBtn">Add</button>
           </div>
-          <div class="card admin-pane hidden" id="adminPaneKinds" data-pane="kinds">
+          <div class="card admin-pane list-scroll hidden" id="adminPaneKinds" data-pane="kinds">
             <div class="earn-head">
               <div class="earn-head-text">
                 <span class="label" data-i18n="adminKindsTitle">Типы заявок</span>
@@ -1386,7 +1473,7 @@
             <div class="admin-prize-list" id="adminKindsList"></div>
             <p class="admin-flash" id="adminKindsStatus"></p>
           </div>
-          <div class="card admin-pane hidden" id="adminPaneClaims" data-pane="claims">
+          <div class="card admin-pane list-scroll hidden" id="adminPaneClaims" data-pane="claims">
             <span class="label" data-i18n="adminClaimsTitle">Mishcoin requests</span>
             <p class="note" data-i18n="adminClaimsHint">Requests of the current profile. Check the new ones, then approve or reject.</p>
             <div class="admin-claim-list" id="adminClaimsList"></div>
@@ -1790,7 +1877,7 @@
         gravityTitle: "Gravitational",
         gravityScore: "Score",
         gravityBest: (n) => `Best: ${n}`,
-        gravityRules: "Steer your + atom through space. Catch the golden pluses — they slowly flee and dodge. Violet minuses pull you in with gravity — stay clear!",
+        gravityRules: "Steer your + atom through space. Catch the golden pluses — the closer you get, the stronger they pull toward you. Violet minuses pull you in — stay clear! Hold to build speed.",
         gravityPlay: "Play",
         gravityAgain: "Play again",
         gravityOver: "Charge gone",
@@ -6046,13 +6133,25 @@
         player.vy += thrustY * dt;
 
         let nearestNeg = 1400;
+        let gx = 0, gy = 0;
         for (const c of charges) {
           c.pulse += dt;
           if (c.sign < 0) {
-            const d = couple(player, c, playing ? 720000 : 180000, true, dt);
+            const dx = c.x - player.x, dy = c.y - player.y;
+            const d = len(dx, dy);
             nearestNeg = Math.min(nearestNeg, d);
-            c.vx += Math.cos(time * 0.7 + c.pulse) * 6 * dt;
-            c.vy += Math.sin(time * 0.55 + c.pulse) * 6 * dt;
+            const nx = dx / d, ny = dy / d;
+            const chase = 340 / (1 + (d / 130) * (d / 130));
+            c.vx -= nx * chase * dt;
+            c.vy -= ny * chase * dt;
+            c.vx += Math.cos(time * 0.7 + c.pulse) * 8 * dt;
+            c.vy += Math.sin(time * 0.55 + c.pulse) * 8 * dt;
+            if (playing && invuln <= 0 && d < 340) {
+              const tug = 210 / (1 + (d / 100) * (d / 100));
+              const feel = thrusting ? 0.32 : 0.55;
+              gx += nx * tug * feel;
+              gy += ny * tug * feel;
+            }
           } else if (!c.absorbing) {
             const dx = c.x - player.x, dy = c.y - player.y;
             const d = len(dx, dy);
@@ -6075,6 +6174,14 @@
             }
           }
         }
+        const gSpd = Math.hypot(gx, gy);
+        const gMax = thrusting ? 150 : 200;
+        if (gSpd > gMax) {
+          gx *= gMax / gSpd;
+          gy *= gMax / gSpd;
+        }
+        player.vx += gx * dt;
+        player.vy += gy * dt;
 
         const spd = Math.hypot(player.vx, player.vy);
         const maxSpd = 260 + hold * 155;
@@ -6121,17 +6228,19 @@
                 if (score % 7 === 0 && charges.filter((x) => x.sign < 0).length < 14) spawnCharge(-1, true);
                 syncHud();
               }
-            } else if (c.sign < 0 && d < player.r + c.r - 1 && invuln <= 0) {
+            } else if (c.sign < 0 && d < player.r + c.r - 8 && invuln <= 0) {
               lives -= 1;
-              invuln = 1.35;
+              invuln = 1.6;
               shake = 11;
               beep("hit");
               burst(player.x, player.y, "#c85aff", 22, 260);
               const dx = player.x - c.x, dy = player.y - c.y, L = len(dx, dy);
-              player.vx += (dx / L) * 280;
-              player.vy += (dy / L) * 280;
-              c.vx -= (dx / L) * 90;
-              c.vy -= (dy / L) * 90;
+              player.vx += (dx / L) * 460;
+              player.vy += (dy / L) * 460;
+              c.vx -= (dx / L) * 220;
+              c.vy -= (dy / L) * 220;
+              c.x -= (dx / L) * 36;
+              c.y -= (dy / L) * 36;
               syncHud();
               if (lives <= 0) {
                 playing = false;
@@ -6486,6 +6595,8 @@
         window.addEventListener("keydown", (e) => onKey(e, true));
         window.addEventListener("keyup", (e) => onKey(e, false));
         window.addEventListener("resize", resize);
+        document.addEventListener("fullscreenchange", resize);
+        document.addEventListener("webkitfullscreenchange", resize);
         if (window.ResizeObserver) {
           new ResizeObserver(resize).observe(wrap);
         }
@@ -6504,6 +6615,10 @@
         lastT = performance.now();
         raf = requestAnimationFrame(frame);
         requestAnimationFrame(resize);
+        const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+        if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
+          Promise.resolve(req.call(wrap)).catch(() => {}).finally(() => requestAnimationFrame(resize));
+        }
         if (audio) {
           if (audio.ctx.state === "suspended") audio.ctx.resume();
           audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.08);
@@ -6517,6 +6632,10 @@
         hold = 0;
         keys.clear();
         cancelAnimationFrame(raf);
+        const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
+          Promise.resolve(exitFs.call(document)).catch(() => {});
+        }
         if (audio) {
           audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
           if (audio.ctx.state === "running") audio.ctx.suspend();
@@ -8041,6 +8160,7 @@
       pinModal.classList.remove("hidden");
       document.getElementById("pinError").textContent = "";
       const input = document.getElementById("pinInput");
+      input.maxLength = ADMIN_PIN.length;
       input.value = ""; input.focus();
     }
     function closePinModal() {
@@ -8048,9 +8168,13 @@
       pinModal.classList.add("hidden");
     }
     function submitPin() {
-      const value = document.getElementById("pinInput").value.trim();
+      const input = document.getElementById("pinInput");
+      const value = String(input.value || "").replace(/\D/g, "");
+      if (value.length < ADMIN_PIN.length) return;
       if (value !== ADMIN_PIN) {
         document.getElementById("pinError").textContent = t("pinWrong");
+        input.value = "";
+        input.focus();
         return;
       }
       const purpose = pinPurpose;
@@ -8523,7 +8647,15 @@
     document.getElementById("backHomeBtn").addEventListener("click", goBack);
     document.getElementById("pinOkBtn").addEventListener("click", submitPin);
     document.getElementById("pinCancelBtn").addEventListener("click", closePinModal);
-    document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
+    document.getElementById("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitPin(); } });
+    document.getElementById("pinInput").addEventListener("input", () => {
+      const input = document.getElementById("pinInput");
+      const value = String(input.value || "").replace(/\D/g, "").slice(0, ADMIN_PIN.length);
+      if (input.value !== value) input.value = value;
+      document.getElementById("pinError").textContent = "";
+      if (value.length >= ADMIN_PIN.length) submitPin();
+    });
+    document.getElementById("gravityExitBtn").addEventListener("click", goBack);
     document.getElementById("adminSaveBtn").addEventListener("click", async () => {
       const value = Number(document.getElementById("adminCountInput").value);
       const extra = Number(document.getElementById("adminFailExtraInput").value);
