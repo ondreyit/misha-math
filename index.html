@@ -1626,16 +1626,16 @@
               <p class="note" data-i18n="adminFailExtraHint">How many new examples to add when the answer is wrong.</p>
             </div>
             <div class="admin-row">
-              <span class="label" data-i18n="adminFishRange">Fishing: reel numbers</span>
+              <span class="label" data-i18n="adminFishRange">Рыбалка: числа рыбок</span>
               <div class="admin-range">
-                <label><span data-i18n="adminFishFrom">from</span>
+                <label><span data-i18n="adminFishFrom">от</span>
                   <input id="adminFishMinInput" type="number" min="1" max="99" step="1" />
                 </label>
-                <label><span data-i18n="adminFishTo">to</span>
+                <label><span data-i18n="adminFishTo">до</span>
                   <input id="adminFishMaxInput" type="number" min="1" max="99" step="1" />
                 </label>
               </div>
-              <p class="note" data-i18n="adminFishRangeHint">Random number on the reel. Fish carry numbers for the chosen operation.</p>
+              <p class="note" data-i18n="adminFishRangeHint">От и до — какие числа будут на катушке и на рыбках.</p>
             </div>
             <p class="admin-flash" id="adminStatus"></p>
             <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
@@ -1800,10 +1800,10 @@
         fishCaught: (n) => `Поймано: ${n}`,
         fishNeedOp: "Сначала выбери действие",
         heroFish: "Лови рыбок с правильными цифрами!",
-        adminFishRange: "Рыбалка: числа на катушке",
+        adminFishRange: "Рыбалка: числа рыбок",
         adminFishFrom: "от",
         adminFishTo: "до",
-        adminFishRangeHint: "Случайное число на катушке. Рыбки несут цифры для выбранного действия.",
+        adminFishRangeHint: "От и до — какие числа будут на катушке и на рыбках.",
         navCalendar: "Календарь",
         navPlan: "Все задания",
         navTables: "Таблицы",
@@ -2101,10 +2101,10 @@
         fishCaught: (n) => `Caught: ${n}`,
         fishNeedOp: "Pick an operation first",
         heroFish: "Catch the fish with the right numbers!",
-        adminFishRange: "Fishing: reel numbers",
+        adminFishRange: "Fishing: fish numbers",
         adminFishFrom: "from",
         adminFishTo: "to",
-        adminFishRangeHint: "Random number on the reel. Fish carry numbers for the chosen operation.",
+        adminFishRangeHint: "From and to set which numbers appear on the reel and on the fish.",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
         navEarn: "More Mishcoins",
@@ -7407,35 +7407,36 @@
         return { min, max };
       }
       function listPairs(goal) {
+        const { min, max } = rangeBounds();
+        const lo = Math.max(1, min);
+        const hi = max;
         const pairs = [];
         if (op === "add") {
-          for (let a = 1; a < goal; a += 1) {
+          for (let a = lo; a < goal; a += 1) {
             const b = goal - a;
-            if (b >= 1 && a <= 10 && b <= 10) pairs.push([a, b]);
+            if (b >= lo && a <= hi && b <= hi) pairs.push([a, b]);
           }
-          const nice = pairs.filter((p) => p[0] >= 2 && p[1] >= 2);
-          return nice.length ? nice : pairs;
+          return pairs;
         }
         if (op === "sub") {
-          for (let b = 2; b <= 9; b += 1) {
+          for (let b = lo; b <= hi; b += 1) {
             const a = goal + b;
-            if (a <= 20) pairs.push([a, b]);
+            if (a >= lo && a <= hi) pairs.push([a, b]);
           }
           return pairs;
         }
         if (op === "mul") {
-          for (let a = 2; a <= 10; a += 1) {
-            if (goal % a === 0) {
+          for (let a = lo; a <= hi; a += 1) {
+            if (a && goal % a === 0) {
               const b = goal / a;
-              if (b >= 2 && b <= 10) pairs.push([a, b]);
+              if (b >= lo && b <= hi) pairs.push([a, b]);
             }
           }
-          if (!pairs.length && goal >= 4 && goal <= 20 && goal % 2 === 0) pairs.push([2, goal / 2]);
           return pairs;
         }
-        for (let b = 2; b <= 10; b += 1) {
+        for (let b = Math.max(2, lo); b <= hi; b += 1) {
           const a = goal * b;
-          if (a <= 20) pairs.push([a, b]);
+          if (a >= lo && a <= hi) pairs.push([a, b]);
         }
         return pairs;
       }
@@ -7453,21 +7454,25 @@
       function fallbackPair() {
         const list = listPairs(target) || [];
         if (list.length) return pick(list);
-        if (op === "div") return [8, 2];
-        if (op === "mul") return [4, 2];
-        if (op === "sub") return [target + 2, 2];
-        return [2, Math.max(2, target - 2)];
+        const { min, max } = rangeBounds();
+        const lo = Math.max(1, min);
+        const hi = Math.max(lo, max);
+        if (op === "div") {
+          const b = Math.max(2, lo);
+          return [clamp(target * b, lo, hi), b];
+        }
+        if (op === "mul") return [lo, lo];
+        if (op === "sub") return [clamp(target + lo, lo, hi), lo];
+        return [lo, clamp(target - lo, lo, hi)];
       }
       function pickTarget() {
         const { min, max } = rangeBounds();
         const rich = [];
         const tries = [];
         for (let n = min; n <= max; n += 1) {
-          if (op === "add" && n < 4) continue;
-          if (op === "add" && n > 10) continue;
           if (op === "mul") {
             let factors = 0;
-            for (let a = 2; a <= 10; a += 1) if (n % a === 0 && n / a >= 2 && n / a <= 10) factors += 1;
+            for (let a = min; a <= max; a += 1) if (a && n % a === 0 && n / a >= min && n / a <= max) factors += 1;
             if (!factors) continue;
           }
           const v = pairVariants(n);
@@ -7476,7 +7481,7 @@
           if (v.length >= 2) rich.push(n);
         }
         const pool = rich.length ? rich : tries;
-        target = pool.length ? pick(pool) : (op === "add" ? 8 : op === "mul" ? 12 : op === "div" ? 4 : 5);
+        target = pool.length ? pick(pool) : clamp(min + max, min, max);
         return target;
       }
       function layout() {
@@ -7583,15 +7588,16 @@
         return false;
       }
       function distractorNum(secret) {
-        const { max } = rangeBounds();
-        const hi = op === "mul" || op === "div" ? Math.min(12, Math.max(10, max)) : 10;
-        for (let k = 0; k < 16; k += 1) {
-          const n = 2 + ((Math.random() * (hi - 1)) | 0);
+        const { min, max } = rangeBounds();
+        const lo = Math.max(1, min);
+        const hi = Math.max(lo, max);
+        for (let k = 0; k < 24; k += 1) {
+          const n = lo + ((Math.random() * (hi - lo + 1)) | 0);
           if (secret.includes(n)) continue;
           if (op === "add" && n === target) continue;
           return n;
         }
-        return Math.max(2, Math.min(9, target - 1));
+        return clamp(target - 1, lo, hi);
       }
       function fillSchool() {
         const want = 7;
@@ -8494,14 +8500,8 @@
         ctx.fillText(`×${bucketFish.length}`, x + bw * 0.5, y + bh + 18);
         ctx.restore();
       }
-      function isPartner(f) {
-        if (!hooked || f.hooked || f.toBucket || f.big || hooked.big) return false;
-        return pairOk(hooked.num, f.num);
-      }
       function drawFishBody(f) {
         const ang = Math.atan2(f.vy, f.vx) || 0;
-        const partner = isPartner(f);
-        const pulse = partner || f.big ? 0.55 + 0.45 * Math.sin(time * 4) : 0;
         const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
         ctx.save();
         ctx.translate(f.x + jx, f.y + 10);
@@ -8510,13 +8510,6 @@
         ctx.ellipse(0, 0, f.len * 0.5, f.len * 0.22, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        if (partner || (f.big && !f.hooked)) {
-          ctx.beginPath();
-          ctx.arc(f.x, f.y, f.len * 0.7 + pulse * 6, 0, Math.PI * 2);
-          ctx.strokeStyle = f.big ? `rgba(255, 200, 70, ${0.4 + pulse * 0.4})` : `rgba(90, 230, 255, ${0.35 + pulse * 0.4})`;
-          ctx.lineWidth = 4;
-          ctx.stroke();
-        }
         ctx.save();
         ctx.translate(f.x + jx, f.y);
         ctx.rotate(ang);
@@ -8737,6 +8730,7 @@
           bonus: !!(bonus && bonus.hooked),
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
+          range: rangeBounds(),
         });
         syncHud();
         if (!playing) showOverlay(over ? "over" : "start");
