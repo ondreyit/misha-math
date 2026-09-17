@@ -955,6 +955,33 @@
       padding-left: calc(12px + env(safe-area-inset-left));
       padding-right: calc(12px + env(safe-area-inset-right));
     }
+    body.fish-on .main-inner { max-width: none; height: 100%; }
+    body.fish-on .main {
+      margin: 0;
+      padding: 0 !important;
+      max-height: none;
+      overflow: hidden;
+      height: 100dvh;
+    }
+    body.fish-on .sidebar,
+    body.fish-on .bottom-docks,
+    body.fish-on .install-banner,
+    body.fish-on .page-back { display: none !important; }
+    body.fish-on .app { min-height: 100dvh; height: 100dvh; overflow: hidden; }
+    body.fish-on .fish-view {
+      position: fixed; inset: 0; z-index: 200; margin: 0;
+    }
+    body.fish-on .fish-stage {
+      height: 100%;
+      min-height: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body.fish-on .gravity-hud {
+      padding-top: calc(12px + env(safe-area-inset-top));
+      padding-left: calc(12px + env(safe-area-inset-left));
+      padding-right: calc(12px + env(safe-area-inset-right));
+    }
     .gravity-view { margin: 0; }
     .gravity-stage {
       position: relative;
@@ -1084,6 +1111,45 @@
       .gravity-score-box strong { font-size: 22px; }
       .gravity-rules { font-size: 14px; margin-bottom: 12px; }
       .gravity-panel { max-height: min(80dvh, 100%); overflow-y: auto; padding: 20px 16px 18px; }
+    }
+    .fish-view { margin: 0; }
+    .fish-stage {
+      position: relative; width: 100%; height: min(72vh, 720px);
+      border-radius: 24px; overflow: hidden;
+      background: #0b4a62;
+      box-shadow: var(--shadow);
+    }
+    .fish-stage canvas {
+      display: block; width: 100%; height: 100%;
+      touch-action: none; cursor: crosshair;
+    }
+    .fish-ops {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin: 0 0 16px;
+    }
+    .fish-op {
+      min-height: 54px; border-radius: 16px; cursor: pointer;
+      border: 2px solid rgba(170, 220, 255, 0.28);
+      background: rgba(10, 28, 52, 0.55); color: #eef8ff;
+      font-weight: 900; display: grid; place-items: center; gap: 0;
+      padding: 6px 8px; user-select: none; -webkit-user-select: none;
+    }
+    .fish-op strong { font-size: clamp(22px, 6vw, 30px); line-height: 1; }
+    .fish-op span { font-size: clamp(11px, 3.2vw, 13px); letter-spacing: 0.02em; opacity: 0.86; }
+    .fish-op.on {
+      border-color: #8cf0ff;
+      background: linear-gradient(180deg, rgba(40, 120, 170, 0.7), rgba(12, 50, 80, 0.8));
+      box-shadow: 0 0 0 3px rgba(140, 240, 255, 0.22);
+    }
+    .admin-range {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .admin-range label {
+      display: grid; gap: 4px; font-size: 13px; font-weight: 800; color: var(--muted);
+    }
+    .admin-range input { width: 100%; }
+    @media (max-width: 720px) {
+      .fish-op { min-height: 48px; }
     }
   </style>
 </head>
@@ -1276,6 +1342,7 @@
       <nav class="sidebar-nav" id="sidebarNav">
         <button class="nav-btn on" data-view="home" type="button"><span class="nav-icon">🏠</span><span data-i18n="navHome">Training</span></button>
         <button class="nav-btn" data-view="gravity" type="button"><span class="nav-icon">⚛️</span><span data-i18n="navGame">Игра</span></button>
+        <button class="nav-btn" data-view="fish" type="button"><span class="nav-icon">🎣</span><span data-i18n="navFish">Рыбалка</span></button>
         <button class="nav-btn" data-view="calendar" type="button"><span class="nav-icon">📅</span><span data-i18n="navCalendar">Calendar</span></button>
         <button class="nav-btn" data-view="plan" type="button"><span class="nav-icon">🗺️</span><span data-i18n="navPlan">All missions</span></button>
         <button class="nav-btn" data-view="tables" type="button"><span class="nav-icon">🔢</span><span data-i18n="navTables">Table settings</span></button>
@@ -1431,6 +1498,43 @@
             </div>
           </div>
         </section>
+        <section id="fishView" class="hidden fish-view">
+          <div class="fish-stage" id="fishStage">
+            <canvas id="fishCanvas"></canvas>
+            <div class="gravity-hud">
+              <div class="gravity-hud-left">
+                <div class="gravity-score-box">
+                  <span class="gravity-score-label" data-i18n="gravityScore">Счёт</span>
+                  <strong id="fishScoreValue">0</strong>
+                  <span class="gravity-score-plus">+</span>
+                </div>
+                <div class="gravity-best" id="fishBestLine"></div>
+                <div class="gravity-lives" id="fishLives"></div>
+              </div>
+              <div class="gravity-hud-actions">
+                <button type="button" class="gravity-sound" id="fishExitBtn" data-i18n-title="back" aria-label="Back">‹</button>
+                <button type="button" class="gravity-sound" id="fishSoundBtn" aria-pressed="true" data-i18n-title="gravitySound">
+                  <span id="fishSoundIcon">🔊</span>
+                </button>
+              </div>
+            </div>
+            <div class="gravity-overlay" id="fishOverlay">
+              <div class="gravity-panel">
+                <p class="gravity-kicker" data-i18n="navFish">Рыбалка</p>
+                <h2 id="fishOverlayTitle" data-i18n="fishTitle">Рыбалка</h2>
+                <p class="gravity-over-score hidden" id="fishOverlayScore"></p>
+                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">Выбери действие. На катушке — число. Закинь крючок на две рыбки, чтобы получился правильный ответ.</p>
+                <div class="fish-ops" id="fishOps">
+                  <button type="button" class="fish-op on" data-op="add"><strong>+</strong><span data-i18n="fishAdd">Сложение</span></button>
+                  <button type="button" class="fish-op" data-op="sub"><strong>−</strong><span data-i18n="fishSub">Вычитание</span></button>
+                  <button type="button" class="fish-op" data-op="mul"><strong>×</strong><span data-i18n="fishMul">Умножение</span></button>
+                  <button type="button" class="fish-op" data-op="div"><strong>÷</strong><span data-i18n="fishDiv">Деление</span></button>
+                </div>
+                <button class="btn btn-accent" id="fishPlayBtn" type="button" data-i18n="gravityPlay">Играть</button>
+              </div>
+            </div>
+          </div>
+        </section>
         <section id="trainView" class="hidden">
           <p class="subtitle" id="trainDateLabel">Mission</p>
           <div class="train-tables-wrap">
@@ -1488,6 +1592,18 @@
               <span class="label" data-i18n="adminFailExtra">Extra questions after a fail</span>
               <input id="adminFailExtraInput" type="number" min="0" max="10" step="1" />
               <p class="note" data-i18n="adminFailExtraHint">How many new examples to add when the answer is wrong.</p>
+            </div>
+            <div class="admin-row">
+              <span class="label" data-i18n="adminFishRange">Fishing: reel numbers</span>
+              <div class="admin-range">
+                <label><span data-i18n="adminFishFrom">from</span>
+                  <input id="adminFishMinInput" type="number" min="1" max="99" step="1" />
+                </label>
+                <label><span data-i18n="adminFishTo">to</span>
+                  <input id="adminFishMaxInput" type="number" min="1" max="99" step="1" />
+                </label>
+              </div>
+              <p class="note" data-i18n="adminFishRangeHint">Random number on the reel. Fish carry numbers for the chosen operation.</p>
             </div>
             <p class="admin-flash" id="adminStatus"></p>
             <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
@@ -1555,6 +1671,9 @@
     };
     const FAIL_EXTRA_DEFAULT = 2;
     const FAIL_EXTRA_KEY = "misha-fail-extra-v1";
+    const FISH_RANGE_KEY = "misha-fish-range-v1";
+    const FISH_MIN_DEFAULT = 2;
+    const FISH_MAX_DEFAULT = 12;
     const ADMIN_PIN = "2018";
     const STORAGE_KEY_BASE = "misha-daily-math-v1";
     const SETTINGS_KEY_BASE = "misha-math-settings-v1";
@@ -1592,7 +1711,7 @@
       { id: "evening", titleRu: "Вечерний график", titleEn: "Evening schedule", amount: 4 },
       { id: "eveningOnTime", titleRu: "Вечерний график вовремя", titleEn: "Evening schedule on time", amount: 6 },
     ];
-    const MAIN_NAV = ["home", "gravity", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
+    const MAIN_NAV = ["home", "gravity", "fish", "calendar", "plan", "tables", "pythagoras", "redeem", "earn", "guide", "history"];
     const CLOUD_GIST_ID = "dac6ed7823e7e1b57af63278e31a2766";
     const CLOUD_GIST_RAW = `https://gist.githubusercontent.com/ondreyit/${CLOUD_GIST_ID}/raw/family_sync.json`;
     const CLOUD_KV_APP = "lz51usfi";
@@ -1626,6 +1745,7 @@
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Тренировка",
         navGame: "Игра",
+        navFish: "Рыбалка",
         gravityTitle: "Гравитационная",
         gravityScore: "Счёт",
         gravityBest: (n) => `Рекорд: ${n}`,
@@ -1637,6 +1757,21 @@
         gravitySound: "Звук",
         gravityHint: "Пробел — мелкие выстрелы, B — ракеты. Стреляет против хвоста. Удерживай курсор, чтобы разгоняться.",
         heroGravity: "Лови плюсы и не дай минусам притянуть тебя!",
+        fishTitle: "Рыбалка",
+        fishAdd: "Сложение",
+        fishSub: "Вычитание",
+        fishMul: "Умножение",
+        fishDiv: "Деление",
+        fishRules: "Выбери действие. На катушке — число. Закинь крючок на две рыбки, чтобы получился правильный ответ. Верно — балл, ошибка — жизнь.",
+        fishHint: "Закидывай крючок на две цифры. Если действие даёт число на катушке — рыбки в ведро.",
+        fishOver: "Рыбки уплыли",
+        fishCaught: (n) => `Поймано: ${n}`,
+        fishNeedOp: "Сначала выбери действие",
+        heroFish: "Лови рыбок с правильными цифрами!",
+        adminFishRange: "Рыбалка: числа на катушке",
+        adminFishFrom: "от",
+        adminFishTo: "до",
+        adminFishRangeHint: "Случайное число на катушке. Рыбки несут цифры для выбранного действия.",
         navCalendar: "Календарь",
         navPlan: "Все задания",
         navTables: "Таблицы",
@@ -1911,6 +2046,7 @@
         pythHintMul: (a, b, c) => `${a} × ${b} = ${c}`,
         navHome: "Training",
         navGame: "Game",
+        navFish: "Fishing",
         gravityTitle: "Gravitational",
         gravityScore: "Score",
         gravityBest: (n) => `Best: ${n}`,
@@ -1922,6 +2058,21 @@
         gravitySound: "Sound",
         gravityHint: "Space: small shots. B: rockets. Fires opposite the tail. Hold to build speed.",
         heroGravity: "Catch the pluses and don't let the minuses pull you in!",
+        fishTitle: "Fishing",
+        fishAdd: "Addition",
+        fishSub: "Subtraction",
+        fishMul: "Multiplication",
+        fishDiv: "Division",
+        fishRules: "Pick an operation. The reel shows a number. Cast the hook onto two fish so the answer is correct. Right catch: a point. Wrong: a life.",
+        fishHint: "Cast onto two numbers. If they make the reel number, the fish go in the bucket.",
+        fishOver: "The fish got away",
+        fishCaught: (n) => `Caught: ${n}`,
+        fishNeedOp: "Pick an operation first",
+        heroFish: "Catch the fish with the right numbers!",
+        adminFishRange: "Fishing: reel numbers",
+        adminFishFrom: "from",
+        adminFishTo: "to",
+        adminFishRangeHint: "Random number on the reel. Fish carry numbers for the chosen operation.",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
         navEarn: "More Mishcoins",
@@ -2238,6 +2389,7 @@
     let customPhotos = {};
     let pendingPhoto = null;
     let failExtraSetting = FAIL_EXTRA_DEFAULT;
+    let fishRange = { min: FISH_MIN_DEFAULT, max: FISH_MAX_DEFAULT };
     let cloudNotify = null;
     let pinPurpose = "admin";
 
@@ -2380,6 +2532,7 @@
       guide: document.getElementById("guideView"),
       history: document.getElementById("historyView"),
       gravity: document.getElementById("gravityView"),
+      fish: document.getElementById("fishView"),
       train: document.getElementById("trainView"),
       done: document.getElementById("doneView"),
       admin: document.getElementById("adminView"),
@@ -2670,18 +2823,51 @@
       try { localStorage.setItem(FAIL_EXTRA_KEY, String(failExtraSetting)); } catch { /* ignore */ }
       return failExtraSetting;
     }
+    function clampFishBound(n, fallback) {
+      const value = Number(n);
+      if (!Number.isFinite(value)) return fallback;
+      return Math.max(1, Math.min(99, Math.round(value)));
+    }
+    function applyFishRange(min, max) {
+      let a = clampFishBound(min, fishRange.min || FISH_MIN_DEFAULT);
+      let b = clampFishBound(max, fishRange.max || FISH_MAX_DEFAULT);
+      if (a > b) { const tmp = a; a = b; b = tmp; }
+      fishRange = { min: a, max: b };
+      try { localStorage.setItem(FISH_RANGE_KEY, JSON.stringify(fishRange)); } catch { /* ignore */ }
+      return fishRange;
+    }
+    function readCfgObject(remote) {
+      if (!remote) return null;
+      if (typeof remote === "string") return parseKvText(remote);
+      if (typeof remote === "object") return remote;
+      return null;
+    }
     async function pullFailExtra() {
       try {
         const stored = localStorage.getItem(FAIL_EXTRA_KEY);
         if (stored != null && stored !== "") applyFailExtra(stored);
+        const rangeStored = localStorage.getItem(FISH_RANGE_KEY);
+        if (rangeStored) {
+          const parsed = JSON.parse(rangeStored);
+          applyFishRange(parsed.min, parsed.max);
+        }
       } catch { /* ignore */ }
-      const remote = await fetchKvRaw("cfg");
+      const remote = readCfgObject(await fetchKvRaw("cfg"));
       const n = Number(remote?.f ?? remote?.failExtra);
       if (Number.isFinite(n)) applyFailExtra(n);
+      const a = Number(remote?.a ?? remote?.fishMin);
+      const b = Number(remote?.b ?? remote?.fishMax);
+      if (Number.isFinite(a) || Number.isFinite(b)) {
+        applyFishRange(
+          Number.isFinite(a) ? a : fishRange.min,
+          Number.isFinite(b) ? b : fishRange.max
+        );
+      }
     }
     async function pushFailExtra() {
       const n = applyFailExtra(failExtraSetting);
-      await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n })));
+      const range = applyFishRange(fishRange.min, fishRange.max);
+      await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n, a: range.min, b: range.max })));
       notifyCloud("cfg");
     }
     function dayIndex(dateKey) {
@@ -7118,6 +7304,1030 @@
       return { enter, leave, syncLabels, pauseVis, syncAvatar };
     })();
 
+    const FishGame = (() => {
+      const BEST_KEY = "misha-fish-best-v1";
+      const SOUND_KEY = "misha-fish-sound-v1";
+      const canvas = document.getElementById("fishCanvas");
+      const wrap = document.getElementById("fishStage");
+      const overlay = document.getElementById("fishOverlay");
+      const overlayTitle = document.getElementById("fishOverlayTitle");
+      const overlayRules = document.getElementById("fishOverlayRules");
+      const overlayScore = document.getElementById("fishOverlayScore");
+      const playBtn = document.getElementById("fishPlayBtn");
+      const soundBtn = document.getElementById("fishSoundBtn");
+      const soundIcon = document.getElementById("fishSoundIcon");
+      const scoreEl = document.getElementById("fishScoreValue");
+      const bestEl = document.getElementById("fishBestLine");
+      const livesEl = document.getElementById("fishLives");
+      const opsBox = document.getElementById("fishOps");
+      if (!canvas || !wrap) {
+        return { enter() {}, leave() {}, syncLabels() {}, pauseVis() {} };
+      }
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const fishes = [];
+      const hooks = [];
+      const splashes = [];
+      const ripples = [];
+      const bubbles = [];
+      const pads = [];
+      const bucketFish = [];
+      const reeds = [];
+      let dpr = 1, w = 800, h = 520;
+      let raf = 0, lastT = 0, time = 0, entered = false, playing = false, bound = false;
+      let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+      let audio = null;
+      let htmlSfx = { urls: null, pool: {}, unlock: null, ready: false };
+      let score = 0, best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
+      let lives = 3, over = false, flash = 0, shake = 0;
+      let op = "add";
+      let target = 10;
+      let hooked = null;
+      let spawnCool = 0;
+      let nextId = 1;
+      const reel = { x: 0, y: 0, r: 70 };
+      const bucket = { x: 0, y: 0, w: 86, h: 78 };
+
+      function rand(a, b) { return a + Math.random() * (b - a); }
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+      function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+      function opMark() {
+        return { add: "+", sub: "−", mul: "×", div: "÷" }[op] || "+";
+      }
+      function applyOp(a, b) {
+        if (op === "add") return a + b;
+        if (op === "sub") return a - b;
+        if (op === "mul") return a * b;
+        if (op === "div") return b && a % b === 0 ? a / b : NaN;
+        return NaN;
+      }
+      function pairOk(a, b) {
+        return applyOp(a, b) === target || applyOp(b, a) === target;
+      }
+      function rangeBounds() {
+        let min = Number(fishRange.min) || FISH_MIN_DEFAULT;
+        let max = Number(fishRange.max) || FISH_MAX_DEFAULT;
+        min = clamp(min, 1, 99);
+        max = clamp(max, 1, 99);
+        if (min > max) { const tmin = min; min = max; max = tmin; }
+        return { min, max };
+      }
+      function listPairs(goal) {
+        const pairs = [];
+        const { max } = rangeBounds();
+        if (op === "add") {
+          for (let a = 1; a < goal; a += 1) pairs.push([a, goal - a]);
+        } else if (op === "sub") {
+          const lim = Math.max(max, 9);
+          for (let b = 1; b <= lim; b += 1) pairs.push([goal + b, b]);
+        } else if (op === "mul") {
+          for (let a = 1; a <= goal; a += 1) {
+            if (goal % a === 0) pairs.push([a, goal / a]);
+          }
+        } else {
+          const lim = Math.max(max, 9);
+          for (let b = 1; b <= lim; b += 1) pairs.push([goal * b, b]);
+        }
+        return pairs;
+      }
+      function pickTarget() {
+        const { min, max } = rangeBounds();
+        const tries = [];
+        for (let n = min; n <= max; n += 1) {
+          if (op === "add" && n < 2) continue;
+          if (listPairs(n).length) tries.push(n);
+        }
+        target = tries.length ? pick(tries) : Math.max(2, min);
+        return target;
+      }
+      function layout() {
+        const s = Math.min(w, h);
+        reel.x = w * 0.5;
+        reel.y = h * 0.54;
+        reel.r = clamp(s * 0.16, 54, 98);
+        bucket.w = clamp(s * 0.2, 72, 110);
+        bucket.h = clamp(s * 0.175, 64, 96);
+        bucket.x = w - bucket.w - 12;
+        bucket.y = 66;
+      }
+      function fishSize() {
+        const s = Math.min(w, h);
+        return {
+          len: clamp(s * 0.11, 42, 66),
+          hit: clamp(s * 0.09, 34, 50),
+          num: clamp(s * 0.048, 18, 24),
+        };
+      }
+      function initDecor() {
+        pads.length = 0;
+        reeds.length = 0;
+        bubbles.length = 0;
+        layout();
+        for (let i = 0; i < 7; i += 1) {
+          let x = rand(40, w - 40);
+          let y = rand(40, h - 40);
+          if (Math.hypot(x - reel.x, y - reel.y) < reel.r * 2.4) {
+            x = rand(40, w * 0.28);
+            y = rand(h * 0.18, h * 0.82);
+          }
+          pads.push({ x, y, r: rand(16, 28), a: rand(0, Math.PI) });
+        }
+        for (let i = 0; i < 18; i += 1) {
+          reeds.push({
+            x: i < 9 ? rand(8, 70) : rand(w - 70, w - 8),
+            h: rand(50, 130),
+            ph: rand(0, Math.PI * 2),
+          });
+        }
+        for (let i = 0; i < 16; i += 1) {
+          bubbles.push({ x: rand(0, w), y: rand(0, h), r: rand(1.2, 3.2), sp: rand(8, 22), ph: rand(0, 7) });
+        }
+      }
+      function spawnAround() {
+        const ang = rand(0, Math.PI * 2);
+        const dist = reel.r * rand(3.1, 5.4);
+        return {
+          x: clamp(reel.x + Math.cos(ang) * dist, 24, w - 24),
+          y: clamp(reel.y + Math.sin(ang) * dist, 24, h - 24),
+        };
+      }
+      const FISH_COLS = ["#ff8a3d", "#ffd24d", "#3ec7ff", "#ff6ea8", "#7dff9a", "#c58cff"];
+      function makeFish(num, at) {
+        const pos = at || spawnAround();
+        const size = fishSize();
+        const dx = reel.x - pos.x;
+        const dy = reel.y - pos.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const spd = rand(26, 42);
+        return {
+          id: nextId++,
+          x: pos.x, y: pos.y,
+          vx: (dx / dist) * spd, vy: (dy / dist) * spd,
+          num, color: pick(FISH_COLS),
+          ph: rand(0, Math.PI * 2),
+          wob: rand(1.2, 2.4),
+          len: size.len,
+          hit: size.hit,
+          toBucket: 0,
+          fly: 0,
+          hooked: false,
+          leaving: false,
+          shake: 0,
+        };
+      }
+      function liveFish() {
+        return fishes.filter((f) => !f.toBucket && !f.leaving);
+      }
+      function hasPair() {
+        const list = liveFish();
+        for (let i = 0; i < list.length; i += 1) {
+          for (let j = i + 1; j < list.length; j += 1) {
+            if (pairOk(list[i].num, list[j].num)) return true;
+          }
+        }
+        return false;
+      }
+      function ensurePair() {
+        if (hasPair()) return;
+        const pair = pick(listPairs(target) || []) || [1, Math.max(1, target - 1)];
+        const a = makeFish(pair[0]);
+        const b = makeFish(pair[1], spawnAround());
+        fishes.push(a, b);
+      }
+      function fillSchool() {
+        const want = 8;
+        while (liveFish().length < want) {
+          const { max } = rangeBounds();
+          const hi = Math.max(max * (op === "mul" || op === "add" ? 1 : 2), target + 4, 12);
+          fishes.push(makeFish(1 + ((Math.random() * hi) | 0)));
+        }
+        ensurePair();
+      }
+      function resetPlay() {
+        score = 0; lives = 3; over = false; flash = 0; shake = 0;
+        hooked = null;
+        fishes.length = 0; hooks.length = 0; splashes.length = 0;
+        ripples.length = 0; bucketFish.length = 0;
+        pickTarget();
+        fillSchool();
+        overlay.hidden = true;
+        playing = true;
+        syncHud();
+        ensureAudio();
+      }
+      function showOverlay(kind) {
+        overlay.hidden = false;
+        overlayScore.classList.toggle("hidden", kind !== "over");
+        if (kind === "over") {
+          overlayTitle.removeAttribute("data-i18n");
+          overlayTitle.textContent = t("fishOver");
+          overlayScore.textContent = t("fishCaught", score);
+          overlayRules.textContent = t("fishHint");
+          playBtn.textContent = t("gravityAgain");
+        } else {
+          overlayTitle.setAttribute("data-i18n", "fishTitle");
+          overlayTitle.textContent = t("fishTitle");
+          overlayRules.setAttribute("data-i18n", "fishRules");
+          overlayRules.textContent = t("fishRules");
+          playBtn.textContent = t("gravityPlay");
+        }
+        syncOps();
+      }
+      function syncOps() {
+        if (!opsBox) return;
+        opsBox.querySelectorAll(".fish-op").forEach((btn) => {
+          btn.classList.toggle("on", btn.getAttribute("data-op") === op);
+        });
+      }
+      function syncHud() {
+        if (scoreEl) scoreEl.textContent = String(score);
+        if (bestEl) bestEl.textContent = t("gravityBest", best);
+        if (livesEl) {
+          livesEl.innerHTML = "";
+          for (let i = 0; i < 3; i += 1) {
+            const d = document.createElement("i");
+            d.className = "gravity-life" + (i < lives ? "" : " off");
+            livesEl.appendChild(d);
+          }
+        }
+        if (soundBtn) {
+          soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+          soundBtn.title = t("gravitySound");
+          if (soundIcon) soundIcon.textContent = soundOn ? "🔊" : "🔇";
+        }
+      }
+      function syncLabels() {
+        syncHud();
+        if (!overlay.hidden) showOverlay(over ? "over" : "start");
+      }
+      function resize() {
+        if (!wrap) return;
+        const rect = wrap.getBoundingClientRect();
+        w = Math.max(320, rect.width);
+        h = Math.max(280, rect.height);
+        const native = window.devicePixelRatio || 1;
+        dpr = Math.min(3, Math.max(1, native));
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        layout();
+        if (!pads.length) initDecor();
+      }
+      function pointFromEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+      }
+      function encodeWav(samples, sampleRate) {
+        const n = samples.length;
+        const buf = new ArrayBuffer(44 + n * 2);
+        const v = new DataView(buf);
+        const ascii = (o, s) => { for (let i = 0; i < s.length; i += 1) v.setUint8(o + i, s.charCodeAt(i)); };
+        ascii(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); ascii(8, "WAVE"); ascii(12, "fmt ");
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+        v.setUint16(32, 2, true); v.setUint16(34, 16, true); ascii(36, "data"); v.setUint32(40, n * 2, true);
+        for (let i = 0; i < n; i += 1) {
+          const s = Math.max(-1, Math.min(1, samples[i]));
+          v.setInt16(44 + i * 2, s < 0 ? s * 32768 : s * 32767, true);
+        }
+        return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+      }
+      function toneWav(freq, dur, vol, type) {
+        const sr = 22050;
+        const n = Math.floor(sr * dur);
+        const samples = new Float32Array(n);
+        for (let i = 0; i < n; i += 1) {
+          const tt = i / sr;
+          const env = Math.min(1, i / (sr * 0.012)) * Math.max(0, 1 - i / n);
+          const phase = tt * freq;
+          let s = Math.sin(2 * Math.PI * phase);
+          if (type === "whoosh") {
+            const f = freq * Math.pow(0.25, tt / dur);
+            s = (Math.random() * 2 - 1) * 0.55 + Math.sin(2 * Math.PI * f * tt) * 0.45;
+          }
+          if (type === "plop") {
+            const f = freq * Math.pow(0.35, tt / dur);
+            s = Math.sin(2 * Math.PI * f * tt) * 0.7 + (Math.random() * 2 - 1) * 0.35 * Math.exp(-tt * 14);
+          }
+          samples[i] = s * env * vol;
+        }
+        return encodeWav(samples, sr);
+      }
+      function padWav() {
+        const sr = 22050;
+        const n = Math.floor(sr * 4);
+        const samples = new Float32Array(n);
+        const notes = [196, 246.94, 293.66, 329.63, 392];
+        for (let i = 0; i < n; i += 1) {
+          const tt = i / sr;
+          let s = 0;
+          notes.forEach((f, k) => {
+            const env = 0.5 + 0.5 * Math.sin(tt * (0.4 + k * 0.07) + k);
+            s += Math.sin(2 * Math.PI * f * tt) * 0.08 * env;
+          });
+          s += (Math.random() * 2 - 1) * 0.02;
+          samples[i] = s;
+        }
+        return encodeWav(samples, sr);
+      }
+      function buildSfx() {
+        if (htmlSfx.urls) return;
+        htmlSfx.urls = {
+          cast: toneWav(900, 0.22, 0.42, "whoosh"),
+          plop: toneWav(220, 0.28, 0.55, "plop"),
+          ok: toneWav(660, 0.18, 0.45, "sine"),
+          bad: toneWav(140, 0.28, 0.5, "plop"),
+          silent: toneWav(40, 0.08, 0.0004, "sine"),
+          pad: padWav(),
+        };
+      }
+      function htmlAudioEl(url, loop) {
+        const el = new Audio(url);
+        el.playsInline = true;
+        el.preload = "auto";
+        el.loop = !!loop;
+        return el;
+      }
+      function playHtml(kind) {
+        if (!soundOn) return;
+        buildSfx();
+        const url = htmlSfx.urls[kind];
+        if (!url) return;
+        const pool = htmlSfx.pool[kind] || (htmlSfx.pool[kind] = []);
+        let el = pool.find((a) => a.paused);
+        if (!el) {
+          el = htmlAudioEl(url, false);
+          pool.push(el);
+        }
+        try { el.currentTime = 0; } catch { /* ignore */ }
+        el.volume = kind === "pad" ? 0.35 : 1;
+        const p = el.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+      function unlockHtmlAudio() {
+        buildSfx();
+        if (!htmlSfx.unlock) {
+          htmlSfx.unlock = htmlAudioEl(htmlSfx.urls.silent, true);
+          htmlSfx.unlock.volume = 0.02;
+        }
+        const kick = htmlSfx.unlock.play();
+        if (kick && kick.catch) kick.catch(() => {});
+        ["cast", "plop", "ok", "bad"].forEach((kind) => {
+          const pool = htmlSfx.pool[kind] || (htmlSfx.pool[kind] = []);
+          if (!pool.length) pool.push(htmlAudioEl(htmlSfx.urls[kind], false));
+        });
+        if (!htmlSfx.pool.pad) {
+          const pad = htmlAudioEl(htmlSfx.urls.pad, true);
+          pad.volume = 0.32;
+          htmlSfx.pool.pad = [pad];
+        }
+        htmlSfx.ready = true;
+        if (soundOn && htmlSfx.pool.pad[0].paused) htmlSfx.pool.pad[0].play().catch(() => {});
+      }
+      function startWaterGraph(actx) {
+        const master = actx.createGain();
+        master.gain.value = soundOn ? 0.85 : 0;
+        master.connect(actx.destination);
+        const amb = actx.createGain();
+        amb.gain.value = 0.28;
+        amb.connect(master);
+        const n = Math.floor(actx.sampleRate * 2);
+        const buf = actx.createBuffer(1, n, actx.sampleRate);
+        const data = buf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < n; i += 1) {
+          last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+          data[i] = last;
+        }
+        const noise = actx.createBufferSource();
+        noise.buffer = buf; noise.loop = true;
+        const filter = actx.createBiquadFilter();
+        filter.type = "lowpass"; filter.frequency.value = 420; filter.Q.value = 0.5;
+        const noiseGain = actx.createGain(); noiseGain.gain.value = 0.16;
+        noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(amb);
+        noise.start();
+        const pad = (freq, gain) => {
+          const o = actx.createOscillator();
+          o.type = "sine"; o.frequency.value = freq;
+          const g = actx.createGain(); g.gain.value = gain;
+          o.connect(g); g.connect(amb); o.start();
+          return o;
+        };
+        pad(130.81, 0.04);
+        pad(164.81, 0.03);
+        pad(196.0, 0.022);
+        pad(246.94, 0.016);
+        const lfo = actx.createOscillator();
+        lfo.frequency.value = 0.07;
+        const lfoG = actx.createGain(); lfoG.gain.value = 80;
+        lfo.connect(lfoG); lfoG.connect(filter.frequency); lfo.start();
+        audio = { ctx: actx, master, started: true };
+      }
+      function ensureAudio() {
+        unlockHtmlAudio();
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!audio) {
+          const actx = new Ctx({ latencyHint: "interactive" });
+          audio = { ctx: actx, started: false, master: null };
+          const resume = actx.resume();
+          const go = () => {
+            if (audio && !audio.started && actx.state !== "suspended" && actx.state !== "interrupted") {
+              startWaterGraph(actx);
+            } else if (audio && audio.master) {
+              audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, actx.currentTime, 0.05);
+            }
+          };
+          if (resume && resume.then) resume.then(go).catch(go);
+          else go();
+          return;
+        }
+        if (audio.ctx.state === "suspended" || audio.ctx.state === "interrupted") {
+          audio.ctx.resume().then(() => {
+            if (audio && !audio.started) startWaterGraph(audio.ctx);
+            if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
+          }).catch(() => {});
+        } else if (audio.master) {
+          audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
+        }
+      }
+      function hitFish(x, y) {
+        let bestF = null, bestD = 1e9;
+        liveFish().forEach((f) => {
+          const badgeY = f.y - f.len * 0.62;
+          const dBody = Math.hypot(f.x - x, f.y - y);
+          const dBadge = Math.hypot(f.x - x, badgeY - y);
+          const d = Math.min(dBody, dBadge);
+          if (d < f.hit + 8 && d < bestD) { bestD = d; bestF = f; }
+        });
+        return bestF;
+      }
+      function addSplash(x, y, good) {
+        splashes.push({ x, y, t: 0, good: !!good });
+        ripples.push({ x, y, t: 0, r: 8 });
+      }
+      function loseLife() {
+        lives = Math.max(0, lives - 1);
+        flash = 0.35;
+        shake = 10;
+        playHtml("bad");
+        if (lives <= 0) {
+          over = true;
+          playing = false;
+          if (score > best) {
+            best = score;
+            try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
+          }
+          showOverlay("over");
+        }
+        syncHud();
+      }
+      function sendToBucket(fish) {
+        fish.toBucket = 1;
+        fish.hooked = false;
+        fish.sx = fish.x; fish.sy = fish.y;
+        const n = bucketFish.length;
+        fish.tx = bucket.x + bucket.w * 0.5 + rand(-12, 12);
+        fish.ty = bucket.y + bucket.h * 0.42 - Math.min(n, 5) * 7;
+      }
+      function resolveCatch(fish) {
+        playHtml("plop");
+        addSplash(fish.x, fish.y, true);
+        if (!hooked) {
+          hooked = fish;
+          fish.hooked = true;
+          return;
+        }
+        if (hooked.id === fish.id) {
+          fish.hooked = false;
+          hooked = null;
+          return;
+        }
+        const a = hooked.num;
+        const b = fish.num;
+        const first = hooked;
+        if (pairOk(a, b)) {
+          playHtml("ok");
+          sendToBucket(first);
+          sendToBucket(fish);
+          bucketFish.push({ num: a }, { num: b });
+          hooked = null;
+          score += 1;
+          if (score > best) {
+            best = score;
+            try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
+          }
+          pickTarget();
+          spawnCool = 0.35;
+          syncHud();
+        } else {
+          first.hooked = false;
+          first.shake = 0.4;
+          fish.shake = 0.4;
+          hooked = null;
+          loseLife();
+        }
+      }
+      function castTo(x, y) {
+        if (!playing || hooks.length) return;
+        playHtml("cast");
+        const hit = hitFish(x, y);
+        const tx = hit ? hit.x : x;
+        const ty = hit ? hit.y : y;
+        hooks.push({
+          x: reel.x, y: reel.y, tx, ty, t: 0, dur: 0.28, fish: hit || null,
+        });
+      }
+      function gameOverIfNeeded() { /* handled in loseLife */ }
+      function step(dt) {
+        time += dt;
+        flash = Math.max(0, flash - dt);
+        shake = Math.max(0, shake - dt * 28);
+        spawnCool = Math.max(0, spawnCool - dt);
+        bubbles.forEach((b) => {
+          b.y -= b.sp * dt;
+          b.x += Math.sin(time * 1.4 + b.ph) * 6 * dt;
+          if (b.y < -8) { b.y = h + 8; b.x = rand(0, w); }
+        });
+        ripples.forEach((r) => { r.t += dt; r.r += 70 * dt; });
+        for (let i = ripples.length - 1; i >= 0; i -= 1) if (ripples[i].t > 0.7) ripples.splice(i, 1);
+        splashes.forEach((s) => { s.t += dt; });
+        for (let i = splashes.length - 1; i >= 0; i -= 1) if (splashes[i].t > 0.45) splashes.splice(i, 1);
+        hooks.forEach((hk) => {
+          hk.t += dt;
+          const u = Math.min(1, hk.t / hk.dur);
+          const ease = 1 - Math.pow(1 - u, 2);
+          hk.x = reel.x + (hk.tx - reel.x) * ease;
+          hk.y = reel.y + (hk.ty - reel.y) * ease - Math.sin(u * Math.PI) * 36;
+          if (u >= 1 && !hk.done) {
+            hk.done = true;
+            if (hk.fish && liveFish().includes(hk.fish)) resolveCatch(hk.fish);
+            else addSplash(hk.tx, hk.ty, false);
+          }
+        });
+        for (let i = hooks.length - 1; i >= 0; i -= 1) if (hooks[i].done && hooks[i].t > hooks[i].dur + 0.05) hooks.splice(i, 1);
+        fishes.forEach((f) => {
+          f.ph += dt * f.wob;
+          f.shake = Math.max(0, f.shake - dt);
+          if (f.toBucket) {
+            f.fly = Math.min(1, f.fly + dt * 1.7);
+            const u = f.fly;
+            const lift = Math.sin(u * Math.PI) * 70;
+            f.x = f.sx + (f.tx - f.sx) * u;
+            f.y = f.sy + (f.ty - f.sy) * u - lift;
+            return;
+          }
+          if (f.hooked) {
+            const dx = reel.x - f.x;
+            const dy = reel.y - f.y;
+            const d = Math.hypot(dx, dy) || 1;
+            f.vx += (dx / d) * 18 * dt;
+            f.vy += (dy / d) * 18 * dt;
+          } else {
+            const dx = reel.x - f.x;
+            const dy = reel.y - f.y;
+            const d = Math.hypot(dx, dy) || 1;
+            if (d < reel.r * 2.15) {
+              f.vx += (-dy / d) * 22 * dt + (-dx / d) * 10 * dt;
+              f.vy += (dx / d) * 22 * dt + (-dy / d) * 10 * dt;
+              if (d < reel.r * 1.35) f.leaving = true;
+            } else if (!f.leaving) {
+              f.vx += (dx / d) * 10 * dt;
+              f.vy += (dy / d) * 10 * dt;
+            }
+          }
+          const spd = Math.hypot(f.vx, f.vy);
+          const cap = f.hooked ? 22 : 36;
+          if (spd > cap) { f.vx *= cap / spd; f.vy *= cap / spd; }
+          f.x += f.vx * dt + Math.sin(f.ph) * 8 * dt;
+          f.y += f.vy * dt + Math.cos(f.ph * 0.8) * 6 * dt;
+          if (f.leaving && (f.x < -50 || f.x > w + 50 || f.y < -50 || f.y > h + 50)) f.gone = true;
+        });
+        for (let i = fishes.length - 1; i >= 0; i -= 1) {
+          if (fishes[i].gone || fishes[i].fly >= 1) {
+            if (hooked && hooked.id === fishes[i].id) hooked = null;
+            fishes.splice(i, 1);
+          }
+        }
+        if (spawnCool <= 0) fillSchool();
+        gameOverIfNeeded();
+      }
+      function drawWater() {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, "#7fd6ff");
+        g.addColorStop(0.35, "#2aa7c9");
+        g.addColorStop(0.7, "#157a9a");
+        g.addColorStop(1, "#0b4a62");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        const caustic = ctx.createRadialGradient(w * 0.3, h * 0.1, 10, w * 0.3, h * 0.15, w * 0.6);
+        caustic.addColorStop(0, "rgba(255,255,255,0.16)");
+        caustic.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = caustic;
+        ctx.fillRect(0, 0, w, h);
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        for (let i = 0; i < 5; i += 1) {
+          ctx.beginPath();
+          const yy = h * 0.18 + i * 38 + Math.sin(time * 0.6 + i) * 6;
+          ctx.moveTo(0, yy);
+          for (let x = 0; x <= w; x += 24) {
+            ctx.lineTo(x, yy + Math.sin(x * 0.02 + time * 1.1 + i) * 7);
+          }
+          ctx.strokeStyle = "rgba(255,255,255,0.7)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        ctx.restore();
+        pads.forEach((p) => {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.a + Math.sin(time * 0.4) * 0.05);
+          ctx.fillStyle = "#3bb36a";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.r, p.r * 0.72, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#2a8a50";
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(p.r, 4);
+          ctx.lineTo(p.r * 0.2, 8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        });
+        reeds.forEach((r) => {
+          ctx.strokeStyle = "#1f6b3a";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          const sway = Math.sin(time * 0.8 + r.ph) * 10;
+          ctx.moveTo(r.x, h);
+          ctx.quadraticCurveTo(r.x + sway, h - r.h * 0.5, r.x + sway * 1.4, h - r.h);
+          ctx.stroke();
+        });
+        bubbles.forEach((b) => {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.28)";
+          ctx.fill();
+        });
+      }
+      function drawDuck(x, y, s) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = "#ffd84a";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * 0.9, s * 0.62, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s * 0.55, -s * 0.35, s * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ff8a1a";
+        ctx.beginPath();
+        ctx.ellipse(s * 0.95, -s * 0.32, s * 0.32, s * 0.16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1a2440";
+        ctx.beginPath();
+        ctx.arc(s * 0.62, -s * 0.42, s * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      function drawReel() {
+        const { x, y, r } = reel;
+        ctx.save();
+        ctx.strokeStyle = "#6a3c16";
+        ctx.lineWidth = Math.max(5, r * 0.08);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.15, y + r * 1.55);
+        ctx.lineTo(x - r * 0.05, y);
+        ctx.lineTo(x + r * 1.55, y - r * 1.85);
+        ctx.stroke();
+        ctx.fillStyle = "#8a4c1a";
+        ctx.fillRect(x - r * 0.22, y + r * 1.35, r * 0.18, r * 0.42);
+        ctx.beginPath();
+        ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+        ctx.fillStyle = "#c47a2a";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = "#f2d7a2";
+        ctx.fill();
+        const disc = ctx.createRadialGradient(x - r * 0.2, y - r * 0.25, r * 0.1, x, y, r);
+        disc.addColorStop(0, "#fff6e0");
+        disc.addColorStop(1, "#e8c078");
+        ctx.beginPath();
+        ctx.arc(x, y, r - 6, 0, Math.PI * 2);
+        ctx.fillStyle = disc;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(120, 70, 20, 0.35)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i += 1) {
+          const a = (Math.PI * 2 * i) / 8 + time * 0.15;
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(a) * (r * 0.22), y + Math.sin(a) * (r * 0.22));
+          ctx.lineTo(x + Math.cos(a) * (r * 0.78), y + Math.sin(a) * (r * 0.78));
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = "#8a4c1a";
+        ctx.fill();
+        ctx.fillStyle = "#1a2450";
+        ctx.font = `900 ${Math.round(r * 0.72)}px "Segoe UI", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(target), x, y + 1);
+        ctx.fillStyle = "#2f6fed";
+        ctx.font = `800 ${Math.round(r * 0.38)}px "Segoe UI", sans-serif`;
+        ctx.fillText(opMark(), x, y + r * 0.58);
+        drawDuck(x + r * 0.02, y - r - 10, Math.max(7, r * 0.16));
+        if (hooked) {
+          ctx.font = `800 ${Math.round(clamp(r * 0.22, 12, 18))}px "Segoe UI", sans-serif`;
+          ctx.fillStyle = "#0b3a4a";
+          ctx.fillText(`${hooked.num} ${opMark()} ?  =  ${target}`, x, y + r + 22);
+        }
+        ctx.restore();
+      }
+      function drawBucket() {
+        const { x, y, w: bw, h: bh } = bucket;
+        ctx.save();
+        ctx.fillStyle = "rgba(8, 30, 44, 0.28)";
+        ctx.beginPath();
+        ctx.ellipse(x + bw * 0.5, y + bh * 0.92, bw * 0.42, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#8a5a28";
+        ctx.beginPath();
+        ctx.moveTo(x + 8, y + 12);
+        ctx.lineTo(x + bw - 8, y + 12);
+        ctx.lineTo(x + bw - 16, y + bh);
+        ctx.lineTo(x + 16, y + bh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#5a3514";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = "#3aa0c4";
+        ctx.beginPath();
+        ctx.ellipse(x + bw * 0.5, y + 18, bw * 0.34, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#d9b06a";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(x + bw * 0.5, y + 8, bw * 0.42, Math.PI, 0);
+        ctx.stroke();
+        const show = bucketFish.slice(-6);
+        show.forEach((bf, i) => {
+          const fx = x + bw * 0.32 + (i % 3) * 16;
+          const fy = y + bh * 0.55 + Math.floor(i / 3) * 14;
+          ctx.fillStyle = FISH_COLS[i % FISH_COLS.length];
+          ctx.beginPath();
+          ctx.ellipse(fx, fy, 9, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(fx + 3, fy - 1, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#1a2440";
+          ctx.font = "800 9px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(bf.num), fx - 3, fy + 1);
+        });
+        ctx.fillStyle = "#fff6d8";
+        ctx.font = "800 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`×${bucketFish.length}`, x + bw * 0.5, y + bh + 14);
+        ctx.restore();
+      }
+      function drawFishBody(f) {
+        const ang = Math.atan2(f.vy, f.vx);
+        ctx.save();
+        ctx.translate(f.x, f.y);
+        ctx.rotate(ang);
+        const flip = Math.abs(ang) > Math.PI / 2;
+        if (flip) ctx.scale(1, -1);
+        const len = f.len;
+        const ht = len * 0.62;
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, len * 0.46, ht * 0.48, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-len * 0.34, 0);
+        ctx.lineTo(-len * 0.7, -ht * 0.46);
+        ctx.lineTo(-len * 0.52, 0);
+        ctx.lineTo(-len * 0.7, ht * 0.46);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.28)";
+        ctx.beginPath();
+        ctx.ellipse(6, -ht * 0.12, len * 0.2, ht * 0.16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const eye = ht * 0.42;
+        ctx.beginPath();
+        ctx.arc(len * 0.2, -ht * 0.04, eye, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(20,30,50,0.22)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(len * 0.28, -ht * 0.04, eye * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = "#17203a";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(len * 0.16, -ht * 0.14, eye * 0.16, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.restore();
+        const badge = clamp(fishSize().num * 0.78, 13, 17);
+        const bx = f.x;
+        const by = f.y - f.len * 0.62;
+        const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
+        ctx.beginPath();
+        ctx.arc(bx + jx, by, badge, 0, Math.PI * 2);
+        ctx.fillStyle = f.hooked ? "#fff4b0" : "rgba(255,255,255,0.96)";
+        ctx.fill();
+        ctx.lineWidth = f.hooked ? 3 : 2;
+        ctx.strokeStyle = f.hooked ? "#f5b400" : "rgba(20,40,70,0.3)";
+        ctx.stroke();
+        ctx.fillStyle = "#1a2450";
+        ctx.font = `900 ${Math.round(fishSize().num)}px "Segoe UI", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(f.num), bx + jx, by + 1);
+      }
+      function drawLineTo(x, y, sag) {
+        ctx.beginPath();
+        ctx.moveTo(reel.x, reel.y);
+        ctx.quadraticCurveTo((reel.x + x) / 2, Math.max(y, reel.y) + sag, x, y);
+        ctx.strokeStyle = "rgba(40, 30, 20, 0.7)";
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#d9d9d9";
+        ctx.fill();
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y + 3);
+        ctx.lineTo(x + 3, y + 10);
+        ctx.lineTo(x - 1, y + 8);
+        ctx.closePath();
+        ctx.fillStyle = "#c0c0c0";
+        ctx.fill();
+      }
+      function drawFx() {
+        ripples.forEach((r) => {
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, 0.45 - r.t)})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+        splashes.forEach((s) => {
+          const u = s.t / 0.45;
+          for (let i = 0; i < 6; i += 1) {
+            const a = (Math.PI * 2 * i) / 6;
+            ctx.beginPath();
+            ctx.arc(s.x + Math.cos(a) * 16 * u, s.y + Math.sin(a) * 10 * u - 8 * u, 3 * (1 - u), 0, Math.PI * 2);
+            ctx.fillStyle = s.good ? "rgba(255,240,160,0.8)" : "rgba(220,245,255,0.75)";
+            ctx.fill();
+          }
+        });
+      }
+      function draw() {
+        ctx.save();
+        if (shake) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        drawWater();
+        drawBucket();
+        const ordered = fishes.slice().sort((a, b) => a.y - b.y);
+        ordered.filter((f) => !f.toBucket).forEach(drawFishBody);
+        if (hooked && !hooked.toBucket) drawLineTo(hooked.x, hooked.y, 28);
+        hooks.forEach((hk) => drawLineTo(hk.x, hk.y, 40 * (1 - Math.min(1, hk.t / hk.dur))));
+        drawReel();
+        ordered.filter((f) => f.toBucket).forEach(drawFishBody);
+        drawFx();
+        if (flash) {
+          ctx.fillStyle = `rgba(225, 29, 72, ${flash * 0.28})`;
+          ctx.fillRect(0, 0, w, h);
+        }
+        ctx.restore();
+      }
+      function frame(now) {
+        if (!entered) return;
+        const dt = Math.min(0.033, (now - lastT) / 1000 || 0.016);
+        lastT = now;
+        step(dt);
+        draw();
+        raf = requestAnimationFrame(frame);
+      }
+      function bind() {
+        if (bound) return;
+        bound = true;
+        let playGuard = 0;
+        const startFromGesture = () => {
+          const now = Date.now();
+          if (now - playGuard < 400) return;
+          playGuard = now;
+          ensureAudio();
+          resetPlay();
+        };
+        playBtn.addEventListener("pointerup", (e) => { e.preventDefault(); startFromGesture(); });
+        playBtn.addEventListener("click", (e) => { e.preventDefault(); startFromGesture(); });
+        if (opsBox) {
+          opsBox.addEventListener("pointerup", (e) => {
+            const btn = e.target.closest(".fish-op");
+            if (!btn) return;
+            e.preventDefault();
+            op = btn.getAttribute("data-op") || "add";
+            syncOps();
+          });
+        }
+        soundBtn.addEventListener("pointerup", (e) => {
+          e.preventDefault();
+          soundOn = !soundOn;
+          localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+          ensureAudio();
+          if (htmlSfx.unlock) {
+            if (soundOn) htmlSfx.unlock.play().catch(() => {});
+            else htmlSfx.unlock.pause();
+          }
+          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) {
+            if (soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
+            else htmlSfx.pool.pad[0].pause();
+          }
+          if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
+          syncHud();
+        });
+        canvas.addEventListener("pointerdown", (e) => {
+          if (!playing) return;
+          e.preventDefault();
+          const p = pointFromEvent(e);
+          ensureAudio();
+          castTo(p.x, p.y);
+        });
+        window.addEventListener("resize", resize);
+        if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
+      }
+      function enter() {
+        bind();
+        ensureAudio();
+        entered = true;
+        resize();
+        if (!pads.length) initDecor();
+        if (!fishes.length) { pickTarget(); fillSchool(); }
+        syncHud();
+        if (!playing) showOverlay(over ? "over" : "start");
+        cancelAnimationFrame(raf);
+        lastT = performance.now();
+        raf = requestAnimationFrame(frame);
+        requestAnimationFrame(resize);
+        const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+        if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
+          Promise.resolve(req.call(wrap)).catch(() => {}).finally(() => requestAnimationFrame(resize));
+        }
+        if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.08);
+        if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
+        if (htmlSfx.pool.pad && htmlSfx.pool.pad[0] && soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
+      }
+      function leave() {
+        entered = false;
+        playing = false;
+        hooked = null;
+        cancelAnimationFrame(raf);
+        const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
+          Promise.resolve(exitFs.call(document)).catch(() => {});
+        }
+        if (audio && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
+        if (htmlSfx.unlock) htmlSfx.unlock.pause();
+        if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) htmlSfx.pool.pad[0].pause();
+      }
+      function pauseVis(hidden) {
+        if (!entered) return;
+        if (hidden) {
+          cancelAnimationFrame(raf);
+          if (audio && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.05);
+          if (htmlSfx.unlock) htmlSfx.unlock.pause();
+          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) htmlSfx.pool.pad[0].pause();
+        } else {
+          lastT = performance.now();
+          raf = requestAnimationFrame(frame);
+          ensureAudio();
+          if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
+          if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
+          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0] && soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
+        }
+      }
+      return { enter, leave, syncLabels, pauseVis };
+    })();
+
     function updateBackButton() {
       const btn = document.getElementById("pageBackBtn");
       if (!btn) return;
@@ -7137,8 +8347,11 @@
         btn.classList.toggle("on", v === view && MAIN_NAV.includes(view));
       });
       document.body.classList.toggle("gravity-on", view === "gravity");
+      document.body.classList.toggle("fish-on", view === "fish");
       if (view === "gravity") GravityGame.enter();
       else GravityGame.leave();
+      if (view === "fish") FishGame.enter();
+      else FishGame.leave();
       updateBackButton();
     }
     function goBack() {
@@ -7169,6 +8382,7 @@
       if (view === "guide") { renderRewardGuide(); setHero(t("heroGuide")); show("guide", options); return; }
       if (view === "history") { renderCoinHistory(); setHero(t("heroHistory")); show("history", options); return; }
       if (view === "gravity") { setHero(t("heroGravity")); show("gravity", options); return; }
+      if (view === "fish") { setHero(t("heroFish")); show("fish", options); return; }
     }
 
     async function hydrateProfileFromCloud() {
@@ -7518,6 +8732,7 @@
       refreshKindsViews();
       renderWeekdays();
       GravityGame.syncLabels();
+      FishGame.syncLabels();
     }
 
     function renderTodayTables(dateKey) {
@@ -8647,6 +9862,8 @@
       sessionStorage.setItem(ADMIN_KEY, "1");
       document.getElementById("adminCountInput").value = String(questionCount());
       document.getElementById("adminFailExtraInput").value = String(failExtra());
+      document.getElementById("adminFishMinInput").value = String(fishRange.min);
+      document.getElementById("adminFishMaxInput").value = String(fishRange.max);
       setAdminFlash("adminStatus", "");
       setAdminFlash("adminCatalogStatus", "");
       closePrizeForm();
@@ -9117,16 +10334,23 @@
       if (value.length >= ADMIN_PIN.length) submitPin();
     });
     document.getElementById("gravityExitBtn").addEventListener("click", goBack);
+    document.getElementById("fishExitBtn").addEventListener("click", goBack);
     document.getElementById("adminSaveBtn").addEventListener("click", async () => {
       const value = Number(document.getElementById("adminCountInput").value);
       const extra = Number(document.getElementById("adminFailExtraInput").value);
+      const fishMin = Number(document.getElementById("adminFishMinInput").value);
+      const fishMax = Number(document.getElementById("adminFishMaxInput").value);
       if (!Number.isFinite(value) || value < 5 || value > 200) {
         setAdminFlash("adminStatus", "5–200", false); return;
       }
       if (!Number.isFinite(extra) || extra < 0 || extra > 10) {
         setAdminFlash("adminStatus", "0–10", false); return;
       }
+      if (!Number.isFinite(fishMin) || !Number.isFinite(fishMax) || fishMin < 1 || fishMax > 99 || fishMin > 99 || fishMax < 1) {
+        setAdminFlash("adminStatus", "1–99", false); return;
+      }
       applyFailExtra(extra);
+      applyFishRange(fishMin, fishMax);
       await pushFailExtra();
       const changed = applyQuestionCountToUnfinished(Math.round(value));
       notifyAdminSave("adminStatus", t("adminSettingsSaved"), t("adminSaved", Math.round(value), changed));
@@ -9165,11 +10389,19 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") applyEstTheme();
       GravityGame.pauseVis(document.visibilityState !== "visible");
+      FishGame.pauseVis(document.visibilityState !== "visible");
     });
     readLocalFamilyClaims();
     applyI18n();
     syncInstallChrome();
     try { applyFailExtra(localStorage.getItem(FAIL_EXTRA_KEY)); } catch { /* ignore */ }
+    try {
+      const raw = localStorage.getItem(FISH_RANGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        applyFishRange(parsed.min, parsed.max);
+      }
+    } catch { /* ignore */ }
     restorePhotoCache();
     applyPendingCatalog();
     applyStoredKinds();
