@@ -1107,7 +1107,11 @@
       background: rgba(8, 40, 55, 0.55);
       border-color: rgba(180, 240, 255, 0.38);
     }
+    body.fish-on .gravity-lives {
+      display: flex; flex-wrap: wrap; width: 108px; gap: 4px; padding-left: 10px;
+    }
     body.fish-on .gravity-life {
+      width: 10px; height: 10px;
       background: radial-gradient(circle at 35% 30%, #fff, #7af0c8 42%, #1aa0c8);
     }
     .gravity-overlay[hidden] { display: none !important; }
@@ -1551,7 +1555,7 @@
                 <p class="gravity-kicker" data-i18n="navFish">Рыбалка</p>
                 <h2 id="fishOverlayTitle" data-i18n="fishTitle">Рыбалка</h2>
                 <p class="gravity-over-score hidden" id="fishOverlayScore"></p>
-                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">Выбери + − × или ÷. На круге — ответ. Нажми две рыбки, из которых получается это число. Верно — они плывут в ведро. Ошибка — минус жизнь.</p>
+                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Большая рыба до ответа даёт 3 очка. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.</p>
                 <div class="fish-ops" id="fishOps">
                   <button type="button" class="fish-op on" data-op="add"><strong>+</strong><span data-i18n="fishAdd">Сложение</span></button>
                   <button type="button" class="fish-op" data-op="sub"><strong>−</strong><span data-i18n="fishSub">Вычитание</span></button>
@@ -1790,8 +1794,8 @@
         fishSub: "Вычитание",
         fishMul: "Умножение",
         fishDiv: "Деление",
-        fishRules: "Выбери + − × или ÷. На круге — ответ. Нажми две рыбки, из которых получается это число. Верно — они плывут в ведро. Ошибка — минус жизнь.",
-        fishHint: "Нажми две рыбки. Если из них получается число на круге — они в ведре.",
+        fishRules: "На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Большая рыба до ответа даёт 3 очка. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.",
+        fishHint: "Две рыбки = ответ. Большая рыба перед ними — сразу 3 очка. Катушка бьёт на −2.",
         fishOver: "Рыбки уплыли",
         fishCaught: (n) => `Поймано: ${n}`,
         fishNeedOp: "Сначала выбери действие",
@@ -2091,8 +2095,8 @@
         fishSub: "Subtraction",
         fishMul: "Multiplication",
         fishDiv: "Division",
-        fishRules: "Pick + − × or ÷. The circle is the answer. Tap two fish that make that number. Right: they swim to the bucket. Wrong: you lose a life.",
-        fishHint: "Tap two fish. If they make the circle number, they go in the bucket.",
+        fishRules: "The circle is the answer. Catch two fish that make it — there is more than one way. Hook the big fish first for 3 points. A fish that touches the reel costs 2 lives. A wrong pair costs 1.",
+        fishHint: "Two fish make the answer. Hook the big fish first for 3 points. Touching the reel is −2.",
         fishOver: "The fish got away",
         fishCaught: (n) => `Caught: ${n}`,
         fishNeedOp: "Pick an operation first",
@@ -7366,13 +7370,16 @@
       let audio = null;
       let htmlSfx = { urls: null, pool: {}, unlock: null, ready: false };
       let score = 0, best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
-      let lives = 3, over = false, flash = 0, shake = 0;
+      let lives = 10, over = false, flash = 0, shake = 0, invuln = 0;
       let op = "add";
       let target = 10;
       let hooked = null;
+      let bonus = null;
       let spawnCool = 0;
+      let bigCool = 8;
       let nextId = 1;
-      const reel = { x: 0, y: 0, r: 70 };
+      const MAX_LIVES = 10;
+      const reel = { x: 0, y: 0, r: 34 };
       const bucket = { x: 0, y: 0, w: 86, h: 78 };
 
       function rand(a, b) { return a + Math.random() * (b - a); }
@@ -7432,6 +7439,17 @@
         }
         return pairs;
       }
+      function pairVariants(goal) {
+        const raw = listPairs(goal) || [];
+        const seen = new Set();
+        const out = [];
+        raw.forEach((p) => {
+          const a = p[0], b = p[1];
+          const k = a <= b ? a + "," + b : b + "," + a;
+          if (!seen.has(k)) { seen.add(k); out.push([a, b]); }
+        });
+        return out;
+      }
       function fallbackPair() {
         const list = listPairs(target) || [];
         if (list.length) return pick(list);
@@ -7442,6 +7460,7 @@
       }
       function pickTarget() {
         const { min, max } = rangeBounds();
+        const rich = [];
         const tries = [];
         for (let n = min; n <= max; n += 1) {
           if (op === "add" && n < 4) continue;
@@ -7451,27 +7470,38 @@
             for (let a = 2; a <= 10; a += 1) if (n % a === 0 && n / a >= 2 && n / a <= 10) factors += 1;
             if (!factors) continue;
           }
-          if (listPairs(n).length) tries.push(n);
+          const v = pairVariants(n);
+          if (!v.length) continue;
+          tries.push(n);
+          if (v.length >= 2) rich.push(n);
         }
-        target = tries.length ? pick(tries) : (op === "add" ? 6 : op === "mul" ? 8 : op === "div" ? 4 : 5);
+        const pool = rich.length ? rich : tries;
+        target = pool.length ? pick(pool) : (op === "add" ? 8 : op === "mul" ? 12 : op === "div" ? 4 : 5);
         return target;
       }
       function layout() {
         const s = Math.min(w, h);
         reel.x = w * 0.5;
-        reel.y = h * 0.54;
-        reel.r = clamp(s * 0.155, 58, 92);
+        reel.y = h * 0.56;
+        reel.r = clamp(s * 0.048, 26, 38);
         bucket.w = clamp(s * 0.2, 76, 114);
         bucket.h = clamp(s * 0.18, 68, 100);
         bucket.x = w - bucket.w - 14;
-        bucket.y = 70;
+        bucket.y = 78;
       }
-      function fishSize() {
+      function fishSize(big) {
         const s = Math.min(w, h);
+        if (big) {
+          return {
+            len: clamp(s * 0.22, 96, 148),
+            hit: clamp(s * 0.2, 80, 120),
+            num: clamp(s * 0.05, 18, 26),
+          };
+        }
         return {
-          len: clamp(s * 0.12, 48, 72),
-          hit: clamp(s * 0.14, 56, 84),
-          num: clamp(s * 0.062, 22, 32),
+          len: clamp(s * 0.115, 46, 68),
+          hit: clamp(s * 0.12, 48, 72),
+          num: clamp(s * 0.042, 16, 22),
         };
       }
       function initDecor() {
@@ -7479,48 +7509,55 @@
         reeds.length = 0;
         bubbles.length = 0;
         layout();
-        for (let i = 0; i < 5; i += 1) {
-          const edge = i % 2 === 0;
-          const x = edge ? rand(36, w * 0.18) : rand(w * 0.82, w - 36);
-          const y = rand(h * 0.22, h * 0.78);
-          pads.push({ x, y, r: rand(18, 30), a: rand(0, Math.PI) });
-        }
-        for (let i = 0; i < 18; i += 1) {
-          reeds.push({
-            x: i < 9 ? rand(8, 70) : rand(w - 70, w - 8),
-            h: rand(50, 130),
-            ph: rand(0, Math.PI * 2),
+        for (let i = 0; i < 8; i += 1) {
+          pads.push({
+            x: w * (0.07 + i * 0.12) + rand(-18, 18),
+            y: rand(28, Math.min(86, h * 0.14)),
+            r: rand(20, 34),
+            a: rand(0, Math.PI),
           });
         }
-        for (let i = 0; i < 16; i += 1) {
+        const nReeds = Math.max(28, Math.round(w / 28));
+        for (let i = 0; i < nReeds; i += 1) {
+          reeds.push({
+            x: (i + 0.3) * (w / nReeds) + rand(-8, 8),
+            h: rand(42, 118),
+            ph: rand(0, Math.PI * 2),
+            w: rand(2.2, 4.4),
+          });
+        }
+        for (let i = 0; i < 18; i += 1) {
           bubbles.push({ x: rand(0, w), y: rand(0, h), r: rand(1.2, 3.2), sp: rand(8, 22), ph: rand(0, 7) });
         }
       }
-      function spawnAround(slot, total) {
-        const n = Math.max(1, total || 6);
-        const base = ((Math.PI * 2 * (slot || 0)) / n);
-        const dist = reel.r * (2.5 + (slot % 2) * 0.42);
-        return {
-          x: clamp(reel.x + Math.cos(base) * dist, 44, w - 44),
-          y: clamp(reel.y + Math.sin(base) * dist, 64, h - 44),
-          ang: base,
-          dist,
-        };
+      function spawnFromEdge(big) {
+        const margin = big ? 90 : 40;
+        const side = big ? (Math.random() < 0.5 ? 0 : 1) : ((Math.random() * 4) | 0);
+        let x, y;
+        if (side === 0) { x = -margin; y = rand(h * 0.22, h * 0.82); }
+        else if (side === 1) { x = w + margin; y = rand(h * 0.22, h * 0.82); }
+        else if (side === 2) { x = rand(w * 0.12, w * 0.88); y = -margin; }
+        else { x = rand(w * 0.12, w * 0.88); y = h + margin; }
+        if (big) y = rand(h * 0.24, h * 0.38);
+        return { x, y };
       }
       const FISH_COLS = ["#ff8a3d", "#ffd24d", "#3ec7ff", "#ff6ea8", "#7dff9a", "#c58cff", "#ffa070"];
-      function makeFish(num, slot, total) {
-        const pos = spawnAround(slot, total);
-        const size = fishSize();
-        const dir = Math.random() < 0.5 ? 1 : -1;
+      function makeFish(num, opts) {
+        const big = !!(opts && opts.big);
+        const pos = spawnFromEdge(big);
+        const size = fishSize(big);
+        const dx = reel.x - pos.x;
+        const dy = (big ? pos.y : reel.y) - pos.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const spd = big ? rand(18, 26) : rand(26, 38);
         return {
           id: nextId++,
           x: pos.x, y: pos.y,
-          vx: -Math.sin(pos.ang) * 14 * dir,
-          vy: Math.cos(pos.ang) * 14 * dir,
-          orbitAng: pos.ang,
-          orbitR: pos.dist,
-          orbitSpd: 0.055,
-          num, color: pick(FISH_COLS),
+          vx: (dx / dist) * spd,
+          vy: big ? 0 : (dy / dist) * spd,
+          spd,
+          num: big ? 3 : num,
+          color: big ? "#f0c14a" : pick(FISH_COLS),
           ph: rand(0, Math.PI * 2),
           wob: rand(0.7, 1.3),
           len: size.len,
@@ -7529,13 +7566,15 @@
           fly: 0,
           hooked: false,
           shake: 0,
+          big,
+          bumped: 0,
         };
       }
       function liveFish() {
         return fishes.filter((f) => !f.toBucket);
       }
       function hasPair() {
-        const list = liveFish();
+        const list = liveFish().filter((f) => !f.big);
         for (let i = 0; i < list.length; i += 1) {
           for (let j = i + 1; j < list.length; j += 1) {
             if (pairOk(list[i].num, list[j].num)) return true;
@@ -7555,35 +7594,42 @@
         return Math.max(2, Math.min(9, target - 1));
       }
       function fillSchool() {
-        const want = 6;
-        if (!liveFish().length) {
-          const pair = fallbackPair();
-          const secret = [pair[0], pair[1]];
-          const nums = [pair[0], pair[1]];
-          while (nums.length < want) nums.push(distractorNum(secret.concat(nums)));
+        const want = 7;
+        const live = liveFish().filter((f) => !f.big);
+        if (!live.length) {
+          const vars = pairVariants(target);
+          const nums = [];
+          const take = vars.slice(0, 2);
+          if (!take.length) take.push(fallbackPair());
+          if (take.length === 1 && vars.length === 1) take.push(vars[0]);
+          take.forEach((p) => { nums.push(p[0], p[1]); });
+          while (nums.length < want) nums.push(distractorNum(nums.slice()));
           for (let i = nums.length - 1; i > 0; i -= 1) {
             const j = (Math.random() * (i + 1)) | 0;
             const tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
           }
-          nums.forEach((n, i) => fishes.push(makeFish(n, i, want)));
+          nums.forEach((n) => fishes.push(makeFish(n)));
           return;
         }
-        while (liveFish().length < want) {
-          const pair = fallbackPair();
+        while (liveFish().filter((f) => !f.big).length < want) {
+          const vars = pairVariants(target);
           const needPair = !hasPair();
+          const pair = vars.length ? pick(vars) : fallbackPair();
           const n = needPair ? pair[liveFish().length % 2] : distractorNum(pair);
-          fishes.push(makeFish(n, liveFish().length, want));
+          fishes.push(makeFish(n));
         }
         if (!hasPair()) {
           const pair = fallbackPair();
-          fishes.push(makeFish(pair[0], 0, want), makeFish(pair[1], 3, want));
+          fishes.push(makeFish(pair[0]), makeFish(pair[1]));
         }
       }
       function resetPlay() {
-        score = 0; lives = 3; over = false; flash = 0; shake = 0;
+        score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
         hooked = null;
+        bonus = null;
         fishes.length = 0; hooks.length = 0; splashes.length = 0;
         ripples.length = 0; bucketFish.length = 0;
+        bigCool = 6;
         pickTarget();
         fillSchool();
         overlay.hidden = true;
@@ -7620,7 +7666,7 @@
         if (bestEl) bestEl.textContent = t("gravityBest", best);
         if (livesEl) {
           livesEl.innerHTML = "";
-          for (let i = 0; i < 3; i += 1) {
+          for (let i = 0; i < MAX_LIVES; i += 1) {
             const d = document.createElement("i");
             d.className = "gravity-life" + (i < lives ? "" : " off");
             livesEl.appendChild(d);
@@ -7671,6 +7717,24 @@
         }
         return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
       }
+      function castWav() {
+        const sr = 22050;
+        const dur = 0.52;
+        const n = Math.floor(sr * dur);
+        const samples = new Float32Array(n);
+        let n1 = 0;
+        for (let i = 0; i < n; i += 1) {
+          const tt = i / sr;
+          n1 = n1 * 0.88 + (Math.random() * 2 - 1) * 0.12;
+          const sweep = 1900 * Math.pow(0.08, tt / dur) + 180;
+          const tone = Math.sin(2 * Math.PI * sweep * tt);
+          const air = n1 * Math.sin(2 * Math.PI * (sweep * 0.5) * tt + n1);
+          const env = tt < 0.018 ? tt / 0.018 : Math.pow(Math.max(0, 1 - (tt - 0.018) / 0.5), 1.55);
+          const click = tt < 0.02 ? Math.sin(2 * Math.PI * 110 * tt) * (1 - tt / 0.02) * 0.45 : 0;
+          samples[i] = (tone * 0.28 + air * 0.9 + click) * env * 0.72;
+        }
+        return encodeWav(samples, sr);
+      }
       function toneWav(freq, dur, vol, type) {
         const sr = 22050;
         const n = Math.floor(sr * dur);
@@ -7712,7 +7776,7 @@
       function buildSfx() {
         if (htmlSfx.urls) return;
         htmlSfx.urls = {
-          cast: toneWav(900, 0.22, 0.42, "whoosh"),
+          cast: castWav(),
           plop: toneWav(220, 0.28, 0.55, "plop"),
           ok: toneWav(660, 0.18, 0.45, "sine"),
           bad: toneWav(140, 0.28, 0.5, "plop"),
@@ -7833,11 +7897,8 @@
       function hitFish(x, y) {
         let bestF = null, bestD = 1e9;
         liveFish().forEach((f) => {
-          const badgeY = f.y - f.len * 0.62;
-          const dBody = Math.hypot(f.x - x, f.y - y);
-          const dBadge = Math.hypot(f.x - x, badgeY - y);
-          const d = Math.min(dBody, dBadge);
-          if (d < f.hit + 28 && d < bestD) { bestD = d; bestF = f; }
+          const d = Math.hypot(f.x - x, f.y - y);
+          if (d < f.hit + 18 && d < bestD) { bestD = d; bestF = f; }
         });
         return bestF;
       }
@@ -7845,18 +7906,22 @@
         splashes.push({ x, y, t: 0, good: !!good });
         ripples.push({ x, y, t: 0, r: 8 });
       }
-      function loseLife() {
-        lives = Math.max(0, lives - 1);
-        flash = 0.35;
-        shake = 10;
+      function bumpScore() {
+        if (score > best) {
+          best = score;
+          try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
+        }
+      }
+      function loseLife(n) {
+        const lost = Math.max(1, n || 1);
+        lives = Math.max(0, lives - lost);
+        flash = lost > 1 ? 0.5 : 0.32;
+        shake = lost > 1 ? 14 : 8;
         playHtml("bad");
         if (lives <= 0) {
           over = true;
           playing = false;
-          if (score > best) {
-            best = score;
-            try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
-          }
+          bumpScore();
           showOverlay("over");
         }
         syncHud();
@@ -7872,6 +7937,16 @@
       function resolveCatch(fish) {
         playHtml("plop");
         addSplash(fish.x, fish.y, true);
+        if (fish.big) {
+          if (bonus && bonus.id === fish.id) {
+            fish.hooked = false;
+            bonus = null;
+            return;
+          }
+          bonus = fish;
+          fish.hooked = true;
+          return;
+        }
         if (!hooked) {
           hooked = fish;
           fish.hooked = true;
@@ -7887,24 +7962,31 @@
         const first = hooked;
         if (pairOk(a, b)) {
           playHtml("ok");
+          const extra = bonus && !bonus.toBucket ? bonus : null;
+          const pts = extra ? 3 : 1;
           sendToBucket(first);
           sendToBucket(fish);
+          if (extra) sendToBucket(extra);
           bucketFish.push({ num: a }, { num: b });
+          if (extra) bucketFish.push({ num: 3 });
           hooked = null;
-          score += 1;
-          if (score > best) {
-            best = score;
-            try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
-          }
+          bonus = null;
+          score += pts;
+          bumpScore();
           pickTarget();
-          spawnCool = 0.35;
+          spawnCool = 0.28;
           syncHud();
         } else {
           first.hooked = false;
           first.shake = 0.4;
           fish.shake = 0.4;
           hooked = null;
-          loseLife();
+          if (bonus) {
+            bonus.hooked = false;
+            bonus.shake = 0.4;
+            bonus = null;
+          }
+          loseLife(1);
         }
       }
       function castTo(x, y) {
@@ -7914,12 +7996,11 @@
         hooks.push({
           x: reel.x, y: reel.y,
           tx: hit ? hit.x : x,
-          ty: hit ? (hit.y - hit.len * 0.62) : y,
-          t: 0, dur: 0.16, fish: hit || null, resolved: !!hit,
+          ty: hit ? hit.y : y,
+          t: 0, dur: 0.18, fish: hit || null, resolved: !!hit,
         });
         if (hit) {
           resolveCatch(hit);
-          step(0.016);
           draw();
         }
         kickFrame();
@@ -7935,7 +8016,9 @@
         time += dt;
         flash = Math.max(0, flash - dt);
         shake = Math.max(0, shake - dt * 28);
+        invuln = Math.max(0, invuln - dt);
         spawnCool = Math.max(0, spawnCool - dt);
+        bigCool = Math.max(0, bigCool - dt);
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -7948,22 +8031,28 @@
         hooks.forEach((hk) => {
           if (hk.fish && !hk.fish.toBucket) {
             hk.tx = hk.fish.x;
-            hk.ty = hk.fish.y - hk.fish.len * 0.62;
+            hk.ty = hk.fish.y;
           }
           hk.t += dt;
           const u = Math.min(1, hk.t / hk.dur);
           const ease = 1 - Math.pow(1 - u, 2);
           hk.x = reel.x + (hk.tx - reel.x) * ease;
-          hk.y = reel.y + (hk.ty - reel.y) * ease - Math.sin(u * Math.PI) * 28;
+          hk.y = reel.y + (hk.ty - reel.y) * ease - Math.sin(u * Math.PI) * 22;
           if (u >= 1 && !hk.done) {
             hk.done = true;
             if (!hk.resolved) addSplash(hk.tx, hk.ty, false);
           }
         });
         for (let i = hooks.length - 1; i >= 0; i -= 1) if (hooks[i].done && hooks[i].t > hooks[i].dur + 0.05) hooks.splice(i, 1);
-        fishes.forEach((f) => {
+        if (playing && bigCool <= 0 && !liveFish().some((f) => f.big && !f.toBucket)) {
+          fishes.push(makeFish(3, { big: true }));
+          bigCool = rand(11, 18);
+        }
+        const live = liveFish();
+        live.forEach((f) => {
           f.ph += dt * f.wob;
           f.shake = Math.max(0, f.shake - dt);
+          f.bumped = Math.max(0, f.bumped - dt);
           if (f.toBucket) {
             f.fly = Math.min(1, f.fly + dt * 1.35);
             const u = f.fly;
@@ -7972,21 +8061,62 @@
             f.y = f.sy + (f.ty - f.sy) * u - lift;
             return;
           }
-          if (f.hooked || hooked) {
+          if (f.hooked) {
+            f.vx *= 0.85;
+            f.vy *= 0.85;
             return;
           }
-          f.orbitAng += f.orbitSpd * dt;
-          const wob = Math.sin(f.ph) * 6;
-          const nx = reel.x + Math.cos(f.orbitAng) * (f.orbitR + wob);
-          const ny = reel.y + Math.sin(f.orbitAng) * (f.orbitR + wob * 0.6);
-          f.vx = (nx - f.x) / Math.max(dt, 0.016);
-          f.vy = (ny - f.y) / Math.max(dt, 0.016);
-          f.x = nx;
-          f.y = ny;
+          if (f.big) {
+            const dir = f.vx >= 0 ? 1 : -1;
+            f.vx = dir * f.spd;
+            f.vy = Math.sin(time * 0.7 + f.ph) * 10;
+            f.x += f.vx * dt;
+            f.y += f.vy * dt;
+            return;
+          }
+          const dx = reel.x - f.x;
+          const dy = reel.y - f.y;
+          const dist = Math.max(1, Math.hypot(dx, dy));
+          f.vx = (dx / dist) * f.spd;
+          f.vy = (dy / dist) * f.spd;
+          f.x += f.vx * dt;
+          f.y += f.vy * dt;
         });
+        for (let i = 0; i < live.length; i += 1) {
+          for (let j = i + 1; j < live.length; j += 1) {
+            const a = live[i], b = live[j];
+            if (a.toBucket || b.toBucket) continue;
+            const minD = (a.len + b.len) * 0.42;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const d = Math.hypot(dx, dy) || 0.01;
+            if (d < minD) {
+              const push = (minD - d) * 0.5;
+              const nx = dx / d, ny = dy / d;
+              if (!a.hooked) { a.x -= nx * push; a.y -= ny * push; }
+              if (!b.hooked) { b.x += nx * push; b.y += ny * push; }
+            }
+          }
+        }
         for (let i = fishes.length - 1; i >= 0; i -= 1) {
-          if (fishes[i].fly >= 1) {
-            if (hooked && hooked.id === fishes[i].id) hooked = null;
+          const f = fishes[i];
+          if (f.fly >= 1) {
+            if (hooked && hooked.id === f.id) hooked = null;
+            if (bonus && bonus.id === f.id) bonus = null;
+            fishes.splice(i, 1);
+            continue;
+          }
+          if (f.big && !f.hooked && !f.toBucket && (f.x < -160 || f.x > w + 160)) {
+            fishes.splice(i, 1);
+            continue;
+          }
+          if (!playing || f.hooked || f.toBucket || f.big || f.bumped) continue;
+          const hitR = reel.r + f.len * 0.28;
+          if (Math.hypot(f.x - reel.x, f.y - reel.y) < hitR) {
+            addSplash(f.x, f.y, false);
+            if (invuln <= 0) {
+              loseLife(2);
+              invuln = 1.15;
+            }
             fishes.splice(i, 1);
           }
         }
@@ -8096,17 +8226,24 @@
           ctx.restore();
         });
         reeds.forEach((r) => {
-          const sway = Math.sin(time * 0.55 + r.ph) * 12;
-          ctx.strokeStyle = "#1d6a38";
-          ctx.lineWidth = 3.2;
+          const sway = Math.sin(time * 0.55 + r.ph) * 14;
+          const gw = r.w || 3;
+          ctx.strokeStyle = "#165a30";
+          ctx.lineWidth = gw + 1.4;
           ctx.lineCap = "round";
           ctx.beginPath();
           ctx.moveTo(r.x, h);
-          ctx.quadraticCurveTo(r.x + sway, h - r.h * 0.5, r.x + sway * 1.5, h - r.h);
+          ctx.quadraticCurveTo(r.x + sway * 0.6, h - r.h * 0.55, r.x + sway, h - r.h);
           ctx.stroke();
-          ctx.fillStyle = "#3cb86a";
+          ctx.strokeStyle = "#3cb86a";
+          ctx.lineWidth = gw;
           ctx.beginPath();
-          ctx.ellipse(r.x + sway * 1.5, h - r.h - 4, 7, 3.5, sway * 0.08, 0, Math.PI * 2);
+          ctx.moveTo(r.x, h);
+          ctx.quadraticCurveTo(r.x + sway * 0.6, h - r.h * 0.55, r.x + sway, h - r.h);
+          ctx.stroke();
+          ctx.fillStyle = "#4fd07a";
+          ctx.beginPath();
+          ctx.ellipse(r.x + sway, h - r.h - 3, 8, 3.6, sway * 0.08, 0, Math.PI * 2);
           ctx.fill();
         });
         bubbles.forEach((b) => {
@@ -8165,24 +8302,25 @@
       function drawEquation() {
         const { x, y, r } = reel;
         const left = hooked ? String(hooked.num) : "?";
-        const text = `${left}  ${opMark()}  ?   =   ${target}`;
-        const font = Math.round(clamp(r * 0.3, 20, 30));
+        const star = bonus ? "  ★" : "";
+        const text = `${left}  ${opMark()}  ?   =   ${target}${star}`;
+        const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
         const tw = ctx.measureText(text).width;
         const bw = tw + 36;
-        const bh = font + 22;
+        const bh = font + 20;
         const bx = x - bw / 2;
-        const by = y + r + 18;
+        const by = y + r + 22;
         ctx.fillStyle = "rgba(8, 28, 44, 0.35)";
-        fillRoundRect(bx + 3, by + 5, bw, bh, 20);
+        fillRoundRect(bx + 3, by + 5, bw, bh, 18);
         ctx.fill();
         const pill = ctx.createLinearGradient(bx, by, bx, by + bh);
         pill.addColorStop(0, "#fffef8");
-        pill.addColorStop(1, hooked ? "#fff3c4" : "#e7f7ff");
+        pill.addColorStop(1, hooked || bonus ? "#fff3c4" : "#e7f7ff");
         ctx.fillStyle = pill;
-        fillRoundRect(bx, by, bw, bh, 20);
+        fillRoundRect(bx, by, bw, bh, 18);
         ctx.fill();
-        ctx.strokeStyle = hooked ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
+        ctx.strokeStyle = hooked || bonus ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
         ctx.lineWidth = 2.4;
         ctx.stroke();
         ctx.fillStyle = "#16324a";
@@ -8193,79 +8331,89 @@
       function drawReel() {
         const { x, y, r } = reel;
         ctx.save();
-        ctx.strokeStyle = "#5a3012";
-        ctx.lineWidth = Math.max(6, r * 0.09);
+        const tipX = x + r * 4.8;
+        const tipY = y - r * 5.6;
+        const gripX = x - r * 0.6;
+        const gripY = y + r * 3.8;
+        ctx.strokeStyle = "rgba(20, 40, 50, 0.22)";
+        ctx.lineWidth = 7;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(x - r * 0.18, y + r * 1.62);
-        ctx.quadraticCurveTo(x - r * 0.12, y + r * 0.4, x - r * 0.04, y);
-        ctx.lineTo(x + r * 1.62, y - r * 1.92);
+        ctx.moveTo(gripX + 3, gripY + 4);
+        ctx.quadraticCurveTo(x + 2, y + r * 0.2, tipX + 3, tipY + 4);
         ctx.stroke();
-        ctx.strokeStyle = "rgba(255,210,140,0.35)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = "#7a4318";
+        const rod = ctx.createLinearGradient(gripX, gripY, tipX, tipY);
+        rod.addColorStop(0, "#6b3a14");
+        rod.addColorStop(0.35, "#c48a48");
+        rod.addColorStop(1, "#e8d2a0");
+        ctx.strokeStyle = rod;
+        ctx.lineWidth = 5.2;
         ctx.beginPath();
-        ctx.moveTo(x - r * 0.28, y + r * 1.32);
-        ctx.lineTo(x - r * 0.02, y + r * 1.32);
-        ctx.lineTo(x - r * 0.06, y + r * 1.82);
-        ctx.lineTo(x - r * 0.32, y + r * 1.82);
-        ctx.closePath();
+        ctx.moveTo(gripX, gripY);
+        ctx.quadraticCurveTo(x, y + r * 0.15, tipX, tipY);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 236, 200, 0.45)";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(gripX, gripY);
+        ctx.quadraticCurveTo(x - 1, y + r * 0.1, tipX, tipY);
+        ctx.stroke();
+        for (let i = 0; i < 5; i += 1) {
+          const u = 0.22 + i * 0.16;
+          const gx = gripX + (tipX - gripX) * u;
+          const gy = gripY + (tipY - gripY) * u;
+          ctx.beginPath();
+          ctx.ellipse(gx, gy - 5, 4.2 - i * 0.35, 6.5 - i * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = "#cfd6de";
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#8a5a28";
+        fillRoundRect(gripX - 7, gripY - 6, 16, 38, 6);
+        ctx.fill();
+        ctx.fillStyle = "#d7b07a";
+        fillRoundRect(gripX - 5, gripY - 2, 12, 28, 5);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(x, y + 5, r + 10, 0, Math.PI * 2);
+        ctx.arc(x, y + 4, r + 6, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(20, 40, 50, 0.22)";
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(x, y, r + 10, 0, Math.PI * 2);
-        ctx.fillStyle = "#c47a2a";
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+        ctx.arc(x, y, r + 5, 0, Math.PI * 2);
         const rim = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-        rim.addColorStop(0, "#fff1c8");
-        rim.addColorStop(0.45, "#e8c078");
-        rim.addColorStop(1, "#b8862a");
+        rim.addColorStop(0, "#f3e2b8");
+        rim.addColorStop(0.45, "#d7a24e");
+        rim.addColorStop(1, "#8a5218");
         ctx.fillStyle = rim;
         ctx.fill();
-        const disc = ctx.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.08, x, y, r);
-        disc.addColorStop(0, "#fffaf0");
-        disc.addColorStop(0.55, "#f3d79a");
-        disc.addColorStop(1, "#d7a24e");
         ctx.beginPath();
-        ctx.arc(x, y, r - 7, 0, Math.PI * 2);
+        ctx.arc(x, y, r - 3, 0, Math.PI * 2);
+        const disc = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, 2, x, y, r);
+        disc.addColorStop(0, "#fffaf0");
+        disc.addColorStop(0.55, "#f0d18a");
+        disc.addColorStop(1, "#c48a3a");
         ctx.fillStyle = disc;
         ctx.fill();
-        ctx.strokeStyle = "rgba(120, 70, 20, 0.28)";
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 10; i += 1) {
-          const a = (Math.PI * 2 * i) / 10 + time * 0.08;
+        ctx.strokeStyle = "rgba(120, 70, 20, 0.3)";
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < 8; i += 1) {
+          const a = (Math.PI * 2 * i) / 8 + time * 0.1;
           ctx.beginPath();
-          ctx.moveTo(x + Math.cos(a) * (r * 0.2), y + Math.sin(a) * (r * 0.2));
-          ctx.lineTo(x + Math.cos(a) * (r * 0.78), y + Math.sin(a) * (r * 0.78));
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.cos(a) * (r - 5), y + Math.sin(a) * (r - 5));
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
-        ctx.fillStyle = "#8a4c1a";
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(x - r * 0.04, y - r * 0.05, r * 0.08, 0, Math.PI * 2);
-        ctx.fillStyle = "#c47a2a";
+        ctx.arc(x, y, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "#7a4318";
         ctx.fill();
         ctx.fillStyle = "#1a2450";
-        ctx.font = `900 ${Math.round(r * 0.78)}px "Segoe UI", sans-serif`;
+        ctx.font = `900 ${Math.round(r * 1.15)}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "rgba(255, 248, 210, 0.65)";
-        ctx.shadowBlur = 18;
-        ctx.fillText(String(target), x, y + 2);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#2f6fed";
-        ctx.font = `800 ${Math.round(r * 0.32)}px "Segoe UI", sans-serif`;
-        ctx.fillText(opMark(), x, y + r * 0.55);
-        drawDuck(x + r * 0.08, y - r - 8, Math.max(8, r * 0.17));
+        ctx.fillText(String(target), x, y + 1);
         ctx.restore();
+        drawDuck(x + r * 3.6, Math.max(36, y - r * 4.8), Math.max(9, r * 0.42));
         drawEquation();
       }
       function drawBucket() {
@@ -8347,127 +8495,107 @@
         ctx.restore();
       }
       function isPartner(f) {
-        return !!(hooked && !f.hooked && !f.toBucket && pairOk(hooked.num, f.num));
+        if (!hooked || f.hooked || f.toBucket || f.big || hooked.big) return false;
+        return pairOk(hooked.num, f.num);
       }
       function drawFishBody(f) {
         const ang = Math.atan2(f.vy, f.vx) || 0;
         const partner = isPartner(f);
-        const pulse = partner ? 0.55 + 0.45 * Math.sin(time * 4) : 0;
+        const pulse = partner || f.big ? 0.55 + 0.45 * Math.sin(time * 4) : 0;
+        const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
         ctx.save();
-        ctx.translate(f.x, f.y + 8);
-        ctx.fillStyle = "rgba(8, 30, 40, 0.18)";
+        ctx.translate(f.x + jx, f.y + 10);
+        ctx.fillStyle = "rgba(8, 30, 40, 0.22)";
         ctx.beginPath();
-        ctx.ellipse(0, 0, f.len * 0.46, f.len * 0.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, f.len * 0.5, f.len * 0.22, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        if (partner) {
+        if (partner || (f.big && !f.hooked)) {
           ctx.beginPath();
-          ctx.arc(f.x, f.y, f.len * 0.72 + pulse * 6, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(90, 230, 255, ${0.35 + pulse * 0.4})`;
+          ctx.arc(f.x, f.y, f.len * 0.7 + pulse * 6, 0, Math.PI * 2);
+          ctx.strokeStyle = f.big ? `rgba(255, 200, 70, ${0.4 + pulse * 0.4})` : `rgba(90, 230, 255, ${0.35 + pulse * 0.4})`;
           ctx.lineWidth = 4;
           ctx.stroke();
         }
         ctx.save();
-        ctx.translate(f.x, f.y);
+        ctx.translate(f.x + jx, f.y);
         ctx.rotate(ang);
         if (Math.abs(ang) > Math.PI / 2) ctx.scale(1, -1);
         const len = f.len;
-        const ht = len * 0.64;
-        ctx.fillStyle = "rgba(20, 40, 50, 0.22)";
+        const ht = len * (f.big ? 0.58 : 0.66);
+        ctx.fillStyle = "rgba(20, 40, 50, 0.2)";
         ctx.beginPath();
-        ctx.ellipse(1, 2, len * 0.5, ht * 0.52, 0, 0, Math.PI * 2);
+        ctx.ellipse(2, 3, len * 0.52, ht * 0.55, 0, 0, Math.PI * 2);
         ctx.fill();
-        const body = ctx.createRadialGradient(-len * 0.12, -ht * 0.22, 3, 0, 0, len * 0.6);
+        const body = ctx.createRadialGradient(-len * 0.18, -ht * 0.28, 4, 0, 0, len * 0.7);
         body.addColorStop(0, "#fff8e8");
-        body.addColorStop(0.28, f.color);
-        body.addColorStop(1, f.color);
+        body.addColorStop(0.22, f.color);
+        body.addColorStop(1, f.big ? "#c48a18" : f.color);
         ctx.fillStyle = body;
         ctx.beginPath();
-        ctx.ellipse(0, 0, len * 0.54, ht * 0.58, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, len * 0.55, ht * 0.58, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "rgba(40, 30, 20, 0.28)";
-        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = "rgba(40, 24, 10, 0.28)";
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(-len * 0.38, 0);
-        ctx.lineTo(-len * 0.82, -ht * 0.52);
-        ctx.lineTo(-len * 0.58, 0);
-        ctx.lineTo(-len * 0.82, ht * 0.52);
+        ctx.moveTo(-len * 0.4, 0);
+        ctx.lineTo(-len * 0.88, -ht * 0.55);
+        ctx.lineTo(-len * 0.6, 0);
+        ctx.lineTo(-len * 0.88, ht * 0.55);
         ctx.closePath();
         ctx.fillStyle = f.color;
         ctx.fill();
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(len * 0.02, -ht * 0.42);
-        ctx.quadraticCurveTo(len * 0.08, -ht * 0.95, len * 0.22, -ht * 0.28);
+        ctx.quadraticCurveTo(len * 0.06, -ht * 0.98, len * 0.24, -ht * 0.28);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(-len * 0.02, ht * 0.18);
-        ctx.quadraticCurveTo(len * 0.02, ht * 0.72, len * 0.22, ht * 0.16);
+        ctx.moveTo(-len * 0.02, ht * 0.16);
+        ctx.quadraticCurveTo(len * 0.02, ht * 0.78, len * 0.24, ht * 0.14);
         ctx.closePath();
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.88;
         ctx.fill();
         ctx.globalAlpha = 1;
-        ctx.fillStyle = "rgba(255,255,255,0.28)";
+        ctx.fillStyle = "rgba(255,255,255,0.32)";
         ctx.beginPath();
-        ctx.ellipse(-len * 0.04, ht * 0.12, len * 0.28, ht * 0.18, 0, 0, Math.PI * 2);
+        ctx.ellipse(-len * 0.06, ht * 0.14, len * 0.3, ht * 0.2, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.28)";
-        ctx.lineWidth = 1.2;
-        for (let i = 0; i < 3; i += 1) {
+        ctx.strokeStyle = "rgba(255,255,255,0.22)";
+        ctx.lineWidth = 1.3;
+        for (let i = 0; i < 4; i += 1) {
           ctx.beginPath();
-          ctx.arc(-len * 0.08 + i * len * 0.12, 0, ht * 0.18, 0.2, 1.2);
+          ctx.arc(-len * 0.1 + i * len * 0.12, 0, ht * 0.2, 0.15, 1.15);
           ctx.stroke();
         }
-        const eye = ht * 0.38;
+        const eye = ht * (f.big ? 0.42 : 0.44);
+        const ex = len * 0.26;
+        const ey = -ht * 0.04;
         ctx.beginPath();
-        ctx.arc(len * 0.22, -ht * 0.04, eye, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
+        ctx.arc(ex, ey, eye, 0, Math.PI * 2);
+        ctx.fillStyle = f.hooked ? "#fff3a8" : "#fffef8";
         ctx.fill();
-        ctx.strokeStyle = "rgba(20,30,50,0.2)";
-        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = f.hooked ? "#f5b400" : "rgba(30, 40, 60, 0.28)";
+        ctx.lineWidth = f.hooked ? 3 : 2.4;
         ctx.stroke();
+        ctx.fillStyle = "rgba(255, 120, 140, 0.4)";
         ctx.beginPath();
-        ctx.arc(len * 0.3, -ht * 0.04, eye * 0.42, 0, Math.PI * 2);
-        ctx.fillStyle = "#17203a";
+        ctx.ellipse(len * 0.12, ht * 0.22, eye * 0.4, eye * 0.2, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.beginPath();
-        ctx.arc(len * 0.18, -ht * 0.14, eye * 0.18, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 120, 140, 0.45)";
-        ctx.beginPath();
-        ctx.ellipse(len * 0.16, ht * 0.18, eye * 0.42, eye * 0.22, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-        const badge = clamp(fishSize().num * 0.86, 16, 22);
-        const bx = f.x;
-        const by = f.y - f.len * 0.62;
-        const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
-        if (partner) {
-          ctx.beginPath();
-          ctx.arc(bx, by, badge + 8 + pulse * 3, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(90, 230, 255, ${0.55 + pulse * 0.35})`;
-          ctx.lineWidth = 3.4;
-          ctx.stroke();
-        }
-        ctx.fillStyle = "rgba(20,40,50,0.22)";
-        ctx.beginPath();
-        ctx.arc(bx + 1, by + 3, badge, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(bx + jx, by, badge, 0, Math.PI * 2);
-        ctx.fillStyle = f.hooked ? "#fff3a8" : "#fff";
-        ctx.fill();
-        ctx.lineWidth = f.hooked ? 3.6 : 2.4;
-        ctx.strokeStyle = f.hooked ? "#f5b400" : (partner ? "#3ec7ff" : "rgba(20,40,70,0.28)");
-        ctx.stroke();
+        ctx.save();
+        ctx.translate(ex, ey);
+        const sy = Math.abs(ang) > Math.PI / 2 ? -1 : 1;
+        ctx.scale(1, sy);
+        ctx.rotate(-ang);
         ctx.fillStyle = "#1a2450";
-        ctx.font = `900 ${Math.round(fishSize().num)}px "Segoe UI", sans-serif`;
+        ctx.font = `900 ${Math.round(eye * (String(f.num).length > 1 || f.big ? 1.15 : 1.35))}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(String(f.num), bx + jx, by + 1);
+        ctx.fillText(f.big ? "3" : String(f.num), 0, 1);
+        ctx.restore();
+        ctx.restore();
       }
       function drawLineTo(x, y, sag) {
         ctx.beginPath();
@@ -8519,6 +8647,7 @@
         const ordered = fishes.slice().sort((a, b) => a.y - b.y);
         ordered.filter((f) => !f.toBucket).forEach(drawFishBody);
         if (hooked && !hooked.toBucket) drawLineTo(hooked.x, hooked.y, 28);
+        if (bonus && !bonus.toBucket) drawLineTo(bonus.x, bonus.y, 22);
         hooks.forEach((hk) => drawLineTo(hk.x, hk.y, 40 * (1 - Math.min(1, hk.t / hk.dur))));
         drawReel();
         ordered.filter((f) => f.toBucket).forEach(drawFishBody);
@@ -8594,13 +8723,20 @@
         if (!pads.length) initDecor();
         if (!fishes.length) { pickTarget(); fillSchool(); }
         canvas._peekFish = () => liveFish().map((f) => ({
-          x: f.x, y: f.y, num: f.num, hooked: !!f.hooked,
-          by: f.y - f.len * 0.62, hit: f.hit,
+          x: f.x, y: f.y, num: f.num, hooked: !!f.hooked, big: !!f.big, hit: f.hit, id: f.id,
         }));
         canvas._castAt = (x, y) => castTo(x, y);
+        canvas._tick = (dt) => { step(dt || 0.016); draw(); };
+        canvas._moveFish = (id, x, y) => {
+          const f = liveFish().find((p) => p.id === id);
+          if (f) { f.x = x; f.y = y; }
+        };
         canvas._fishState = () => ({
-          score, lives, target, op, hooked: hooked ? hooked.num : null,
+          score, lives, target, op,
+          hooked: hooked ? hooked.num : null,
+          bonus: !!(bonus && bonus.hooked),
           playing, bucket: bucketFish.length, hooks: hooks.length,
+          reel: { x: reel.x, y: reel.y, r: reel.r },
         });
         syncHud();
         if (!playing) showOverlay(over ? "over" : "start");
@@ -8620,6 +8756,7 @@
         entered = false;
         playing = false;
         hooked = null;
+        bonus = null;
         cancelAnimationFrame(raf);
         const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
         if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
