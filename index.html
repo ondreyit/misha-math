@@ -7377,6 +7377,8 @@
       let target = 10;
       let hooked = null;
       let bonus = null;
+      let solved = null;
+      let nextRoundIn = 0;
       let spawnCool = 0;
       let bigCool = 8;
       let nextId = 1;
@@ -7398,7 +7400,8 @@
         return NaN;
       }
       function pairOk(a, b) {
-        return applyOp(a, b) === target || applyOp(b, a) === target;
+        const x = Number(a), y = Number(b), t = Number(target);
+        return applyOp(x, y) === t || applyOp(y, x) === t;
       }
       function rangeBounds() {
         let min = Number(fishRange.min);
@@ -7652,6 +7655,8 @@
         score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
         hooked = null;
         bonus = null;
+        solved = null;
+        nextRoundIn = 0;
         fishes.length = 0; hooks.length = 0; splashes.length = 0;
         ripples.length = 0; bucketFish.length = 0;
         bigCool = 6;
@@ -7748,20 +7753,25 @@
         return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
       }
       function castWav() {
-        const sr = 22050;
-        const dur = 0.52;
+        const sr = 44100;
+        const dur = 0.28;
         const n = Math.floor(sr * dur);
         const samples = new Float32Array(n);
-        let n1 = 0;
+        let lp = 0;
+        let hp = 0;
         for (let i = 0; i < n; i += 1) {
           const tt = i / sr;
-          n1 = n1 * 0.88 + (Math.random() * 2 - 1) * 0.12;
-          const sweep = 1900 * Math.pow(0.08, tt / dur) + 180;
-          const tone = Math.sin(2 * Math.PI * sweep * tt);
-          const air = n1 * Math.sin(2 * Math.PI * (sweep * 0.5) * tt + n1);
-          const env = tt < 0.018 ? tt / 0.018 : Math.pow(Math.max(0, 1 - (tt - 0.018) / 0.5), 1.55);
-          const click = tt < 0.02 ? Math.sin(2 * Math.PI * 110 * tt) * (1 - tt / 0.02) * 0.45 : 0;
-          samples[i] = (tone * 0.28 + air * 0.9 + click) * env * 0.72;
+          const u = tt / dur;
+          const raw = Math.random() * 2 - 1;
+          const cut = 0.18 + 0.62 * Math.pow(1 - u, 2.1);
+          lp += cut * (raw - lp);
+          hp = lp - hp * 0.4;
+          const attack = u < 0.045 ? u / 0.045 : 1;
+          const fall = Math.pow(Math.max(0, 1 - (u - 0.03) / 0.97), 1.7);
+          const env = attack * fall;
+          const grit = (Math.random() * 2 - 1) * 0.16 * env * Math.max(0, 1 - u * 1.4);
+          const snap = tt < 0.01 ? (Math.random() * 2 - 1) * (1 - tt / 0.01) * 0.28 : 0;
+          samples[i] = (hp * 1.05 + grit + snap) * env * 0.9;
         }
         return encodeWav(samples, sr);
       }
@@ -7786,23 +7796,6 @@
         }
         return encodeWav(samples, sr);
       }
-      function padWav() {
-        const sr = 22050;
-        const n = Math.floor(sr * 4);
-        const samples = new Float32Array(n);
-        const notes = [196, 246.94, 293.66, 329.63, 392];
-        for (let i = 0; i < n; i += 1) {
-          const tt = i / sr;
-          let s = 0;
-          notes.forEach((f, k) => {
-            const env = 0.5 + 0.5 * Math.sin(tt * (0.4 + k * 0.07) + k);
-            s += Math.sin(2 * Math.PI * f * tt) * 0.08 * env;
-          });
-          s += (Math.random() * 2 - 1) * 0.02;
-          samples[i] = s;
-        }
-        return encodeWav(samples, sr);
-      }
       function buildSfx() {
         if (htmlSfx.urls) return;
         htmlSfx.urls = {
@@ -7811,7 +7804,6 @@
           ok: toneWav(660, 0.18, 0.45, "sine"),
           bad: toneWav(140, 0.28, 0.5, "plop"),
           silent: toneWav(40, 0.08, 0.0004, "sine"),
-          pad: padWav(),
         };
       }
       function htmlAudioEl(url, loop) {
@@ -7833,68 +7825,21 @@
           pool.push(el);
         }
         try { el.currentTime = 0; } catch { /* ignore */ }
-        el.volume = kind === "pad" ? 0.35 : 1;
+        el.volume = 1;
         const p = el.play();
         if (p && p.catch) p.catch(() => {});
       }
       function unlockHtmlAudio() {
         buildSfx();
-        if (!htmlSfx.unlock) {
-          htmlSfx.unlock = htmlAudioEl(htmlSfx.urls.silent, true);
-          htmlSfx.unlock.volume = 0.02;
-        }
-        const kick = htmlSfx.unlock.play();
-        if (kick && kick.catch) kick.catch(() => {});
+        const kick = htmlAudioEl(htmlSfx.urls.silent, false);
+        kick.volume = 0.001;
+        const p = kick.play();
+        if (p && p.then) p.then(() => { try { kick.pause(); } catch { /* ignore */ } }).catch(() => {});
         ["cast", "plop", "ok", "bad"].forEach((kind) => {
           const pool = htmlSfx.pool[kind] || (htmlSfx.pool[kind] = []);
           if (!pool.length) pool.push(htmlAudioEl(htmlSfx.urls[kind], false));
         });
-        if (!htmlSfx.pool.pad) {
-          const pad = htmlAudioEl(htmlSfx.urls.pad, true);
-          pad.volume = 0.32;
-          htmlSfx.pool.pad = [pad];
-        }
         htmlSfx.ready = true;
-        if (soundOn && htmlSfx.pool.pad[0].paused) htmlSfx.pool.pad[0].play().catch(() => {});
-      }
-      function startWaterGraph(actx) {
-        const master = actx.createGain();
-        master.gain.value = soundOn ? 0.85 : 0;
-        master.connect(actx.destination);
-        const amb = actx.createGain();
-        amb.gain.value = 0.28;
-        amb.connect(master);
-        const n = Math.floor(actx.sampleRate * 2);
-        const buf = actx.createBuffer(1, n, actx.sampleRate);
-        const data = buf.getChannelData(0);
-        let last = 0;
-        for (let i = 0; i < n; i += 1) {
-          last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
-          data[i] = last;
-        }
-        const noise = actx.createBufferSource();
-        noise.buffer = buf; noise.loop = true;
-        const filter = actx.createBiquadFilter();
-        filter.type = "lowpass"; filter.frequency.value = 420; filter.Q.value = 0.5;
-        const noiseGain = actx.createGain(); noiseGain.gain.value = 0.16;
-        noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(amb);
-        noise.start();
-        const pad = (freq, gain) => {
-          const o = actx.createOscillator();
-          o.type = "sine"; o.frequency.value = freq;
-          const g = actx.createGain(); g.gain.value = gain;
-          o.connect(g); g.connect(amb); o.start();
-          return o;
-        };
-        pad(130.81, 0.04);
-        pad(164.81, 0.03);
-        pad(196.0, 0.022);
-        pad(246.94, 0.016);
-        const lfo = actx.createOscillator();
-        lfo.frequency.value = 0.07;
-        const lfoG = actx.createGain(); lfoG.gain.value = 80;
-        lfo.connect(lfoG); lfoG.connect(filter.frequency); lfo.start();
-        audio = { ctx: actx, master, started: true };
       }
       function ensureAudio() {
         unlockHtmlAudio();
@@ -7902,42 +7847,23 @@
         if (!Ctx) return;
         if (!audio) {
           const actx = new Ctx({ latencyHint: "interactive" });
-          audio = { ctx: actx, started: false, master: null };
-          const resume = actx.resume();
-          const go = () => {
-            if (audio && !audio.started && actx.state !== "suspended" && actx.state !== "interrupted") {
-              startWaterGraph(actx);
-            } else if (audio && audio.master) {
-              audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, actx.currentTime, 0.05);
-            }
-          };
-          if (resume && resume.then) resume.then(go).catch(go);
-          else go();
+          audio = { ctx: actx, started: true, master: null };
+          actx.resume().catch(() => {});
           return;
         }
         if (audio.ctx.state === "suspended" || audio.ctx.state === "interrupted") {
-          audio.ctx.resume().then(() => {
-            if (audio && !audio.started) startWaterGraph(audio.ctx);
-            if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
-          }).catch(() => {});
-        } else if (audio.master) {
-          audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
+          audio.ctx.resume().catch(() => {});
         }
       }
       function hitFish(x, y) {
         let bestFree = null, bestFreeD = 1e9;
-        let bestHooked = null, bestHookedD = 1e9;
         liveFish().forEach((f) => {
+          if (f.hooked || f.toBucket) return;
           const d = Math.hypot(f.x - x, f.y - y);
-          const rad = (f.hit || 48) + 32;
-          if (d >= rad) return;
-          if (f.hooked) {
-            if (d < bestHookedD) { bestHookedD = d; bestHooked = f; }
-            return;
-          }
-          if (d < bestFreeD) { bestFreeD = d; bestFree = f; }
+          const rad = (f.hit || 48) + 36;
+          if (d < rad && d < bestFreeD) { bestFreeD = d; bestFree = f; }
         });
-        return bestFree || bestHooked;
+        return bestFree;
       }
       function addSplash(x, y, good) {
         splashes.push({ x, y, t: 0, good: !!good });
@@ -7989,18 +7915,15 @@
           fish.hooked = true;
           return;
         }
-        if (hooked.id === fish.id) {
-          fish.hooked = false;
-          hooked = null;
-          return;
-        }
-        const a = hooked.num;
-        const b = fish.num;
+        if (hooked.id === fish.id) return;
+        const a = Number(hooked.num);
+        const b = Number(fish.num);
         const first = hooked;
         if (pairOk(a, b)) {
           playHtml("ok");
           const extra = bonus && !bonus.toBucket ? bonus : null;
           const pts = extra ? 3 : 1;
+          solved = { a, b, goal: Number(target) };
           sendToBucket(first);
           sendToBucket(fish);
           if (extra) sendToBucket(extra);
@@ -8010,8 +7933,8 @@
           bonus = null;
           score += pts;
           bumpScore();
-          pickTarget();
-          spawnCool = 0.28;
+          nextRoundIn = 0.75;
+          spawnCool = 0.9;
           syncHud();
         } else {
           fish.shake = 0.45;
@@ -8048,6 +7971,15 @@
         invuln = Math.max(0, invuln - dt);
         spawnCool = Math.max(0, spawnCool - dt);
         bigCool = Math.max(0, bigCool - dt);
+        if (nextRoundIn > 0) {
+          nextRoundIn = Math.max(0, nextRoundIn - dt);
+          if (nextRoundIn === 0) {
+            solved = null;
+            pickTarget();
+            spawnCool = 0.12;
+            syncHud();
+          }
+        }
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -8093,11 +8025,6 @@
           if (f.hooked) {
             f.vx *= 0.85;
             f.vy *= 0.85;
-            return;
-          }
-          if (hooked && !f.big) {
-            f.x += f.vx * dt * 0.08;
-            f.y += f.vy * dt * 0.08;
             return;
           }
           if (f.big) {
@@ -8335,9 +8262,11 @@
       }
       function drawEquation() {
         const { x, y, r } = reel;
-        const left = hooked ? String(hooked.num) : "?";
+        const left = solved ? String(solved.a) : (hooked ? String(hooked.num) : "?");
+        const right = solved ? String(solved.b) : "?";
+        const goal = solved ? solved.goal : target;
         const star = bonus ? "  ★" : "";
-        const text = `${left}  ${opMark()}  ?   =   ${target}${star}`;
+        const text = `${left}  ${opMark()}  ${right}   =   ${goal}${star}`;
         const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
         const tw = ctx.measureText(text).width;
@@ -8350,11 +8279,11 @@
         ctx.fill();
         const pill = ctx.createLinearGradient(bx, by, bx, by + bh);
         pill.addColorStop(0, "#fffef8");
-        pill.addColorStop(1, hooked || bonus ? "#fff3c4" : "#e7f7ff");
+        pill.addColorStop(1, hooked || bonus || solved ? "#fff3c4" : "#e7f7ff");
         ctx.fillStyle = pill;
         fillRoundRect(bx, by, bw, bh, 18);
         ctx.fill();
-        ctx.strokeStyle = hooked || bonus ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
+        ctx.strokeStyle = hooked || bonus || solved ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
         ctx.lineWidth = 2.4;
         ctx.stroke();
         ctx.fillStyle = "#16324a";
@@ -8448,7 +8377,6 @@
         ctx.fillText(String(target), x, y + 1);
         ctx.restore();
         drawDuck(x + r * 3.6, Math.max(36, y - r * 4.8), Math.max(9, r * 0.42));
-        drawEquation();
       }
       function drawBucket() {
         const { x, y, w: bw, h: bh } = bucket;
@@ -8673,6 +8601,7 @@
         drawReel();
         ordered.filter((f) => f.toBucket).forEach(drawFishBody);
         drawFx();
+        drawEquation();
         if (flash) {
           ctx.fillStyle = `rgba(225, 29, 72, ${flash * 0.28})`;
           ctx.fillRect(0, 0, w, h);
@@ -8714,21 +8643,11 @@
           soundOn = !soundOn;
           localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
           ensureAudio();
-          if (htmlSfx.unlock) {
-            if (soundOn) htmlSfx.unlock.play().catch(() => {});
-            else htmlSfx.unlock.pause();
-          }
-          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) {
-            if (soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
-            else htmlSfx.pool.pad[0].pause();
-          }
-          if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
           syncHud();
         });
         canvas.addEventListener("pointerdown", (e) => {
           if (!playing) return;
           e.preventDefault();
-          resize();
           const p = pointFromEvent(e);
           ensureAudio();
           kickFrame();
@@ -8757,6 +8676,7 @@
           score, lives, target, op,
           hooked: hooked ? hooked.num : null,
           bonus: !!(bonus && bonus.hooked),
+          solved: solved ? { a: solved.a, b: solved.b, goal: solved.goal } : null,
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: rangeBounds(),
@@ -8771,38 +8691,27 @@
         if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
           Promise.resolve(req.call(wrap)).catch(() => {}).finally(() => requestAnimationFrame(resize));
         }
-        if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.08);
-        if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
-        if (htmlSfx.pool.pad && htmlSfx.pool.pad[0] && soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
       }
       function leave() {
         entered = false;
         playing = false;
         hooked = null;
         bonus = null;
+        solved = null;
         cancelAnimationFrame(raf);
         const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
         if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
           Promise.resolve(exitFs.call(document)).catch(() => {});
         }
-        if (audio && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
-        if (htmlSfx.unlock) htmlSfx.unlock.pause();
-        if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) htmlSfx.pool.pad[0].pause();
       }
       function pauseVis(hidden) {
         if (!entered) return;
         if (hidden) {
           cancelAnimationFrame(raf);
-          if (audio && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.05);
-          if (htmlSfx.unlock) htmlSfx.unlock.pause();
-          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0]) htmlSfx.pool.pad[0].pause();
         } else {
           lastT = performance.now();
           raf = requestAnimationFrame(frame);
           ensureAudio();
-          if (audio && audio.master) audio.master.gain.setTargetAtTime(soundOn ? 0.85 : 0, audio.ctx.currentTime, 0.05);
-          if (htmlSfx.unlock && soundOn) htmlSfx.unlock.play().catch(() => {});
-          if (htmlSfx.pool.pad && htmlSfx.pool.pad[0] && soundOn) htmlSfx.pool.pad[0].play().catch(() => {});
         }
       }
       return { enter, leave, syncLabels, pauseVis };
