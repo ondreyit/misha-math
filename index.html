@@ -1174,7 +1174,7 @@
       box-shadow: 0 0 0 3px rgba(140, 240, 255, 0.22);
     }
     .admin-range {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
     }
     .admin-range label {
       display: grid; gap: 4px; font-size: 13px; font-weight: 800; color: var(--muted);
@@ -1182,6 +1182,7 @@
     .admin-range input { width: 100%; }
     @media (max-width: 720px) {
       .fish-op { min-height: 48px; }
+      .admin-range { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -1555,7 +1556,7 @@
                 <p class="gravity-kicker" data-i18n="navFish">Рыбалка</p>
                 <h2 id="fishOverlayTitle" data-i18n="fishTitle">Рыбалка</h2>
                 <p class="gravity-over-score hidden" id="fishOverlayScore"></p>
-                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ, не меньше 8. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.</p>
+                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — сумма. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.</p>
                 <div class="fish-ops" id="fishOps">
                   <button type="button" class="fish-op on" data-op="add"><strong>+</strong><span data-i18n="fishAdd">Сложение</span></button>
                   <button type="button" class="fish-op" data-op="sub"><strong>−</strong><span data-i18n="fishSub">Вычитание</span></button>
@@ -1634,8 +1635,11 @@
                 <label><span data-i18n="adminFishTo">до</span>
                   <input id="adminFishMaxInput" type="number" min="0" max="99" step="1" />
                 </label>
+                <label><span data-i18n="adminFishGoal">сумма от</span>
+                  <input id="adminFishGoalInput" type="number" min="1" max="99" step="1" />
+                </label>
               </div>
-              <p class="note" data-i18n="adminFishRangeHint">От и до — какие числа будут на катушке и на рыбках. Ноль тоже бывает.</p>
+              <p class="note" data-i18n="adminFishRangeHint">От и до — числа на рыбках. Сумма от — минимум на удочке.</p>
             </div>
             <p class="admin-flash" id="adminStatus"></p>
             <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
@@ -1706,6 +1710,7 @@
     const FISH_RANGE_KEY = "misha-fish-range-v1";
     const FISH_MIN_DEFAULT = 0;
     const FISH_MAX_DEFAULT = 12;
+    const FISH_GOAL_DEFAULT = 15;
     const ADMIN_PIN = "2018";
     const STORAGE_KEY_BASE = "misha-daily-math-v1";
     const SETTINGS_KEY_BASE = "misha-math-settings-v1";
@@ -1794,7 +1799,7 @@
         fishSub: "Вычитание",
         fishMul: "Умножение",
         fishDiv: "Деление",
-        fishRules: "На круге — ответ, не меньше 8. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.",
+        fishRules: "На круге — сумма. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.",
         fishHint: "ЛКМ — хватай рыбок, ПКМ — подсекай сумму. Катушка бьёт на −2.",
         fishOver: "Рыбки уплыли",
         fishCaught: (n) => `Поймано: ${n}`,
@@ -1803,7 +1808,8 @@
         adminFishRange: "Рыбалка: числа рыбок",
         adminFishFrom: "от",
         adminFishTo: "до",
-        adminFishRangeHint: "От и до — какие числа будут на катушке и на рыбках. Ноль тоже бывает.",
+        adminFishGoal: "сумма от",
+        adminFishRangeHint: "От и до — числа на рыбках. Сумма от — минимум на удочке.",
         navCalendar: "Календарь",
         navPlan: "Все задания",
         navTables: "Таблицы",
@@ -2095,7 +2101,7 @@
         fishSub: "Subtraction",
         fishMul: "Multiplication",
         fishDiv: "Division",
-        fishRules: "The circle is the answer, at least 8. Left click grabs any fish. Right click sets the hook — if the sum is right, they fly to the bucket. Touching the reel costs 2 lives. A wrong sum costs 1.",
+        fishRules: "The circle is the sum. Left click grabs any fish. Right click sets the hook — if the sum is right, they fly to the bucket. Touching the reel costs 2 lives. A wrong sum costs 1.",
         fishHint: "Left click grabs fish. Right click sets the sum. Touching the reel is −2.",
         fishOver: "The fish got away",
         fishCaught: (n) => `Caught: ${n}`,
@@ -2104,7 +2110,8 @@
         adminFishRange: "Fishing: fish numbers",
         adminFishFrom: "from",
         adminFishTo: "to",
-        adminFishRangeHint: "From and to set which numbers appear on the reel and on the fish. Zero is included too.",
+        adminFishGoal: "sum from",
+        adminFishRangeHint: "From and to are the numbers on the fish. Sum from is the minimum on the rod.",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
         navEarn: "More Mishcoins",
@@ -2421,7 +2428,7 @@
     let customPhotos = {};
     let pendingPhoto = null;
     let failExtraSetting = FAIL_EXTRA_DEFAULT;
-    let fishRange = { min: FISH_MIN_DEFAULT, max: FISH_MAX_DEFAULT };
+    let fishRange = { min: FISH_MIN_DEFAULT, max: FISH_MAX_DEFAULT, goal: FISH_GOAL_DEFAULT };
     let cloudNotify = null;
     let pinPurpose = "admin";
 
@@ -2860,13 +2867,16 @@
       if (!Number.isFinite(value)) return fallback;
       return Math.max(0, Math.min(99, Math.round(value)));
     }
-    function applyFishRange(min, max) {
+    function applyFishRange(min, max, goal) {
       const prevMin = Number.isFinite(Number(fishRange.min)) ? Number(fishRange.min) : FISH_MIN_DEFAULT;
       const prevMax = Number.isFinite(Number(fishRange.max)) ? Number(fishRange.max) : FISH_MAX_DEFAULT;
+      const prevGoal = Number.isFinite(Number(fishRange.goal)) ? Number(fishRange.goal) : FISH_GOAL_DEFAULT;
       let a = clampFishBound(min, prevMin);
       let b = clampFishBound(max, prevMax);
+      let g = clampFishBound(goal, prevGoal);
       if (a > b) { const tmp = a; a = b; b = tmp; }
-      fishRange = { min: a, max: b };
+      if (g < 1) g = FISH_GOAL_DEFAULT;
+      fishRange = { min: a, max: b, goal: g };
       try { localStorage.setItem(FISH_RANGE_KEY, JSON.stringify(fishRange)); } catch { /* ignore */ }
       return fishRange;
     }
@@ -2883,7 +2893,7 @@
         const rangeStored = localStorage.getItem(FISH_RANGE_KEY);
         if (rangeStored) {
           const parsed = JSON.parse(rangeStored);
-          applyFishRange(parsed.min, parsed.max);
+          applyFishRange(parsed.min, parsed.max, parsed.goal);
         }
       } catch { /* ignore */ }
       const remote = readCfgObject(await fetchKvRaw("cfg"));
@@ -2891,17 +2901,19 @@
       if (Number.isFinite(n)) applyFailExtra(n);
       const a = Number(remote?.a ?? remote?.fishMin);
       const b = Number(remote?.b ?? remote?.fishMax);
-      if (Number.isFinite(a) || Number.isFinite(b)) {
+      const g = Number(remote?.g ?? remote?.fishGoal);
+      if (Number.isFinite(a) || Number.isFinite(b) || Number.isFinite(g)) {
         applyFishRange(
           Number.isFinite(a) ? a : fishRange.min,
-          Number.isFinite(b) ? b : fishRange.max
+          Number.isFinite(b) ? b : fishRange.max,
+          Number.isFinite(g) ? g : fishRange.goal
         );
       }
     }
     async function pushFailExtra() {
       const n = applyFailExtra(failExtraSetting);
-      const range = applyFishRange(fishRange.min, fishRange.max);
-      await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n, a: range.min, b: range.max })));
+      const range = applyFishRange(fishRange.min, fishRange.max, fishRange.goal);
+      await putKvRaw("cfg", bytesToHex(JSON.stringify({ u: Date.now(), f: n, a: range.min, b: range.max, g: range.goal })));
       notifyCloud("cfg");
     }
     function dayIndex(dateKey) {
@@ -7377,7 +7389,11 @@
       let target = 10;
       let prompt = null;
       let solved = null;
-      const GOAL_MIN = 8;
+      function goalMin() {
+        const g = Number(fishRange && fishRange.goal);
+        if (!Number.isFinite(g)) return FISH_GOAL_DEFAULT;
+        return clamp(Math.round(g), 1, 99);
+      }
       let nextRoundIn = 0;
       let spawnCool = 0;
       let spawnWait = 0;
@@ -7506,12 +7522,13 @@
       }
       function pickTarget() {
         const { min, max } = rangeBounds();
+        const gmin = goalMin();
         const cap = op === "add"
-          ? Math.max(GOAL_MIN, Math.min(20, Math.max(max + max, 12)))
-          : Math.max(GOAL_MIN, max, 12);
+          ? Math.max(gmin, Math.min(99, Math.max(max + max, gmin + 6)))
+          : Math.max(gmin, max, gmin);
         const rich = [];
         const tries = [];
-        for (let n = GOAL_MIN; n <= cap; n += 1) {
+        for (let n = gmin; n <= cap; n += 1) {
           if (op === "add") {
             if (!canSumTo(n)) continue;
             tries.push(n);
@@ -7531,7 +7548,7 @@
           if (v.length >= 2) rich.push(n);
         }
         const pool = rich.length ? rich : tries;
-        target = pool.length ? pick(pool) : GOAL_MIN;
+        target = pool.length ? pick(pool) : gmin;
         prompt = { goal: target };
         return target;
       }
@@ -7857,7 +7874,7 @@
             spawnQueue.unshift(vars[0][0]);
           } else {
             const { max } = rangeBounds();
-            spawnQueue.unshift(Math.min(Number(target) || GOAL_MIN, max));
+            spawnQueue.unshift(Math.min(Number(target) || goalMin(), max));
           }
         }
         const want = pairWant();
@@ -8216,7 +8233,7 @@
         spawnCool = Math.max(0, spawnCool - dt);
         if (solved) flushHookedToBucket();
         if (solved && !fishes.some((f) => f.toBucket)) startNextRound();
-        if (playing && !solved && (target < GOAL_MIN || !prompt)) pickTarget();
+        if (playing && !solved && (target < goalMin() || !prompt)) pickTarget();
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -8995,7 +9012,7 @@
           solved: solved ? { nums: solved.nums, goal: solved.goal } : null,
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
-          range: rangeBounds(),
+          range: { ...rangeBounds(), goal: goalMin() },
           hasPair: hasPair(),
           pairTypes: solvingPairKeys(onScreenSmall()).size,
           pairWant: pairWant(),
@@ -10582,6 +10599,7 @@
       document.getElementById("adminFailExtraInput").value = String(failExtra());
       document.getElementById("adminFishMinInput").value = String(fishRange.min);
       document.getElementById("adminFishMaxInput").value = String(fishRange.max);
+      document.getElementById("adminFishGoalInput").value = String(fishRange.goal ?? FISH_GOAL_DEFAULT);
       setAdminFlash("adminStatus", "");
       setAdminFlash("adminCatalogStatus", "");
       closePrizeForm();
@@ -11058,6 +11076,7 @@
       const extra = Number(document.getElementById("adminFailExtraInput").value);
       const fishMin = Number(document.getElementById("adminFishMinInput").value);
       const fishMax = Number(document.getElementById("adminFishMaxInput").value);
+      const fishGoal = Number(document.getElementById("adminFishGoalInput").value);
       if (!Number.isFinite(value) || value < 5 || value > 200) {
         setAdminFlash("adminStatus", "5–200", false); return;
       }
@@ -11067,8 +11086,11 @@
       if (!Number.isFinite(fishMin) || !Number.isFinite(fishMax) || fishMin < 0 || fishMax > 99 || fishMin > 99 || fishMax < 0) {
         setAdminFlash("adminStatus", "0–99", false); return;
       }
+      if (!Number.isFinite(fishGoal) || fishGoal < 1 || fishGoal > 99) {
+        setAdminFlash("adminStatus", "сумма 1–99", false); return;
+      }
       applyFailExtra(extra);
-      applyFishRange(fishMin, fishMax);
+      applyFishRange(fishMin, fishMax, fishGoal);
       await pushFailExtra();
       const changed = applyQuestionCountToUnfinished(Math.round(value));
       notifyAdminSave("adminStatus", t("adminSettingsSaved"), t("adminSaved", Math.round(value), changed));
@@ -11117,7 +11139,7 @@
       const raw = localStorage.getItem(FISH_RANGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        applyFishRange(parsed.min, parsed.max);
+        applyFishRange(parsed.min, parsed.max, parsed.goal);
       }
     } catch { /* ignore */ }
     restorePhotoCache();
