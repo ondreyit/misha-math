@@ -7521,8 +7521,8 @@
         const s = Math.min(w, h);
         if (big) {
           return {
-            len: clamp(s * 0.22, 96, 148),
-            hit: clamp(s * 0.2, 80, 120),
+            len: clamp(s * 0.3, 130, 210),
+            hit: clamp(s * 0.26, 110, 170),
             num: clamp(s * 0.05, 18, 26),
           };
         }
@@ -7580,7 +7580,7 @@
         else if (side === 1) { x = w + margin; y = rand(h * 0.22, h * 0.82); }
         else if (side === 2) { x = rand(w * 0.12, w * 0.88); y = -margin; }
         else { x = rand(w * 0.12, w * 0.88); y = h + margin; }
-        if (big) y = rand(h * 0.24, h * 0.38);
+        if (big) y = rand(h * 0.34, h * 0.5);
         return { x, y };
       }
       function spawnInPond(nearReel) {
@@ -7915,15 +7915,34 @@
         }
       }
       function fishHitR(f) {
-        return ((f.hit || 48) * depthScale(f.y)) + 28;
+        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
+        if (f.big) return (f.len * sc * 0.95) + 36;
+        return ((f.hit || 48) * sc) + 28;
+      }
+      function pointHitsFish(f, x, y) {
+        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
+        const len = f.len * sc;
+        const ht = len * (f.big ? 0.58 : 0.66);
+        const ang = Math.atan2(f.vy, f.vx) || 0;
+        const dx = x - f.x, dy = y - f.y;
+        const c = Math.cos(-ang), s = Math.sin(-ang);
+        const lx = dx * c - dy * s;
+        const ly = dx * s + dy * c;
+        const rx = (f.big ? len * 0.98 : len * 0.72) + 28;
+        const ry = (f.big ? ht * 0.9 : ht * 0.72) + 22;
+        return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) <= 1;
       }
       function fishUnderPoint(x, y, pred) {
         let best = null, bestD = 1e9;
+        let bestBig = null, bestBigD = 1e9;
         liveFish().forEach((f) => {
           if (pred && !pred(f)) return;
+          if (!pointHitsFish(f, x, y)) return;
           const d = Math.hypot(f.x - x, f.y - y);
-          if (d < fishHitR(f) && d < bestD) { bestD = d; best = f; }
+          if (f.big && d < bestBigD) { bestBigD = d; bestBig = f; }
+          if (d < bestD) { bestD = d; best = f; }
         });
+        if (bestBig) return { fish: bestBig, d: bestBigD };
         return { fish: best, d: bestD };
       }
       function hitFish(x, y) {
@@ -8021,6 +8040,17 @@
         if (!playing) return;
         const onHook = fishUnderPoint(x, y, (f) => f.hooked);
         const free = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
+        if (free.fish && free.fish.big && !(onHook.fish && onHook.fish.big && onHook.d <= free.d)) {
+          playHtml("cast");
+          hooks.push({
+            x: reel.x, y: reel.y,
+            tx: free.fish.x, ty: free.fish.y,
+            t: 0, dur: 0.18, fish: free.fish, resolved: true,
+          });
+          resolveCatch(free.fish);
+          kickFrame();
+          return;
+        }
         if (onHook.fish && (!free.fish || onHook.d <= free.d)) {
           playHtml("cast");
           hooks.push({
@@ -8594,7 +8624,7 @@
       function drawFishBody(f) {
         const ang = Math.atan2(f.vy, f.vx) || 0;
         const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
-        const sc = depthScale(f.y);
+        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
         const len = f.len * sc;
         const ht = len * (f.big ? 0.58 : 0.66);
         const far = 1 - depthT(f.y);
