@@ -7490,6 +7490,7 @@
       }
       function pickTarget() {
         const { min, max } = rangeBounds();
+        const rich3 = [];
         const rich = [];
         const tries = [];
         eachAllowed((n) => {
@@ -7503,9 +7504,10 @@
           const v = pairVariants(n);
           if (!v.length) return;
           tries.push(n);
-          if (v.length >= 2) rich.push(n);
+          if (v.length >= 3) rich3.push(n);
+          else if (v.length >= 2) rich.push(n);
         });
-        const pool = rich.length ? rich : tries;
+        const pool = rich3.length ? rich3 : (rich.length ? rich : tries);
         target = pool.length ? pick(pool) : clamp(min + max, min, max);
         return target;
       }
@@ -7613,7 +7615,7 @@
         const dx = reel.x - pos.x;
         const dy = (big ? pos.y : reel.y) - pos.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
-        const spd = big ? rand(16, 24) : rand(22, 32);
+        const spd = big ? rand(3.2, 5.2) : rand(4.2, 6.8);
         return {
           id: nextId++,
           x: pos.x, y: pos.y,
@@ -7640,14 +7642,38 @@
       function smallLive() {
         return liveFish().filter((f) => !f.big);
       }
-      function hasPair() {
-        const list = smallLive();
+      function onScreenSmall() {
+        return smallLive().filter((f) => (
+          f.x > -f.len && f.x < w + f.len && f.y > -f.len && f.y < h + f.len
+        ));
+      }
+      function pairKey(a, b) {
+        const x = Number(a), y = Number(b);
+        return x <= y ? x + "," + y : y + "," + x;
+      }
+      function solvingPairKeys(list) {
+        const keys = new Set();
         for (let i = 0; i < list.length; i += 1) {
           for (let j = i + 1; j < list.length; j += 1) {
-            if (pairOk(list[i].num, list[j].num)) return true;
+            if (pairOk(list[i].num, list[j].num)) keys.add(pairKey(list[i].num, list[j].num));
           }
         }
-        return false;
+        return keys;
+      }
+      function pairTypesFromNums(nums) {
+        const keys = new Set();
+        for (let i = 0; i < nums.length; i += 1) {
+          for (let j = i + 1; j < nums.length; j += 1) {
+            if (pairOk(nums[i], nums[j])) keys.add(pairKey(nums[i], nums[j]));
+          }
+        }
+        return keys;
+      }
+      function pairWant() {
+        return Math.max(1, Math.min(3, pairVariants(target).length || 1));
+      }
+      function hasPair() {
+        return solvingPairKeys(onScreenSmall()).size > 0 || solvingPairKeys(smallLive()).size > 0;
       }
       function canSolveWith(n) {
         let ok = false;
@@ -7689,6 +7715,36 @@
         const v = Number(n);
         return spawnQueue.some((x) => Number(x) === v);
       }
+      function pairNumPool() {
+        const nums = [];
+        pairVariants(target).forEach((p) => {
+          nums.push(Number(p[0]), Number(p[1]));
+        });
+        return nums;
+      }
+      function shuffleInPlace(arr) {
+        for (let i = arr.length - 1; i > 0; i -= 1) {
+          const j = (Math.random() * (i + 1)) | 0;
+          const tmp = arr[i];
+          arr[i] = arr[j];
+          arr[j] = tmp;
+        }
+        return arr;
+      }
+      function seedPairQueue() {
+        const vars = shuffleInPlace(pairVariants(target).slice());
+        const want = pairWant();
+        const nums = [];
+        for (let i = 0; i < want && vars.length; i += 1) {
+          const p = vars[i % vars.length];
+          nums.push(Number(p[0]), Number(p[1]));
+        }
+        while (nums.length < 6 && vars.length) {
+          const p = vars[(nums.length / 2) % vars.length];
+          nums.push(Number(p[0]), Number(p[1]));
+        }
+        nums.reverse().forEach((n) => spawnQueue.unshift(n));
+      }
       function refillSpawnQueue() {
         const have = {};
         smallLive().forEach((f) => {
@@ -7700,9 +7756,11 @@
           if (!have[n]) spawnQueue.push(n);
         });
         const want = schoolWant();
-        const pool = listedNums();
+        const pairPool = pairNumPool();
+        const allPool = listedNums();
         while (smallLive().length + spawnQueue.length < want) {
-          spawnQueue.push(pool.length ? pick(pool) : 0);
+          if (pairPool.length && Math.random() < 0.72) spawnQueue.push(pick(pairPool));
+          else spawnQueue.push(allPool.length ? pick(allPool) : 0);
         }
       }
       function pumpSpawns(dt) {
@@ -7739,21 +7797,30 @@
         spawnQueue.unshift(p[0]);
       }
       function ensureSolvable() {
-        if (!playing) return;
+        if (!playing || solved) return;
         refillSpawnQueue();
-        if (smallLive().length < 2 && !spawnQueue.length) spawnAnswerPair();
-        const live = smallLive();
-        if (live.length >= 2) {
-          for (let i = 0; i < live.length; i += 1) {
-            for (let j = i + 1; j < live.length; j += 1) {
-              if (pairOk(live[i].num, live[j].num)) return;
-            }
-          }
+        const want = pairWant();
+        const visTypes = solvingPairKeys(onScreenSmall());
+        if (visTypes.size >= want) return;
+        const nums = smallLive().map((f) => Number(f.num)).concat(spawnQueue.map((n) => Number(n)));
+        const queuedTypes = pairTypesFromNums(nums);
+        if (queuedTypes.size < want) {
+          const missing = pairVariants(target).filter((p) => !queuedTypes.has(pairKey(p[0], p[1])));
+          shuffleInPlace(missing);
+          let add = 0;
+          missing.forEach((p) => {
+            if (queuedTypes.size + add >= want) return;
+            spawnQueue.unshift(Number(p[1]));
+            spawnQueue.unshift(Number(p[0]));
+            add += 1;
+          });
+          if (queuedTypes.size + add < 1) spawnAnswerPair();
         }
         const anchor = (hooked && !hooked.big && !hooked.toBucket) ? hooked : nearestSmall();
-        const p = anchor ? partnerNum(anchor.num) : randomPairNums()[1];
-        if (p == null) return;
-        if (live.some((f) => Number(f.num) === Number(p)) || queueHasNum(p)) return;
+        if (!anchor) return;
+        if (smallLive().some((f) => f.id !== anchor.id && pairOk(anchor.num, f.num))) return;
+        const p = partnerNum(anchor.num);
+        if (p == null || queueHasNum(p)) return;
         spawnQueue.unshift(p);
       }
       function fillSchool() {
@@ -7774,13 +7841,8 @@
         spawnCool = 0;
         bigCool = 7;
         pickTarget();
+        seedPairQueue();
         refillSpawnQueue();
-        for (let i = spawnQueue.length - 1; i > 0; i -= 1) {
-          const j = (Math.random() * (i + 1)) | 0;
-          const tmp = spawnQueue[i];
-          spawnQueue[i] = spawnQueue[j];
-          spawnQueue[j] = tmp;
-        }
         overlay.hidden = true;
         playing = true;
         syncHud();
@@ -8937,6 +8999,9 @@
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: rangeBounds(),
           hasPair: hasPair(),
+          pairTypes: solvingPairKeys(onScreenSmall()).size,
+          pairWant: pairWant(),
+          spd: smallLive()[0] ? smallLive()[0].spd : null,
           nums: smallLive().map((f) => f.num),
           nearest: (() => {
             const n = nearestSmall();
