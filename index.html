@@ -1555,7 +1555,7 @@
                 <p class="gravity-kicker" data-i18n="navFish">Рыбалка</p>
                 <h2 id="fishOverlayTitle" data-i18n="fishTitle">Рыбалка</h2>
                 <p class="gravity-over-score hidden" id="fishOverlayScore"></p>
-                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Большая рыба до ответа даёт 3 очка. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.</p>
+                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.</p>
                 <div class="fish-ops" id="fishOps">
                   <button type="button" class="fish-op on" data-op="add"><strong>+</strong><span data-i18n="fishAdd">Сложение</span></button>
                   <button type="button" class="fish-op" data-op="sub"><strong>−</strong><span data-i18n="fishSub">Вычитание</span></button>
@@ -1794,8 +1794,8 @@
         fishSub: "Вычитание",
         fishMul: "Умножение",
         fishDiv: "Деление",
-        fishRules: "На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Большая рыба до ответа даёт 3 очка. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.",
-        fishHint: "Две рыбки = ответ. Большая рыба перед ними — сразу 3 очка. Катушка бьёт на −2.",
+        fishRules: "На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.",
+        fishHint: "Две рыбки = ответ. Катушка бьёт на −2.",
         fishOver: "Рыбки уплыли",
         fishCaught: (n) => `Поймано: ${n}`,
         fishNeedOp: "Сначала выбери действие",
@@ -2095,8 +2095,8 @@
         fishSub: "Subtraction",
         fishMul: "Multiplication",
         fishDiv: "Division",
-        fishRules: "The circle is the answer. Catch two fish that make it — there is more than one way. Hook the big fish first for 3 points. A fish that touches the reel costs 2 lives. A wrong pair costs 1.",
-        fishHint: "Two fish make the answer. Hook the big fish first for 3 points. Touching the reel is −2.",
+        fishRules: "The circle is the answer. Catch two fish that make it — there is more than one way. A fish that touches the reel costs 2 lives. A wrong pair costs 1.",
+        fishHint: "Two fish make the answer. Touching the reel is −2.",
         fishOver: "The fish got away",
         fishCaught: (n) => `Caught: ${n}`,
         fishNeedOp: "Pick an operation first",
@@ -7376,13 +7376,11 @@
       let op = "add";
       let target = 10;
       let hooked = null;
-      let bonus = null;
       let solved = null;
       let nextRoundIn = 0;
       let spawnCool = 0;
       let spawnWait = 0;
       const spawnQueue = [];
-      let bigCool = 8;
       let nextId = 1;
       const MAX_LIVES = 10;
       const reel = { x: 0, y: 0, r: 34 };
@@ -7521,15 +7519,8 @@
         bucket.x = w - bucket.w - 14;
         bucket.y = 78;
       }
-      function fishSize(big) {
+      function fishSize() {
         const s = Math.min(w, h);
-        if (big) {
-          return {
-            len: clamp(s * 0.3, 130, 210),
-            hit: clamp(s * 0.26, 110, 170),
-            num: clamp(s * 0.05, 18, 26),
-          };
-        }
         return {
           len: clamp(s * 0.1, 40, 58),
           hit: clamp(s * 0.11, 44, 64),
@@ -7576,16 +7567,14 @@
           bubbles.push({ x: rand(0, w), y: rand(0, h), r: rand(1.2, 3.2), sp: rand(8, 22), ph: rand(0, 7) });
         }
       }
-      function spawnFromEdge(big) {
-        const margin = big ? 90 : 28;
-        const side = big ? (Math.random() < 0.5 ? 0 : 1)
-          : (Math.random() < 0.78 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() < 0.5 ? 2 : 3));
+      function spawnFromEdge() {
+        const margin = 28;
+        const side = Math.random() < 0.78 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() < 0.5 ? 2 : 3);
         let x, y;
         if (side === 0) { x = -margin; y = rand(h * 0.22, h * 0.78); }
         else if (side === 1) { x = w + margin; y = rand(h * 0.22, h * 0.78); }
         else if (side === 2) { x = rand(w * 0.16, w * 0.84); y = -margin; }
         else { x = rand(w * 0.16, w * 0.84); y = h + margin; }
-        if (big) y = rand(h * 0.34, h * 0.5);
         return { x, y };
       }
       function spawnInPond(nearReel) {
@@ -7606,24 +7595,22 @@
       }
       const FISH_COLS = ["#ff8a3d", "#ffd24d", "#3ec7ff", "#ff6ea8", "#7dff9a", "#c58cff", "#ffa070"];
       function makeFish(num, opts) {
-        const big = !!(opts && opts.big);
-        const pos = big ? spawnFromEdge(true)
-          : (opts && opts.pos) ? opts.pos
+        const pos = (opts && opts.pos) ? opts.pos
           : (opts && opts.pond) ? spawnInPond(!!opts.near)
-          : spawnFromEdge(false);
-        const size = fishSize(big);
+          : spawnFromEdge();
+        const size = fishSize();
         const dx = reel.x - pos.x;
-        const dy = (big ? pos.y : reel.y) - pos.y;
+        const dy = reel.y - pos.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
-        const spd = big ? rand(3.2, 5.2) : rand(4.2, 6.8);
+        const spd = rand(4.2, 6.8);
         return {
           id: nextId++,
           x: pos.x, y: pos.y,
           vx: (dx / dist) * spd,
-          vy: big ? 0 : (dy / dist) * spd,
+          vy: (dy / dist) * spd,
           spd,
-          num: big ? 3 : num,
-          color: big ? "#f0c14a" : pick(FISH_COLS),
+          num,
+          color: pick(FISH_COLS),
           ph: rand(0, Math.PI * 2),
           wob: rand(0.7, 1.3),
           len: size.len,
@@ -7632,7 +7619,6 @@
           fly: 0,
           hooked: false,
           shake: 0,
-          big,
           bumped: 0,
         };
       }
@@ -7640,7 +7626,7 @@
         return fishes.filter((f) => !f.toBucket);
       }
       function smallLive() {
-        return liveFish().filter((f) => !f.big);
+        return liveFish();
       }
       function onScreenSmall() {
         return smallLive().filter((f) => (
@@ -7779,7 +7765,7 @@
         refillSpawnQueue();
       }
       function replaceCaught(fish) {
-        if (!fish || fish.big) return;
+        if (!fish) return;
         const n = Number(fish.num);
         if (!Number.isFinite(n)) return;
         spawnQueue.unshift(n);
@@ -7816,7 +7802,7 @@
           });
           if (queuedTypes.size + add < 1) spawnAnswerPair();
         }
-        const anchor = (hooked && !hooked.big && !hooked.toBucket) ? hooked : nearestSmall();
+        const anchor = (hooked && !hooked.toBucket) ? hooked : nearestSmall();
         if (!anchor) return;
         if (smallLive().some((f) => f.id !== anchor.id && pairOk(anchor.num, f.num))) return;
         const p = partnerNum(anchor.num);
@@ -7831,7 +7817,6 @@
       function resetPlay() {
         score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
         hooked = null;
-        bonus = null;
         solved = null;
         nextRoundIn = 0;
         fishes.length = 0; hooks.length = 0; splashes.length = 0;
@@ -7839,7 +7824,6 @@
         spawnQueue.length = 0;
         spawnWait = 0.12;
         spawnCool = 0;
-        bigCool = 7;
         pickTarget();
         seedPairQueue();
         refillSpawnQueue();
@@ -8008,21 +7992,20 @@
         }
       }
       function fishHitR(f) {
-        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
-        if (f.big) return (f.len * sc * 0.95) + 36;
+        const sc = depthScale(f.y);
         return ((f.hit || 48) * sc) + 28;
       }
       function pointHitsFish(f, x, y) {
-        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
+        const sc = depthScale(f.y);
         const len = f.len * sc;
-        const ht = len * (f.big ? 0.58 : 0.66);
+        const ht = len * 0.66;
         const ang = Math.atan2(f.vy, f.vx) || 0;
         const dx = x - f.x, dy = y - f.y;
         const c = Math.cos(-ang), s = Math.sin(-ang);
         const lx = dx * c - dy * s;
         const ly = dx * s + dy * c;
-        const rx = (f.big ? len * 0.98 : len * 0.72) + 28;
-        const ry = (f.big ? ht * 0.9 : ht * 0.72) + 22;
+        const rx = len * 0.72 + 28;
+        const ry = ht * 0.72 + 22;
         return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) <= 1;
       }
       function fishUnderPoint(x, y, pred) {
@@ -8031,8 +8014,7 @@
           if (pred && !pred(f)) return;
           if (!pointHitsFish(f, x, y)) return;
           const d = Math.hypot(f.x - x, f.y - y);
-          const score = f.big ? d * 0.9 : d;
-          if (score < bestD) { bestD = score; best = f; }
+          if (d < bestD) { bestD = d; best = f; }
         });
         return { fish: best, d: bestD };
       }
@@ -8068,7 +8050,6 @@
         const f = fishes.find((x) => x.id === fish.id) || fish;
         f.hooked = false;
         if (hooked && hooked.id === f.id) hooked = null;
-        if (bonus && bonus.id === f.id) bonus = null;
         if (f.toBucket) return;
         f.toBucket = 1;
         f.fly = 0;
@@ -8078,7 +8059,7 @@
         const n = bucketFish.length;
         f.tx = (Number(bucket.x) || (w - 90)) + (Number(bucket.w) || 86) * 0.5 + rand(-14, 14);
         f.ty = (Number(bucket.y) || 78) + (Number(bucket.h) || 78) * 0.4 - Math.min(n, 5) * 7;
-        if (!f.big) replaceCaught(f);
+        replaceCaught(f);
       }
       function flushHookedToBucket() {
         const seen = {};
@@ -8089,37 +8070,25 @@
           list.push(f);
         };
         add(hooked);
-        add(bonus);
-        fishes.forEach((f) => { if (f.hooked || f === hooked || f === bonus) add(f); });
+        fishes.forEach((f) => { if (f.hooked || f === hooked) add(f); });
         list.forEach(sendToBucket);
         hooked = null;
-        bonus = null;
       }
       function releaseHook(fish) {
         if (!fish) return;
         fish.hooked = false;
         fish.bumped = 0.4;
         const dx = reel.x - fish.x;
-        const dy = (fish.big ? fish.y : reel.y) - fish.y;
+        const dy = reel.y - fish.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
         const spd = fish.spd || 30;
-        fish.vx = fish.big ? (fish.vx >= 0 ? spd : -spd) : (dx / dist) * spd;
-        fish.vy = fish.big ? 0 : (dy / dist) * spd;
+        fish.vx = (dx / dist) * spd;
+        fish.vy = (dy / dist) * spd;
         if (hooked && hooked.id === fish.id) hooked = null;
-        if (bonus && bonus.id === fish.id) bonus = null;
         syncHud();
       }
       function resolveCatch(fish) {
         addSplash(fish.x, fish.y, true);
-        if (fish.big) {
-          bonus = fish;
-          fish.hooked = true;
-          if (solved && nextRoundIn > 0) {
-            flushHookedToBucket();
-            syncHud();
-          }
-          return;
-        }
         if (hooked && hooked.id === fish.id) {
           releaseHook(fish);
           return;
@@ -8134,16 +8103,12 @@
         const first = hooked;
         if (pairOk(a, b)) {
           playHtml("ok");
-          const extra = !!(bonus && !bonus.toBucket);
-          const pts = extra ? 3 : 1;
           solved = { a, b, goal: Number(target) };
           first.hooked = true;
           fish.hooked = true;
-          if (bonus) bonus.hooked = true;
           flushHookedToBucket();
           bucketFish.push({ num: a }, { num: b });
-          if (extra) bucketFish.push({ num: 3 });
-          score += pts;
+          score += 1;
           bumpScore();
           nextRoundIn = 0.9;
           spawnCool = 0.9;
@@ -8156,8 +8121,8 @@
       function castTo(x, y) {
         if (!playing) return;
         const hookedHit = fishUnderPoint(x, y, (f) => f.hooked);
-        const pairHit = (hooked && !hooked.big)
-          ? fishUnderPoint(x, y, (f) => !f.big && !f.hooked && !f.toBucket && pairOk(hooked.num, f.num))
+        const pairHit = hooked
+          ? fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket && pairOk(hooked.num, f.num))
           : { fish: null, d: 1e9 };
         const freeHit = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
         const hit = pairHit.fish || freeHit.fish;
@@ -8196,7 +8161,6 @@
         shake = Math.max(0, shake - dt * 28);
         invuln = Math.max(0, invuln - dt);
         spawnCool = Math.max(0, spawnCool - dt);
-        bigCool = Math.max(0, bigCool - dt);
         if (solved) flushHookedToBucket();
         if (nextRoundIn > 0) nextRoundIn = Math.max(0, nextRoundIn - dt);
         if (solved && nextRoundIn <= 0 && !fishes.some((f) => f.toBucket)) {
@@ -8231,10 +8195,6 @@
           }
         });
         for (let i = hooks.length - 1; i >= 0; i -= 1) if (hooks[i].done && hooks[i].t > hooks[i].dur + 0.05) hooks.splice(i, 1);
-        if (playing && bigCool <= 0 && smallLive().length >= 3 && !fishes.some((f) => f.big && !f.toBucket)) {
-          fishes.push(makeFish(3, { big: true }));
-          bigCool = rand(11, 18);
-        }
         const live = liveFish();
         fishes.forEach((f) => {
           f.ph += dt * f.wob;
@@ -8258,14 +8218,6 @@
           if (f.hooked) {
             f.vx *= 0.92;
             f.vy *= 0.92;
-            f.x += f.vx * dt;
-            f.y += f.vy * dt;
-            return;
-          }
-          if (f.big) {
-            const dir = f.vx >= 0 ? 1 : -1;
-            f.vx = dir * f.spd;
-            f.vy = Math.sin(time * 0.7 + f.ph) * 10;
             f.x += f.vx * dt;
             f.y += f.vy * dt;
             return;
@@ -8297,15 +8249,10 @@
           const f = fishes[i];
           if (f.toBucket && f.fly >= 1) {
             if (hooked && hooked.id === f.id) hooked = null;
-            if (bonus && bonus.id === f.id) bonus = null;
             fishes.splice(i, 1);
             continue;
           }
-          if (f.big && !f.hooked && !f.toBucket && (f.x < -160 || f.x > w + 160)) {
-            fishes.splice(i, 1);
-            continue;
-          }
-          if (!playing || hooked || f.hooked || f.toBucket || f.big || f.bumped) continue;
+          if (!playing || hooked || f.hooked || f.toBucket || f.bumped) continue;
           const hitR = reel.r + f.len * 0.28;
           if (Math.hypot(f.x - reel.x, f.y - reel.y) < hitR) {
             addSplash(f.x, f.y, false);
@@ -8538,8 +8485,7 @@
         const left = solved ? String(solved.a) : (hooked ? String(hooked.num) : "?");
         const right = solved ? String(solved.b) : "?";
         const goal = solved ? solved.goal : target;
-        const star = bonus ? "  ★" : "";
-        const text = `${left}  ${opMark()}  ${right}   =   ${goal}${star}`;
+        const text = `${left}  ${opMark()}  ${right}   =   ${goal}`;
         const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
         const tw = ctx.measureText(text).width;
@@ -8552,11 +8498,11 @@
         ctx.fill();
         const pill = ctx.createLinearGradient(bx, by, bx, by + bh);
         pill.addColorStop(0, "#fffef8");
-        pill.addColorStop(1, hooked || bonus || solved ? "#fff3c4" : "#e7f7ff");
+        pill.addColorStop(1, hooked || solved ? "#fff3c4" : "#e7f7ff");
         ctx.fillStyle = pill;
         fillRoundRect(bx, by, bw, bh, 18);
         ctx.fill();
-        ctx.strokeStyle = hooked || bonus || solved ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
+        ctx.strokeStyle = hooked || solved ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
         ctx.lineWidth = 2.4;
         ctx.stroke();
         ctx.fillStyle = "#16324a";
@@ -8744,9 +8690,9 @@
       function drawFishBody(f) {
         const ang = Math.atan2(f.vy, f.vx) || 0;
         const jx = f.shake ? Math.sin(time * 40) * 3 : 0;
-        const sc = f.big ? Math.max(0.92, depthScale(f.y)) : depthScale(f.y);
+        const sc = depthScale(f.y);
         const len = f.len * sc;
-        const ht = len * (f.big ? 0.58 : 0.66);
+        const ht = len * 0.66;
         const far = 1 - depthT(f.y);
         ctx.save();
         ctx.translate(f.x + jx, f.y + 12 * sc);
@@ -8775,7 +8721,7 @@
         ctx.fill();
         ctx.restore();
         const hi = mixHex(f.color, 0.55, 255, 250, 230);
-        const lo = mixHex(f.big ? "#c48a18" : f.color, 0.45, 28, 18, 8);
+        const lo = mixHex(f.color, 0.45, 28, 18, 8);
         const body = ctx.createRadialGradient(-len * 0.22, -ht * 0.32, 3, 4, 6, len * 0.78);
         body.addColorStop(0, "#fffaf0");
         body.addColorStop(0.18, hi);
@@ -8823,7 +8769,7 @@
           ctx.arc(-len * 0.1 + i * len * 0.12, 0, ht * 0.2, 0.15, 1.15);
           ctx.stroke();
         }
-        const eye = ht * (f.big ? 0.42 : 0.44);
+        const eye = ht * 0.44;
         const ex = len * 0.26;
         const ey = -ht * 0.04;
         const eg = ctx.createRadialGradient(ex - eye * 0.25, ey - eye * 0.28, 1, ex, ey, eye);
@@ -8847,10 +8793,10 @@
         ctx.scale(1, sy);
         ctx.rotate(-ang);
         ctx.fillStyle = "#1a2450";
-        ctx.font = `900 ${Math.round(eye * (String(f.num).length > 1 || f.big ? 1.15 : 1.35))}px "Segoe UI", sans-serif`;
+        ctx.font = `900 ${Math.round(eye * (String(f.num).length > 1 ? 1.15 : 1.35))}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(f.big ? "3" : String(f.num), 0, 1);
+        ctx.fillText(String(f.num), 0, 1);
         ctx.restore();
         if (far > 0.08) {
           ctx.fillStyle = `rgba(70, 160, 200, ${far * 0.32})`;
@@ -8910,7 +8856,6 @@
         const ordered = fishes.slice().sort((a, b) => a.y - b.y);
         ordered.filter((f) => !f.toBucket).forEach(drawFishBody);
         if (hooked && !hooked.toBucket) drawLineTo(hooked.x, hooked.y, 28);
-        if (bonus && !bonus.toBucket) drawLineTo(bonus.x, bonus.y, 22);
         fishes.forEach((f) => {
           if (f.toBucket && (Number(f.fly) || 0) < 1) drawLineTo(f.x, f.y, 26);
         });
@@ -8982,7 +8927,7 @@
         if (!pads.length) initDecor();
         if (!playing) pickTarget();
         canvas._peekFish = () => liveFish().map((f) => ({
-          x: f.x, y: f.y, num: f.num, hooked: !!f.hooked, big: !!f.big, hit: f.hit, id: f.id,
+          x: f.x, y: f.y, num: f.num, hooked: !!f.hooked, hit: f.hit, id: f.id,
         }));
         canvas._castAt = (x, y) => castTo(x, y);
         canvas._tick = (dt) => { step(dt || 0.016); draw(); };
@@ -8993,7 +8938,6 @@
         canvas._fishState = () => ({
           score, lives, target, op,
           hooked: hooked ? hooked.num : null,
-          bonus: !!(bonus && bonus.hooked),
           solved: solved ? { a: solved.a, b: solved.b, goal: solved.goal } : null,
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
@@ -9029,7 +8973,6 @@
         entered = false;
         playing = false;
         hooked = null;
-        bonus = null;
         solved = null;
         cancelAnimationFrame(raf);
         const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
