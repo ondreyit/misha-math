@@ -7615,8 +7615,11 @@
       function liveFish() {
         return fishes.filter((f) => !f.toBucket);
       }
+      function smallLive() {
+        return liveFish().filter((f) => !f.big);
+      }
       function hasPair() {
-        const list = liveFish().filter((f) => !f.big);
+        const list = smallLive();
         for (let i = 0; i < list.length; i += 1) {
           for (let j = i + 1; j < list.length; j += 1) {
             if (pairOk(list[i].num, list[j].num)) return true;
@@ -7624,46 +7627,76 @@
         }
         return false;
       }
-      function distractorNum(secret) {
-        const pool = [];
-        eachAllowed((n) => pool.push(n));
-        for (let k = 0; k < 24; k += 1) {
-          const n = pool.length ? pool[(Math.random() * pool.length) | 0] : 0;
-          if (secret.includes(n)) continue;
-          if (op === "add" && n === target) continue;
-          return n;
+      function canSolveWith(n) {
+        let ok = false;
+        eachAllowed((m) => { if (pairOk(n, m)) ok = true; });
+        return ok;
+      }
+      function partnerNum(n) {
+        const opts = [];
+        eachAllowed((m) => { if (pairOk(n, m)) opts.push(m); });
+        return opts.length ? pick(opts) : null;
+      }
+      function shuffleInPlace(arr) {
+        for (let i = arr.length - 1; i > 0; i -= 1) {
+          const j = (Math.random() * (i + 1)) | 0;
+          const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
         }
-        return pool.includes(0) ? 0 : (pool[0] || 0);
+        return arr;
+      }
+      function spawnAnswerPair() {
+        const vars = pairVariants(target);
+        const p = vars.length ? pick(vars) : fallbackPair();
+        if (!p || p.length < 2) return;
+        fishes.push(makeFish(p[0]), makeFish(p[1]));
+      }
+      function ensureSolvable() {
+        if (!playing || nextRoundIn > 0) return;
+        if (hooked && !hooked.big && !hooked.toBucket) {
+          const hasP = smallLive().some((f) => f.id !== hooked.id && pairOk(hooked.num, f.num));
+          if (!hasP) {
+            const p = partnerNum(hooked.num);
+            if (p != null) fishes.push(makeFish(p));
+            else spawnAnswerPair();
+          }
+        }
+        if (!hasPair()) spawnAnswerPair();
+      }
+      function distractorNum(secret) {
+        const used = secret || [];
+        const pool = [];
+        eachAllowed((n) => {
+          if (!canSolveWith(n)) return;
+          if (used.includes(n)) return;
+          pool.push(n);
+        });
+        if (pool.length) return pick(pool);
+        const any = [];
+        eachAllowed((n) => { if (canSolveWith(n)) any.push(n); });
+        if (any.length) return pick(any);
+        const p = fallbackPair();
+        return p[0];
       }
       function fillSchool() {
+        if (!playing || nextRoundIn > 0) return;
         const want = 7;
-        const live = liveFish().filter((f) => !f.big);
-        if (!live.length) {
-          const vars = pairVariants(target);
+        if (!smallLive().length) {
+          const vars = shuffleInPlace(pairVariants(target).slice());
           const nums = [];
-          const take = vars.slice(0, 2);
+          const take = vars.slice(0, Math.min(2, Math.max(1, vars.length)));
           if (!take.length) take.push(fallbackPair());
-          if (take.length === 1 && vars.length === 1) take.push(vars[0]);
+          if (take.length === 1) take.push(take[0].slice());
           take.forEach((p) => { nums.push(p[0], p[1]); });
           while (nums.length < want) nums.push(distractorNum(nums.slice()));
-          for (let i = nums.length - 1; i > 0; i -= 1) {
-            const j = (Math.random() * (i + 1)) | 0;
-            const tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
-          }
-          nums.forEach((n) => fishes.push(makeFish(n)));
+          shuffleInPlace(nums).forEach((n) => fishes.push(makeFish(n)));
+          ensureSolvable();
           return;
         }
-        while (liveFish().filter((f) => !f.big).length < want) {
-          const vars = pairVariants(target);
-          const needPair = !hasPair();
-          const pair = vars.length ? pick(vars) : fallbackPair();
-          const n = needPair ? pair[liveFish().length % 2] : distractorNum(pair);
-          fishes.push(makeFish(n));
+        while (smallLive().length < want) {
+          if (!hasPair()) spawnAnswerPair();
+          else fishes.push(makeFish(distractorNum(smallLive().map((f) => f.num))));
         }
-        if (!hasPair()) {
-          const pair = fallbackPair();
-          fishes.push(makeFish(pair[0]), makeFish(pair[1]));
-        }
+        ensureSolvable();
       }
       function resetPlay() {
         score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
@@ -7989,7 +8022,8 @@
           if (nextRoundIn === 0) {
             solved = null;
             pickTarget();
-            spawnCool = 0.12;
+            spawnCool = 0;
+            fillSchool();
             syncHud();
           }
         }
@@ -8094,6 +8128,7 @@
             fishes.splice(i, 1);
           }
         }
+        if (playing) ensureSolvable();
         if (playing && spawnCool <= 0) fillSchool();
       }
       function drawWater() {
@@ -8768,6 +8803,8 @@
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: rangeBounds(),
+          hasPair: hasPair(),
+          nums: smallLive().map((f) => f.num),
           bucketPos: { x: bucket.x, y: bucket.y, w: bucket.w, h: bucket.h },
           flying: fishes.filter((f) => f.toBucket).map((f) => ({
             id: f.id, fly: Number(f.fly) || 0, x: f.x, y: f.y, tx: f.tx, ty: f.ty,
