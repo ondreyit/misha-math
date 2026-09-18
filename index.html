@@ -7934,15 +7934,13 @@
       }
       function fishUnderPoint(x, y, pred) {
         let best = null, bestD = 1e9;
-        let bestBig = null, bestBigD = 1e9;
         liveFish().forEach((f) => {
           if (pred && !pred(f)) return;
           if (!pointHitsFish(f, x, y)) return;
           const d = Math.hypot(f.x - x, f.y - y);
-          if (f.big && d < bestBigD) { bestBigD = d; bestBig = f; }
-          if (d < bestD) { bestD = d; best = f; }
+          const score = f.big ? d * 0.9 : d;
+          if (score < bestD) { bestD = score; best = f; }
         });
-        if (bestBig) return { fish: bestBig, d: bestBigD };
         return { fish: best, d: bestD };
       }
       function hitFish(x, y) {
@@ -8016,12 +8014,17 @@
         const first = hooked;
         if (pairOk(a, b)) {
           playHtml("ok");
-          const extra = bonus && !bonus.toBucket ? bonus : null;
+          const extra = (bonus && bonus.big && !bonus.toBucket) ? bonus : null;
           const pts = extra ? 3 : 1;
           solved = { a, b, goal: Number(target) };
           sendToBucket(first);
           sendToBucket(fish);
-          if (extra) sendToBucket(extra);
+          if (extra && extra.id !== first.id && extra.id !== fish.id) sendToBucket(extra);
+          liveFish().forEach((f) => {
+            if (f.hooked && f.id !== first.id && f.id !== fish.id && !(extra && extra.id === f.id)) {
+              f.hooked = false;
+            }
+          });
           bucketFish.push({ num: a }, { num: b });
           if (extra) bucketFish.push({ num: 3 });
           hooked = null;
@@ -8038,32 +8041,24 @@
       }
       function castTo(x, y) {
         if (!playing) return;
-        const onHook = fishUnderPoint(x, y, (f) => f.hooked);
-        const free = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
-        if (free.fish && free.fish.big && !(onHook.fish && onHook.fish.big && onHook.d <= free.d)) {
+        const hookedHit = fishUnderPoint(x, y, (f) => f.hooked);
+        const pairHit = (hooked && !hooked.big)
+          ? fishUnderPoint(x, y, (f) => !f.big && !f.hooked && !f.toBucket && pairOk(hooked.num, f.num))
+          : { fish: null, d: 1e9 };
+        const freeHit = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
+        const hit = pairHit.fish || freeHit.fish;
+        if (hookedHit.fish && (!hit || (hookedHit.d + 10 < (pairHit.fish ? pairHit.d : freeHit.d) && !pairHit.fish))) {
           playHtml("cast");
           hooks.push({
             x: reel.x, y: reel.y,
-            tx: free.fish.x, ty: free.fish.y,
-            t: 0, dur: 0.18, fish: free.fish, resolved: true,
+            tx: hookedHit.fish.x, ty: hookedHit.fish.y,
+            t: 0, dur: 0.16, fish: hookedHit.fish, resolved: true,
           });
-          resolveCatch(free.fish);
+          releaseHook(hookedHit.fish);
+          addSplash(hookedHit.fish.x, hookedHit.fish.y, false);
           kickFrame();
           return;
         }
-        if (onHook.fish && (!free.fish || onHook.d <= free.d)) {
-          playHtml("cast");
-          hooks.push({
-            x: reel.x, y: reel.y,
-            tx: onHook.fish.x, ty: onHook.fish.y,
-            t: 0, dur: 0.16, fish: onHook.fish, resolved: true,
-          });
-          releaseHook(onHook.fish);
-          addSplash(onHook.fish.x, onHook.fish.y, false);
-          kickFrame();
-          return;
-        }
-        const hit = free.fish;
         playHtml("cast");
         hooks.push({
           x: reel.x, y: reel.y,
@@ -8178,7 +8173,7 @@
         }
         for (let i = fishes.length - 1; i >= 0; i -= 1) {
           const f = fishes[i];
-          if (f.fly >= 1) {
+          if (f.toBucket && f.fly >= 1) {
             if (hooked && hooked.id === f.id) hooked = null;
             if (bonus && bonus.id === f.id) bonus = null;
             fishes.splice(i, 1);
