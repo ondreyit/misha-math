@@ -7486,6 +7486,69 @@
         }
         return out;
       }
+      function listedMulNums() {
+        const { min, max } = rangeBounds();
+        const lo = Math.max(2, min);
+        const hi = Math.max(lo, max);
+        const out = [];
+        for (let n = lo; n <= hi; n += 1) if (mulAllowed(n)) out.push(n);
+        return out;
+      }
+      function mulProductsFromNums(raw) {
+        const counts = {};
+        (raw || []).forEach((n) => {
+          const v = Number(n);
+          if (!mulAllowed(v)) return;
+          counts[v] = (counts[v] || 0) + 1;
+        });
+        const groups = Object.keys(counts).map((k) => ({ n: Number(k), c: counts[k] }));
+        const seen = new Set();
+        function rec(i, used, prod) {
+          if (prod > MUL_GOAL_MAX) return;
+          if (i >= groups.length) {
+            if (used >= 2 && prod >= MUL_GOAL_MIN && prod <= MUL_GOAL_MAX) seen.add(prod);
+            return;
+          }
+          const g = groups[i];
+          let p = 1;
+          for (let k = 0; k <= g.c; k += 1) {
+            rec(i + 1, used + k, prod * p);
+            if (k >= g.c) break;
+            p *= g.n;
+            if (prod * p > MUL_GOAL_MAX) break;
+          }
+        }
+        rec(0, 0, 1);
+        return [...seen];
+      }
+      function pickMulTargetFromSchool() {
+        const live = smallLive();
+        const nums = live.map((f) => Number(f.num)).filter((n) => mulAllowed(n));
+        let opts = mulProductsFromNums(nums);
+        if (!opts.length) return null;
+        const near = nearestSmall();
+        if (near && mulAllowed(Number(near.num))) {
+          const a = Number(near.num);
+          const pairProds = [];
+          live.forEach((f) => {
+            if (f.id === near.id || !mulAllowed(f.num)) return;
+            const p = a * Number(f.num);
+            if (p >= MUL_GOAL_MIN && p <= MUL_GOAL_MAX) pairProds.push(p);
+          });
+          if (pairProds.length) opts = [...new Set(pairProds)];
+        }
+        const others = opts.filter((n) => n !== Number(target));
+        return pick(others.length ? others : opts);
+      }
+      function applyMulTarget(next) {
+        if (next == null) {
+          prompt = null;
+          return null;
+        }
+        target = next;
+        prompt = { goal: target };
+        return target;
+      }
       function listPairs(goal) {
         const pairs = [];
         if (op === "add") {
@@ -7558,12 +7621,7 @@
         return !!dp[g];
       }
       function pickTarget() {
-        if (op === "mul") {
-          const opts = mulGoalOptions();
-          target = opts.length ? pick(opts) : MUL_GOAL_MIN;
-          prompt = { goal: target };
-          return target;
-        }
+        if (op === "mul") return applyMulTarget(pickMulTargetFromSchool());
         const { min, max } = rangeBounds();
         const gmin = goalMin();
         const cap = op === "add"
@@ -7806,14 +7864,18 @@
         fishes.forEach((f) => { f.hooked = false; });
         spawnCool = 0;
         nextRoundIn = 0;
-        pickTarget();
-        pruneSchool();
-        seedPairQueue();
+        if (op === "mul") {
+          applyMulTarget(pickMulTargetFromSchool());
+        } else {
+          pickTarget();
+          pruneSchool();
+          seedPairQueue();
+        }
         fillSchool();
         syncHud();
       }
       function listedNums() {
-        if (op === "mul") return mulFactors(target);
+        if (op === "mul") return listedMulNums();
         const nums = [];
         eachAllowed((n) => nums.push(n));
         if (nums.length <= 20) return nums;
@@ -7844,7 +7906,7 @@
         hooks.length = 0;
         spawnQueue.length = 0;
         spawnWait = 0.08;
-        seedPairQueue();
+        if (op !== "mul") seedPairQueue();
         fillSchool();
       }
       function spawnEdgeNum(n) {
@@ -7898,7 +7960,7 @@
           if (!have[n]) spawnQueue.push(n);
         });
         const want = schoolWant();
-        const pairPool = pairNumPool();
+        const pairPool = op === "mul" ? [] : pairNumPool();
         const allPool = listedNums();
         while (smallLive().length + spawnQueue.length < want) {
           if (pairPool.length && Math.random() < 0.72) spawnQueue.push(pick(pairPool));
@@ -7943,6 +8005,7 @@
       function ensureSolvable() {
         if (!playing || solved) return;
         refillSpawnQueue();
+        if (op === "mul") return;
         const liveNums = smallLive().map((f) => Number(f.num)).concat(spawnQueue.map((n) => Number(n)));
         if (op === "add" && !canSumTo(target, liveNums.length ? liveNums : null)) {
           const vars = pairVariants(target);
@@ -7993,8 +8056,13 @@
         spawnQueue.length = 0;
         spawnWait = 0.12;
         spawnCool = 0;
-        pickTarget();
-        seedPairQueue();
+        if (op === "mul") {
+          target = 0;
+          prompt = null;
+        } else {
+          pickTarget();
+          seedPairQueue();
+        }
         refillSpawnQueue();
         overlay.hidden = true;
         playing = true;
@@ -8255,7 +8323,7 @@
         fish.hooked = true;
       }
       function strike() {
-        if (!playing || solved) return;
+        if (!playing || solved || !prompt) return;
         const list = hookedList();
         if (!list.length) return;
         const val = hookedTotal();
@@ -8310,10 +8378,14 @@
         spawnCool = Math.max(0, spawnCool - dt);
         if (solved) flushHookedToBucket();
         if (solved && !fishes.some((f) => f.toBucket)) startNextRound();
-        if (playing && !solved && (target < goalMin() || !prompt || (op === "mul" && (target < MUL_GOAL_MIN || target > MUL_GOAL_MAX)))) {
-          pickTarget();
-          pruneSchool();
-          fillSchool();
+        if (playing && !solved && !anyHooked()) {
+          if (op === "mul") {
+            if (!prompt) applyMulTarget(pickMulTargetFromSchool());
+          } else if (target < goalMin() || !prompt) {
+            pickTarget();
+            pruneSchool();
+            fillSchool();
+          }
         }
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
@@ -8630,7 +8702,7 @@
           ? solved.nums
           : hookedList().map((f) => Number(f.num));
         const expr = nums.length ? nums.join(`  ${opMark()}  `) : "?";
-        const goal = solved ? solved.goal : target;
+        const goal = solved ? solved.goal : (prompt ? target : "?");
         const text = `${expr}   =   ${goal}`;
         const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
@@ -8751,7 +8823,7 @@
         ctx.font = `900 ${Math.round(r * 1.15)}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(String(target), x, y + 1);
+        ctx.fillText(prompt || solved ? String(solved ? solved.goal : target) : "?", x, y + 1);
         ctx.restore();
         drawDuck(x + r * 3.6, Math.max(36, y - r * 4.8), Math.max(9, r * 0.42));
       }
@@ -9048,8 +9120,14 @@
             op = nextOp;
             syncOps();
             if (playing && !solved && changed) {
-              pickTarget();
-              rebuildSchool();
+              if (op === "mul") {
+                target = 0;
+                prompt = null;
+                rebuildSchool();
+              } else {
+                pickTarget();
+                rebuildSchool();
+              }
             }
           });
         }
