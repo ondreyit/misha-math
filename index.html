@@ -7766,31 +7766,29 @@
         }
         return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
       }
-      function toneWav(freq, dur, vol, type) {
+      function toneWav(freq, dur, vol) {
         const sr = 22050;
         const n = Math.floor(sr * dur);
         const samples = new Float32Array(n);
         for (let i = 0; i < n; i += 1) {
           const tt = i / sr;
-          const attack = Math.min(1, i / (sr * 0.045));
-          const fall = Math.pow(Math.max(0, 1 - i / n), 1.45);
+          const attack = Math.min(1, i / (sr * 0.16));
+          const fall = Math.pow(Math.max(0, 1 - i / n), 2.4);
           const env = attack * fall;
-          let f = freq;
-          if (type === "down") f = freq * (1.15 - 0.55 * (tt / dur));
-          const s = Math.sin(2 * Math.PI * f * tt);
-          const soft = Math.sin(2 * Math.PI * f * 0.5 * tt) * 0.18;
-          samples[i] = (s * 0.82 + soft) * env * vol;
+          const s = Math.sin(2 * Math.PI * freq * tt);
+          const warm = Math.sin(2 * Math.PI * freq * 0.5 * tt) * 0.18;
+          samples[i] = (s * 0.72 + warm) * env * vol;
         }
         return encodeWav(samples, sr);
       }
       function buildSfx() {
         if (htmlSfx.urls) return;
         htmlSfx.urls = {
-          cast: toneWav(360, 0.28, 0.18, "down"),
-          plop: toneWav(280, 0.24, 0.14, "sine"),
-          ok: toneWav(620, 0.26, 0.16, "sine"),
-          bad: toneWav(190, 0.32, 0.14, "sine"),
-          silent: toneWav(40, 0.08, 0.0004, "sine"),
+          cast: toneWav(168, 0.42, 0.018),
+          plop: toneWav(150, 0.3, 0.014),
+          ok: toneWav(392, 0.36, 0.03),
+          bad: toneWav(164, 0.4, 0.022),
+          silent: toneWav(40, 0.08, 0.0003),
         };
       }
       function htmlAudioEl(url, loop) {
@@ -7812,7 +7810,7 @@
           pool.push(el);
         }
         try { el.currentTime = 0; } catch { /* ignore */ }
-        el.volume = 0.42;
+        el.volume = kind === "cast" ? 0.07 : 0.11;
         const p = el.play();
         if (p && p.catch) p.catch(() => {});
       }
@@ -7879,13 +7877,13 @@
       function sendToBucket(fish) {
         fish.toBucket = 1;
         fish.hooked = false;
+        fish.fly = 0;
         fish.sx = fish.x; fish.sy = fish.y;
         const n = bucketFish.length;
         fish.tx = bucket.x + bucket.w * 0.5 + rand(-12, 12);
         fish.ty = bucket.y + bucket.h * 0.42 - Math.min(n, 5) * 7;
       }
       function resolveCatch(fish) {
-        playHtml("plop");
         addSplash(fish.x, fish.y, true);
         if (fish.big) {
           if (bonus && bonus.id === fish.id) {
@@ -7938,10 +7936,7 @@
           ty: hit ? hit.y : y,
           t: 0, dur: 0.18, fish: hit || null, resolved: !!hit,
         });
-        if (hit) {
-          resolveCatch(hit);
-          draw();
-        }
+        if (hit) resolveCatch(hit);
         kickFrame();
       }
       function kickFrame() {
@@ -7997,14 +7992,14 @@
           bigCool = rand(11, 18);
         }
         const live = liveFish();
-        live.forEach((f) => {
+        fishes.forEach((f) => {
           f.ph += dt * f.wob;
           f.shake = Math.max(0, f.shake - dt);
           f.bumped = Math.max(0, f.bumped - dt);
           if (f.toBucket) {
-            f.fly = Math.min(1, f.fly + dt * 1.35);
+            f.fly = Math.min(1, (Number(f.fly) || 0) + dt * 1.85);
             const u = f.fly;
-            const lift = Math.sin(u * Math.PI) * 90;
+            const lift = Math.sin(u * Math.PI) * 110;
             f.x = f.sx + (f.tx - f.sx) * u;
             f.y = f.sy + (f.ty - f.sy) * u - lift;
             return;
@@ -8506,6 +8501,10 @@
         ctx.save();
         ctx.translate(f.x + jx, f.y);
         ctx.rotate(ang);
+        if (f.toBucket) {
+          const shrink = 1 - Math.min(0.62, (Number(f.fly) || 0) * 0.62);
+          ctx.scale(shrink, shrink);
+        }
         if (Math.abs(ang) > Math.PI / 2) ctx.scale(1, -1);
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
@@ -8738,6 +8737,10 @@
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: rangeBounds(),
+          bucketPos: { x: bucket.x, y: bucket.y, w: bucket.w, h: bucket.h },
+          flying: fishes.filter((f) => f.toBucket).map((f) => ({
+            id: f.id, fly: Number(f.fly) || 0, x: f.x, y: f.y, tx: f.tx, ty: f.ty,
+          })),
         });
         syncHud();
         if (!playing) showOverlay(over ? "over" : "start");
