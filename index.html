@@ -7840,15 +7840,20 @@
           audio.ctx.resume().catch(() => {});
         }
       }
-      function hitFish(x, y) {
-        let bestFree = null, bestFreeD = 1e9;
+      function fishHitR(f) {
+        return ((f.hit || 48) * depthScale(f.y)) + 28;
+      }
+      function fishUnderPoint(x, y, pred) {
+        let best = null, bestD = 1e9;
         liveFish().forEach((f) => {
-          if (f.hooked || f.toBucket) return;
+          if (pred && !pred(f)) return;
           const d = Math.hypot(f.x - x, f.y - y);
-          const rad = ((f.hit || 48) * depthScale(f.y)) + 28;
-          if (d < rad && d < bestFreeD) { bestFreeD = d; bestFree = f; }
+          if (d < fishHitR(f) && d < bestD) { bestD = d; best = f; }
         });
-        return bestFree;
+        return { fish: best, d: bestD };
+      }
+      function hitFish(x, y) {
+        return fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket).fish;
       }
       function addSplash(x, y, good) {
         splashes.push({ x, y, t: 0, good: !!good });
@@ -7886,12 +7891,11 @@
       function resolveCatch(fish) {
         addSplash(fish.x, fish.y, true);
         if (fish.big) {
-          if (bonus && bonus.id === fish.id) {
-            fish.hooked = false;
-            bonus = null;
-            return;
-          }
           bonus = fish;
+          fish.hooked = true;
+          return;
+        }
+        if (hooked && hooked.id === fish.id) {
           fish.hooked = true;
           return;
         }
@@ -7900,7 +7904,6 @@
           fish.hooked = true;
           return;
         }
-        if (hooked.id === fish.id) return;
         const a = Number(hooked.num);
         const b = Number(fish.num);
         const first = hooked;
@@ -7928,7 +7931,14 @@
       }
       function castTo(x, y) {
         if (!playing) return;
-        const hit = hitFish(x, y);
+        const onHook = fishUnderPoint(x, y, (f) => f.hooked);
+        const free = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
+        if (onHook.fish && (!free.fish || onHook.d <= free.d)) {
+          onHook.fish.hooked = true;
+          kickFrame();
+          return;
+        }
+        const hit = free.fish;
         playHtml("cast");
         hooks.push({
           x: reel.x, y: reel.y,
