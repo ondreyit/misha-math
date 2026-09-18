@@ -1555,7 +1555,7 @@
                 <p class="gravity-kicker" data-i18n="navFish">Рыбалка</p>
                 <h2 id="fishOverlayTitle" data-i18n="fishTitle">Рыбалка</h2>
                 <p class="gravity-over-score hidden" id="fishOverlayScore"></p>
-                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.</p>
+                <p class="gravity-rules" id="fishOverlayRules" data-i18n="fishRules">На круге — ответ, не меньше 8. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.</p>
                 <div class="fish-ops" id="fishOps">
                   <button type="button" class="fish-op on" data-op="add"><strong>+</strong><span data-i18n="fishAdd">Сложение</span></button>
                   <button type="button" class="fish-op" data-op="sub"><strong>−</strong><span data-i18n="fishSub">Вычитание</span></button>
@@ -1794,8 +1794,8 @@
         fishSub: "Вычитание",
         fishMul: "Умножение",
         fishDiv: "Деление",
-        fishRules: "На круге — ответ. Лови две рыбки, из которых он получается. Вариантов несколько. Если рыбка дотронется до катушки — минус 2 жизни, ошибка — минус 1.",
-        fishHint: "Две рыбки = ответ. Катушка бьёт на −2.",
+        fishRules: "На круге — ответ, не меньше 8. Левой кнопкой хватай любых рыбок, правой — подсекай. Если сумма верная, они летят в ведро. Катушка бьёт на −2, ошибка — минус 1.",
+        fishHint: "ЛКМ — хватай рыбок, ПКМ — подсекай сумму. Катушка бьёт на −2.",
         fishOver: "Рыбки уплыли",
         fishCaught: (n) => `Поймано: ${n}`,
         fishNeedOp: "Сначала выбери действие",
@@ -2095,8 +2095,8 @@
         fishSub: "Subtraction",
         fishMul: "Multiplication",
         fishDiv: "Division",
-        fishRules: "The circle is the answer. Catch two fish that make it — there is more than one way. A fish that touches the reel costs 2 lives. A wrong pair costs 1.",
-        fishHint: "Two fish make the answer. Touching the reel is −2.",
+        fishRules: "The circle is the answer, at least 8. Left click grabs any fish. Right click sets the hook — if the sum is right, they fly to the bucket. Touching the reel costs 2 lives. A wrong sum costs 1.",
+        fishHint: "Left click grabs fish. Right click sets the sum. Touching the reel is −2.",
         fishOver: "The fish got away",
         fishCaught: (n) => `Caught: ${n}`,
         fishNeedOp: "Pick an operation first",
@@ -7376,8 +7376,8 @@
       let op = "add";
       let target = 10;
       let prompt = null;
-      let hooked = null;
       let solved = null;
+      const GOAL_MIN = 8;
       let nextRoundIn = 0;
       let spawnCool = 0;
       let spawnWait = 0;
@@ -7487,27 +7487,52 @@
         if (op === "sub") return [clamp(target + lo, lo, hi), lo];
         return [lo, clamp(target - lo, lo, hi)];
       }
+      function canSumTo(goal, nums) {
+        const g = Number(goal);
+        if (!Number.isFinite(g) || g < 0) return false;
+        const pool = (nums && nums.length) ? nums.map(Number) : [];
+        if (!pool.length) eachAllowed((n) => pool.push(n));
+        if (!pool.length) return false;
+        const dp = new Uint8Array(g + 1);
+        dp[0] = 1;
+        for (let s = 0; s <= g; s += 1) {
+          if (!dp[s]) continue;
+          for (let i = 0; i < pool.length; i += 1) {
+            const ns = s + pool[i];
+            if (ns <= g) dp[ns] = 1;
+          }
+        }
+        return !!dp[g];
+      }
       function pickTarget() {
         const { min, max } = rangeBounds();
-        const rich3 = [];
+        const cap = op === "add"
+          ? Math.max(GOAL_MIN, Math.min(20, Math.max(max + max, 12)))
+          : Math.max(GOAL_MIN, max, 12);
         const rich = [];
         const tries = [];
-        eachAllowed((n) => {
+        for (let n = GOAL_MIN; n <= cap; n += 1) {
+          if (op === "add") {
+            if (!canSumTo(n)) continue;
+            tries.push(n);
+            if (pairVariants(n).length >= 2) rich.push(n);
+            continue;
+          }
           if (op === "mul") {
             let factors = 0;
             eachAllowed((a) => {
               if (a && n % a === 0 && allowedNum(n / a) && (n / a)) factors += 1;
             });
-            if (!factors) return;
+            if (!factors) continue;
           }
           const v = pairVariants(n);
-          if (!v.length) return;
+          if (!v.length) continue;
           tries.push(n);
-          if (v.length >= 3) rich3.push(n);
-          else if (v.length >= 2) rich.push(n);
-        });
-        const pool = rich3.length ? rich3 : (rich.length ? rich : tries);
-        target = pool.length ? pick(pool) : clamp(min + max, min, max);
+          if (v.length >= 2) rich.push(n);
+        }
+        const pool = rich.length ? rich : tries;
+        target = pool.length ? pick(pool) : GOAL_MIN;
+        prompt = { goal: target };
         return target;
       }
       function layout() {
@@ -7688,49 +7713,34 @@
         if (op === "div" && (g < 0 || Math.abs(g - Math.round(g)) > 1e-9)) return null;
         return op === "div" || op === "mul" ? Math.round(g) : g;
       }
+      function hookedList() {
+        return fishes.filter((f) => f.hooked && !f.toBucket);
+      }
+      function anyHooked() {
+        return hookedList().length > 0;
+      }
+      function hookedTotal() {
+        const list = hookedList();
+        if (!list.length) return null;
+        if (op === "add") return list.reduce((s, f) => s + Number(f.num), 0);
+        if (op === "mul") return list.reduce((s, f) => s * Number(f.num), 1);
+        let v = Number(list[0].num);
+        for (let i = 1; i < list.length; i += 1) {
+          v = applyOp(v, list[i].num);
+          if (!Number.isFinite(v)) return null;
+        }
+        return op === "div" ? Math.round(v) : v;
+      }
       function setPromptFromNearest() {
-        const near = nearestSmall();
-        if (!near) {
-          pickTarget();
-          prompt = null;
-          return false;
-        }
-        const a = Number(near.num);
-        const liveFits = [];
-        smallLive().forEach((f) => {
-          if (f.id === near.id) return;
-          const g = resultOf(a, f.num);
-          if (g == null) return;
-          liveFits.push({ b: Number(f.num), goal: g });
-        });
-        let chosen = liveFits.length ? pick(liveFits) : null;
-        if (!chosen) {
-          const opts = [];
-          eachAllowed((m) => {
-            const g = resultOf(a, m);
-            if (g != null) opts.push({ b: Number(m), goal: g });
-          });
-          chosen = opts.length ? pick(opts) : null;
-        }
-        if (!chosen) {
-          pickTarget();
-          prompt = null;
-          return false;
-        }
-        prompt = { a, b: chosen.b, goal: chosen.goal };
-        target = chosen.goal;
-        if (!smallLive().some((f) => f.id !== near.id && Number(f.num) === Number(chosen.b))) {
-          spawnQueue.unshift(chosen.b);
-          spawnWait = 0;
-        }
+        pickTarget();
         return true;
       }
       function startNextRound() {
         solved = null;
-        hooked = null;
+        fishes.forEach((f) => { f.hooked = false; });
         spawnCool = 0;
         nextRoundIn = 0;
-        setPromptFromNearest();
+        pickTarget();
         fillSchool();
         syncHud();
       }
@@ -7839,12 +7849,15 @@
       function ensureSolvable() {
         if (!playing || solved) return;
         refillSpawnQueue();
-        if (prompt) {
-          if (!smallLive().some((f) => Number(f.num) === Number(prompt.a)) && !queueHasNum(prompt.a)) {
-            spawnQueue.unshift(prompt.a);
-          }
-          if (!smallLive().some((f) => Number(f.num) === Number(prompt.b)) && !queueHasNum(prompt.b)) {
-            spawnQueue.unshift(prompt.b);
+        const liveNums = smallLive().map((f) => Number(f.num)).concat(spawnQueue.map((n) => Number(n)));
+        if (op === "add" && !canSumTo(target, liveNums.length ? liveNums : null)) {
+          const vars = pairVariants(target);
+          if (vars.length) {
+            spawnQueue.unshift(vars[0][1]);
+            spawnQueue.unshift(vars[0][0]);
+          } else {
+            const { max } = rangeBounds();
+            spawnQueue.unshift(Math.min(Number(target) || GOAL_MIN, max));
           }
         }
         const want = pairWant();
@@ -7864,7 +7877,7 @@
           });
           if (queuedTypes.size + add < 1) spawnAnswerPair();
         }
-        const anchor = (hooked && !hooked.toBucket) ? hooked : nearestSmall();
+        const anchor = anyHooked() ? hookedList()[0] : nearestSmall();
         if (!anchor) return;
         if (smallLive().some((f) => f.id !== anchor.id && pairOk(anchor.num, f.num))) return;
         const p = partnerNum(anchor.num);
@@ -7878,7 +7891,6 @@
       }
       function resetPlay() {
         score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
-        hooked = null;
         solved = null;
         prompt = null;
         nextRoundIn = 0;
@@ -8112,7 +8124,6 @@
         if (!fish) return;
         const f = fishes.find((x) => x.id === fish.id) || fish;
         f.hooked = false;
-        if (hooked && hooked.id === f.id) hooked = null;
         if (f.toBucket) return;
         f.toBucket = 1;
         f.fly = 0;
@@ -8125,17 +8136,8 @@
         replaceCaught(f);
       }
       function flushHookedToBucket() {
-        const seen = {};
-        const list = [];
-        const add = (f) => {
-          if (!f || seen[f.id]) return;
-          seen[f.id] = 1;
-          list.push(f);
-        };
-        add(hooked);
-        fishes.forEach((f) => { if (f.hooked || f === hooked) add(f); });
+        const list = hookedList();
         list.forEach(sendToBucket);
-        hooked = null;
       }
       function releaseHook(fish) {
         if (!fish) return;
@@ -8147,60 +8149,47 @@
         const spd = fish.spd || 30;
         fish.vx = (dx / dist) * spd;
         fish.vy = (dy / dist) * spd;
-        if (hooked && hooked.id === fish.id) hooked = null;
         syncHud();
       }
-      function resolveCatch(fish) {
+      function grabFish(fish) {
+        if (!fish || solved) return;
         addSplash(fish.x, fish.y, true);
-        if (hooked && hooked.id === fish.id) {
+        if (fish.hooked) {
           releaseHook(fish);
           return;
         }
-        if (!hooked) {
-          hooked = fish;
-          fish.hooked = true;
-          return;
-        }
-        const a = Number(hooked.num);
-        const b = Number(fish.num);
-        const first = hooked;
-        if (pairOk(a, b)) {
+        fish.hooked = true;
+      }
+      function strike() {
+        if (!playing || solved) return;
+        const list = hookedList();
+        if (!list.length) return;
+        const val = hookedTotal();
+        const goal = Number(target);
+        if (val === goal) {
           playHtml("ok");
-          solved = { a, b, goal: Number(target) };
-          first.hooked = true;
-          fish.hooked = true;
+          solved = { nums: list.map((f) => Number(f.num)), goal };
+          list.forEach((f) => { f.hooked = true; });
           flushHookedToBucket();
-          bucketFish.push({ num: a }, { num: b });
+          list.forEach((f) => bucketFish.push({ num: Number(f.num) }));
           score += 1;
           bumpScore();
           nextRoundIn = 0;
           spawnCool = 0.9;
           syncHud();
         } else {
-          fish.shake = 0.45;
+          list.forEach((f) => { f.shake = 0.45; });
           loseLife(1);
         }
+        kickFrame();
       }
       function castTo(x, y) {
-        if (!playing) return;
+        if (!playing || solved) return;
         const hookedHit = fishUnderPoint(x, y, (f) => f.hooked);
-        const pairHit = hooked
-          ? fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket && pairOk(hooked.num, f.num))
-          : { fish: null, d: 1e9 };
         const freeHit = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
-        const hit = pairHit.fish || freeHit.fish;
-        if (hookedHit.fish && (!hit || (hookedHit.d + 10 < (pairHit.fish ? pairHit.d : freeHit.d) && !pairHit.fish))) {
-          playHtml("cast");
-          hooks.push({
-            x: reel.x, y: reel.y,
-            tx: hookedHit.fish.x, ty: hookedHit.fish.y,
-            t: 0, dur: 0.16, fish: hookedHit.fish, resolved: true,
-          });
-          releaseHook(hookedHit.fish);
-          addSplash(hookedHit.fish.x, hookedHit.fish.y, false);
-          kickFrame();
-          return;
-        }
+        const hit = hookedHit.fish && (!freeHit.fish || hookedHit.d <= freeHit.d + 8)
+          ? hookedHit.fish
+          : freeHit.fish;
         playHtml("cast");
         hooks.push({
           x: reel.x, y: reel.y,
@@ -8208,7 +8197,8 @@
           ty: hit ? hit.y : y,
           t: 0, dur: 0.18, fish: hit || null, resolved: !!hit,
         });
-        if (hit) resolveCatch(hit);
+        if (hit) grabFish(hit);
+        else addSplash(x, y, false);
         kickFrame();
       }
       function kickFrame() {
@@ -8226,7 +8216,7 @@
         spawnCool = Math.max(0, spawnCool - dt);
         if (solved) flushHookedToBucket();
         if (solved && !fishes.some((f) => f.toBucket)) startNextRound();
-        if (playing && !solved && !prompt && smallLive().length >= 2) setPromptFromNearest();
+        if (playing && !solved && (target < GOAL_MIN || !prompt)) pickTarget();
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -8305,11 +8295,10 @@
         for (let i = fishes.length - 1; i >= 0; i -= 1) {
           const f = fishes[i];
           if (f.toBucket && f.fly >= 1) {
-            if (hooked && hooked.id === f.id) hooked = null;
             fishes.splice(i, 1);
             continue;
           }
-          if (!playing || hooked || f.hooked || f.toBucket || f.bumped) continue;
+          if (!playing || anyHooked() || f.hooked || f.toBucket || f.bumped) continue;
           const hitR = reel.r + f.len * 0.28;
           if (Math.hypot(f.x - reel.x, f.y - reel.y) < hitR) {
             addSplash(f.x, f.y, false);
@@ -8539,10 +8528,12 @@
       }
       function drawEquation() {
         const { x, y, r } = reel;
-        const left = solved ? String(solved.a) : (prompt ? String(prompt.a) : "?");
-        const right = solved ? String(solved.b) : (prompt ? String(prompt.b) : "?");
-        const goal = solved ? solved.goal : (prompt ? prompt.goal : target);
-        const text = `${left}  ${opMark()}  ${right}   =   ${goal}`;
+        const nums = solved && solved.nums
+          ? solved.nums
+          : hookedList().map((f) => Number(f.num));
+        const expr = nums.length ? nums.join(`  ${opMark()}  `) : "?";
+        const goal = solved ? solved.goal : target;
+        const text = `${expr}   =   ${goal}`;
         const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
         const tw = ctx.measureText(text).width;
@@ -8555,11 +8546,11 @@
         ctx.fill();
         const pill = ctx.createLinearGradient(bx, by, bx, by + bh);
         pill.addColorStop(0, "#fffef8");
-        pill.addColorStop(1, hooked || solved ? "#fff3c4" : "#e7f7ff");
+        pill.addColorStop(1, anyHooked() || solved ? "#fff3c4" : "#e7f7ff");
         ctx.fillStyle = pill;
         fillRoundRect(bx, by, bw, bh, 18);
         ctx.fill();
-        ctx.strokeStyle = hooked || solved ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
+        ctx.strokeStyle = anyHooked() || solved ? "#f0b429" : "rgba(30, 90, 120, 0.28)";
         ctx.lineWidth = 2.4;
         ctx.stroke();
         ctx.fillStyle = "#16324a";
@@ -8662,7 +8653,7 @@
         ctx.font = `900 ${Math.round(r * 1.15)}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(String(prompt ? prompt.goal : target), x, y + 1);
+        ctx.fillText(String(target), x, y + 1);
         ctx.restore();
         drawDuck(x + r * 3.6, Math.max(36, y - r * 4.8), Math.max(9, r * 0.42));
       }
@@ -8912,7 +8903,7 @@
         drawBucket();
         const ordered = fishes.slice().sort((a, b) => a.y - b.y);
         ordered.filter((f) => !f.toBucket).forEach(drawFishBody);
-        if (hooked && !hooked.toBucket) drawLineTo(hooked.x, hooked.y, 28);
+        hookedList().forEach((f) => drawLineTo(f.x, f.y, 28));
         fishes.forEach((f) => {
           if (f.toBucket && (Number(f.fly) || 0) < 1) drawLineTo(f.x, f.y, 26);
         });
@@ -8956,7 +8947,7 @@
             e.preventDefault();
             op = btn.getAttribute("data-op") || "add";
             syncOps();
-            if (playing && !solved) setPromptFromNearest();
+            if (playing && !solved) pickTarget();
           });
         }
         soundBtn.addEventListener("pointerup", (e) => {
@@ -8966,13 +8957,15 @@
           ensureAudio();
           syncHud();
         });
+        canvas.addEventListener("contextmenu", (e) => { e.preventDefault(); });
         canvas.addEventListener("pointerdown", (e) => {
           if (!playing) return;
           e.preventDefault();
           const p = pointFromEvent(e);
           ensureAudio();
           kickFrame();
-          castTo(p.x, p.y);
+          if (e.button === 2) strike();
+          else castTo(p.x, p.y);
         });
         window.addEventListener("resize", resize);
         if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
@@ -8988,6 +8981,7 @@
           x: f.x, y: f.y, num: f.num, hooked: !!f.hooked, hit: f.hit, id: f.id,
         }));
         canvas._castAt = (x, y) => castTo(x, y);
+        canvas._strike = () => strike();
         canvas._tick = (dt) => { step(dt || 0.016); draw(); };
         canvas._moveFish = (id, x, y) => {
           const f = liveFish().find((p) => p.id === id);
@@ -8995,9 +8989,10 @@
         };
         canvas._fishState = () => ({
           score, lives, target, op,
-          hooked: hooked ? hooked.num : null,
-          prompt: prompt ? { a: prompt.a, b: prompt.b, goal: prompt.goal } : null,
-          solved: solved ? { a: solved.a, b: solved.b, goal: solved.goal } : null,
+          hooked: hookedList().map((f) => f.num),
+          total: hookedTotal(),
+          prompt: prompt ? { goal: prompt.goal } : null,
+          solved: solved ? { nums: solved.nums, goal: solved.goal } : null,
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: rangeBounds(),
@@ -9031,7 +9026,6 @@
       function leave() {
         entered = false;
         playing = false;
-        hooked = null;
         solved = null;
         cancelAnimationFrame(raf);
         const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
