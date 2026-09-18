@@ -1629,13 +1629,13 @@
               <span class="label" data-i18n="adminFishRange">Рыбалка: числа рыбок</span>
               <div class="admin-range">
                 <label><span data-i18n="adminFishFrom">от</span>
-                  <input id="adminFishMinInput" type="number" min="1" max="99" step="1" />
+                  <input id="adminFishMinInput" type="number" min="0" max="99" step="1" />
                 </label>
                 <label><span data-i18n="adminFishTo">до</span>
-                  <input id="adminFishMaxInput" type="number" min="1" max="99" step="1" />
+                  <input id="adminFishMaxInput" type="number" min="0" max="99" step="1" />
                 </label>
               </div>
-              <p class="note" data-i18n="adminFishRangeHint">От и до — какие числа будут на катушке и на рыбках.</p>
+              <p class="note" data-i18n="adminFishRangeHint">От и до — какие числа будут на катушке и на рыбках. Ноль тоже бывает.</p>
             </div>
             <p class="admin-flash" id="adminStatus"></p>
             <button class="btn btn-accent" id="adminSaveBtn" type="button" data-i18n="save">Save</button>
@@ -1704,7 +1704,7 @@
     const FAIL_EXTRA_DEFAULT = 2;
     const FAIL_EXTRA_KEY = "misha-fail-extra-v1";
     const FISH_RANGE_KEY = "misha-fish-range-v1";
-    const FISH_MIN_DEFAULT = 2;
+    const FISH_MIN_DEFAULT = 0;
     const FISH_MAX_DEFAULT = 12;
     const ADMIN_PIN = "2018";
     const STORAGE_KEY_BASE = "misha-daily-math-v1";
@@ -1803,7 +1803,7 @@
         adminFishRange: "Рыбалка: числа рыбок",
         adminFishFrom: "от",
         adminFishTo: "до",
-        adminFishRangeHint: "От и до — какие числа будут на катушке и на рыбках.",
+        adminFishRangeHint: "От и до — какие числа будут на катушке и на рыбках. Ноль тоже бывает.",
         navCalendar: "Календарь",
         navPlan: "Все задания",
         navTables: "Таблицы",
@@ -2104,7 +2104,7 @@
         adminFishRange: "Fishing: fish numbers",
         adminFishFrom: "from",
         adminFishTo: "to",
-        adminFishRangeHint: "From and to set which numbers appear on the reel and on the fish.",
+        adminFishRangeHint: "From and to set which numbers appear on the reel and on the fish. Zero is included too.",
         navCalendar: "Calendar", navPlan: "All missions",
         navTables: "Table settings", navPythagoras: "Pythagoras table",         navRedeem: "Redeem",
         navEarn: "More Mishcoins",
@@ -2858,11 +2858,13 @@
     function clampFishBound(n, fallback) {
       const value = Number(n);
       if (!Number.isFinite(value)) return fallback;
-      return Math.max(1, Math.min(99, Math.round(value)));
+      return Math.max(0, Math.min(99, Math.round(value)));
     }
     function applyFishRange(min, max) {
-      let a = clampFishBound(min, fishRange.min || FISH_MIN_DEFAULT);
-      let b = clampFishBound(max, fishRange.max || FISH_MAX_DEFAULT);
+      const prevMin = Number.isFinite(Number(fishRange.min)) ? Number(fishRange.min) : FISH_MIN_DEFAULT;
+      const prevMax = Number.isFinite(Number(fishRange.max)) ? Number(fishRange.max) : FISH_MAX_DEFAULT;
+      let a = clampFishBound(min, prevMin);
+      let b = clampFishBound(max, prevMax);
       if (a > b) { const tmp = a; a = b; b = tmp; }
       fishRange = { min: a, max: b };
       try { localStorage.setItem(FISH_RANGE_KEY, JSON.stringify(fishRange)); } catch { /* ignore */ }
@@ -7399,45 +7401,58 @@
         return applyOp(a, b) === target || applyOp(b, a) === target;
       }
       function rangeBounds() {
-        let min = Number(fishRange.min) || FISH_MIN_DEFAULT;
-        let max = Number(fishRange.max) || FISH_MAX_DEFAULT;
-        min = clamp(min, 1, 99);
-        max = clamp(max, 1, 99);
+        let min = Number(fishRange.min);
+        let max = Number(fishRange.max);
+        if (!Number.isFinite(min)) min = FISH_MIN_DEFAULT;
+        if (!Number.isFinite(max)) max = FISH_MAX_DEFAULT;
+        min = clamp(min, 0, 99);
+        max = clamp(max, 0, 99);
         if (min > max) { const tmin = min; min = max; max = tmin; }
         return { min, max };
       }
-      function listPairs(goal) {
+      function allowedNum(n) {
+        const v = Number(n);
+        if (!Number.isFinite(v) || v < 0 || v > 99) return false;
+        if (v === 0) return true;
         const { min, max } = rangeBounds();
-        const lo = Math.max(1, min);
-        const hi = max;
+        return v >= min && v <= max;
+      }
+      function eachAllowed(fn) {
+        const { min, max } = rangeBounds();
+        fn(0);
+        const lo = Math.max(0, min);
+        const hi = Math.max(lo, max);
+        for (let n = lo; n <= hi; n += 1) if (n !== 0) fn(n);
+      }
+      function listPairs(goal) {
         const pairs = [];
         if (op === "add") {
-          for (let a = lo; a < goal; a += 1) {
+          eachAllowed((a) => {
             const b = goal - a;
-            if (b >= lo && a <= hi && b <= hi) pairs.push([a, b]);
-          }
+            if (allowedNum(b)) pairs.push([a, b]);
+          });
           return pairs;
         }
         if (op === "sub") {
-          for (let b = lo; b <= hi; b += 1) {
+          eachAllowed((b) => {
             const a = goal + b;
-            if (a >= lo && a <= hi) pairs.push([a, b]);
-          }
+            if (allowedNum(a)) pairs.push([a, b]);
+          });
           return pairs;
         }
         if (op === "mul") {
-          for (let a = lo; a <= hi; a += 1) {
-            if (a && goal % a === 0) {
-              const b = goal / a;
-              if (b >= lo && b <= hi) pairs.push([a, b]);
-            }
-          }
+          eachAllowed((a) => {
+            if (!a || goal % a !== 0) return;
+            const b = goal / a;
+            if (allowedNum(b) && b) pairs.push([a, b]);
+          });
           return pairs;
         }
-        for (let b = Math.max(2, lo); b <= hi; b += 1) {
+        eachAllowed((b) => {
+          if (b < 2) return;
           const a = goal * b;
-          if (a >= lo && a <= hi) pairs.push([a, b]);
-        }
+          if (allowedNum(a)) pairs.push([a, b]);
+        });
         return pairs;
       }
       function pairVariants(goal) {
@@ -7455,13 +7470,16 @@
         const list = listPairs(target) || [];
         if (list.length) return pick(list);
         const { min, max } = rangeBounds();
-        const lo = Math.max(1, min);
+        const lo = Math.max(0, min);
         const hi = Math.max(lo, max);
         if (op === "div") {
-          const b = Math.max(2, lo);
+          const b = Math.max(2, lo, 1);
           return [clamp(target * b, lo, hi), b];
         }
-        if (op === "mul") return [lo, lo];
+        if (op === "mul") {
+          const n = Math.max(1, lo);
+          return [n, n];
+        }
         if (op === "sub") return [clamp(target + lo, lo, hi), lo];
         return [lo, clamp(target - lo, lo, hi)];
       }
@@ -7469,17 +7487,19 @@
         const { min, max } = rangeBounds();
         const rich = [];
         const tries = [];
-        for (let n = min; n <= max; n += 1) {
+        eachAllowed((n) => {
           if (op === "mul") {
             let factors = 0;
-            for (let a = min; a <= max; a += 1) if (a && n % a === 0 && n / a >= min && n / a <= max) factors += 1;
-            if (!factors) continue;
+            eachAllowed((a) => {
+              if (a && n % a === 0 && allowedNum(n / a) && (n / a)) factors += 1;
+            });
+            if (!factors) return;
           }
           const v = pairVariants(n);
-          if (!v.length) continue;
+          if (!v.length) return;
           tries.push(n);
           if (v.length >= 2) rich.push(n);
-        }
+        });
         const pool = rich.length ? rich : tries;
         target = pool.length ? pick(pool) : clamp(min + max, min, max);
         return target;
@@ -7588,16 +7608,15 @@
         return false;
       }
       function distractorNum(secret) {
-        const { min, max } = rangeBounds();
-        const lo = Math.max(1, min);
-        const hi = Math.max(lo, max);
+        const pool = [];
+        eachAllowed((n) => pool.push(n));
         for (let k = 0; k < 24; k += 1) {
-          const n = lo + ((Math.random() * (hi - lo + 1)) | 0);
+          const n = pool.length ? pool[(Math.random() * pool.length) | 0] : 0;
           if (secret.includes(n)) continue;
           if (op === "add" && n === target) continue;
           return n;
         }
-        return clamp(target - 1, lo, hi);
+        return pool.includes(0) ? 0 : (pool[0] || 0);
       }
       function fillSchool() {
         const want = 7;
@@ -7705,8 +7724,13 @@
       }
       function pointFromEvent(e) {
         const rect = canvas.getBoundingClientRect();
-        const src = e.touches ? e.touches[0] : e;
-        return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+        const src = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]) || e;
+        const rw = rect.width || 1;
+        const rh = rect.height || 1;
+        return {
+          x: (src.clientX - rect.left) * (w / rw),
+          y: (src.clientY - rect.top) * (h / rh),
+        };
       }
       function encodeWav(samples, sampleRate) {
         const n = samples.length;
@@ -7901,12 +7925,19 @@
         }
       }
       function hitFish(x, y) {
-        let bestF = null, bestD = 1e9;
+        let bestFree = null, bestFreeD = 1e9;
+        let bestHooked = null, bestHookedD = 1e9;
         liveFish().forEach((f) => {
           const d = Math.hypot(f.x - x, f.y - y);
-          if (d < f.hit + 18 && d < bestD) { bestD = d; bestF = f; }
+          const rad = (f.hit || 48) + 32;
+          if (d >= rad) return;
+          if (f.hooked) {
+            if (d < bestHookedD) { bestHookedD = d; bestHooked = f; }
+            return;
+          }
+          if (d < bestFreeD) { bestFreeD = d; bestFree = f; }
         });
-        return bestF;
+        return bestFree || bestHooked;
       }
       function addSplash(x, y, good) {
         splashes.push({ x, y, t: 0, good: !!good });
@@ -7983,15 +8014,7 @@
           spawnCool = 0.28;
           syncHud();
         } else {
-          first.hooked = false;
-          first.shake = 0.4;
-          fish.shake = 0.4;
-          hooked = null;
-          if (bonus) {
-            bonus.hooked = false;
-            bonus.shake = 0.4;
-            bonus = null;
-          }
+          fish.shake = 0.45;
           loseLife(1);
         }
       }
@@ -8072,6 +8095,11 @@
             f.vy *= 0.85;
             return;
           }
+          if (hooked && !f.big) {
+            f.x += f.vx * dt * 0.08;
+            f.y += f.vy * dt * 0.08;
+            return;
+          }
           if (f.big) {
             const dir = f.vx >= 0 ? 1 : -1;
             f.vx = dir * f.spd;
@@ -8115,7 +8143,7 @@
             fishes.splice(i, 1);
             continue;
           }
-          if (!playing || f.hooked || f.toBucket || f.big || f.bumped) continue;
+          if (!playing || hooked || f.hooked || f.toBucket || f.big || f.bumped) continue;
           const hitR = reel.r + f.len * 0.28;
           if (Math.hypot(f.x - reel.x, f.y - reel.y) < hitR) {
             addSplash(f.x, f.y, false);
@@ -8700,6 +8728,7 @@
         canvas.addEventListener("pointerdown", (e) => {
           if (!playing) return;
           e.preventDefault();
+          resize();
           const p = pointFromEvent(e);
           ensureAudio();
           kickFrame();
@@ -10797,8 +10826,8 @@
       if (!Number.isFinite(extra) || extra < 0 || extra > 10) {
         setAdminFlash("adminStatus", "0–10", false); return;
       }
-      if (!Number.isFinite(fishMin) || !Number.isFinite(fishMax) || fishMin < 1 || fishMax > 99 || fishMin > 99 || fishMax < 1) {
-        setAdminFlash("adminStatus", "1–99", false); return;
+      if (!Number.isFinite(fishMin) || !Number.isFinite(fishMax) || fishMin < 0 || fishMax > 99 || fishMin > 99 || fishMax < 0) {
+        setAdminFlash("adminStatus", "0–99", false); return;
       }
       applyFailExtra(extra);
       applyFishRange(fishMin, fishMax);
