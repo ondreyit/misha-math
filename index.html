@@ -7971,13 +7971,28 @@
         syncHud();
       }
       function sendToBucket(fish) {
-        fish.toBucket = 1;
-        fish.hooked = false;
-        fish.fly = 0;
-        fish.sx = fish.x; fish.sy = fish.y;
+        if (!fish) return;
+        const f = fishes.find((x) => x.id === fish.id) || fish;
+        if (f.toBucket) return;
+        f.toBucket = 1;
+        f.hooked = false;
+        f.fly = 0;
+        f.sx = Number.isFinite(Number(f.x)) ? Number(f.x) : reel.x;
+        f.sy = Number.isFinite(Number(f.y)) ? Number(f.y) : reel.y;
         const n = bucketFish.length;
-        fish.tx = bucket.x + bucket.w * 0.5 + rand(-12, 12);
-        fish.ty = bucket.y + bucket.h * 0.42 - Math.min(n, 5) * 7;
+        f.tx = (Number(bucket.x) || (w - 90)) + (Number(bucket.w) || 86) * 0.5 + rand(-14, 14);
+        f.ty = (Number(bucket.y) || 78) + (Number(bucket.h) || 78) * 0.4 - Math.min(n, 5) * 7;
+        if (hooked && hooked.id === f.id) hooked = null;
+        if (bonus && bonus.id === f.id) bonus = null;
+      }
+      function flushHookedToBucket() {
+        const list = [];
+        if (hooked) list.push(hooked);
+        if (bonus) list.push(bonus);
+        fishes.forEach((f) => { if (f.hooked && !f.toBucket) list.push(f); });
+        list.forEach(sendToBucket);
+        hooked = null;
+        bonus = null;
       }
       function releaseHook(fish) {
         if (!fish) return;
@@ -7998,6 +8013,10 @@
         if (fish.big) {
           bonus = fish;
           fish.hooked = true;
+          if (solved && nextRoundIn > 0) {
+            flushHookedToBucket();
+            syncHud();
+          }
           return;
         }
         if (hooked && hooked.id === fish.id) {
@@ -8014,21 +8033,14 @@
         const first = hooked;
         if (pairOk(a, b)) {
           playHtml("ok");
-          const extra = (bonus && bonus.big && !bonus.toBucket) ? bonus : null;
+          const extra = bonus && !bonus.toBucket;
           const pts = extra ? 3 : 1;
           solved = { a, b, goal: Number(target) };
           sendToBucket(first);
           sendToBucket(fish);
-          if (extra && extra.id !== first.id && extra.id !== fish.id) sendToBucket(extra);
-          liveFish().forEach((f) => {
-            if (f.hooked && f.id !== first.id && f.id !== fish.id && !(extra && extra.id === f.id)) {
-              f.hooked = false;
-            }
-          });
+          flushHookedToBucket();
           bucketFish.push({ num: a }, { num: b });
           if (extra) bucketFish.push({ num: 3 });
-          hooked = null;
-          bonus = null;
           score += pts;
           bumpScore();
           nextRoundIn = 0.75;
@@ -8127,7 +8139,12 @@
           f.ph += dt * f.wob;
           f.shake = Math.max(0, f.shake - dt);
           f.bumped = Math.max(0, f.bumped - dt);
+          if (solved && f.hooked && !f.toBucket) sendToBucket(f);
           if (f.toBucket) {
+            if (!Number.isFinite(Number(f.sx))) f.sx = Number(f.x) || 0;
+            if (!Number.isFinite(Number(f.sy))) f.sy = Number(f.y) || 0;
+            if (!Number.isFinite(Number(f.tx))) f.tx = bucket.x + bucket.w * 0.5;
+            if (!Number.isFinite(Number(f.ty))) f.ty = bucket.y + bucket.h * 0.4;
             f.fly = Math.min(1, (Number(f.fly) || 0) + dt * 1.85);
             const u = f.fly;
             const lift = Math.sin(u * Math.PI) * 110;
@@ -8786,6 +8803,9 @@
         ordered.filter((f) => !f.toBucket).forEach(drawFishBody);
         if (hooked && !hooked.toBucket) drawLineTo(hooked.x, hooked.y, 28);
         if (bonus && !bonus.toBucket) drawLineTo(bonus.x, bonus.y, 22);
+        fishes.forEach((f) => {
+          if (f.toBucket && (Number(f.fly) || 0) < 1) drawLineTo(f.x, f.y, 26);
+        });
         hooks.forEach((hk) => drawLineTo(hk.x, hk.y, 40 * (1 - Math.min(1, hk.t / hk.dur))));
         drawReel();
         ordered.filter((f) => f.toBucket).forEach(drawFishBody);
