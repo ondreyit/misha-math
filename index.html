@@ -7610,7 +7610,7 @@
         const dx = reel.x - pos.x;
         const dy = (big ? pos.y : reel.y) - pos.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
-        const spd = big ? rand(13, 19) : rand(16, 24);
+        const spd = big ? rand(8, 12) : rand(9, 14);
         return {
           id: nextId++,
           x: pos.x, y: pos.y,
@@ -7665,77 +7665,65 @@
         });
         return best;
       }
+      function listedNums() {
+        const nums = [];
+        eachAllowed((n) => nums.push(n));
+        if (nums.length <= 20) return nums;
+        const keep = new Set();
+        for (let d = 0; d <= 9; d += 1) if (allowedNum(d) || d === 0) keep.add(d);
+        pairVariants(target).forEach((p) => { keep.add(Number(p[0])); keep.add(Number(p[1])); });
+        const { min, max } = rangeBounds();
+        keep.add(min); keep.add(max);
+        return [...keep].filter((n) => allowedNum(n) || n === 0).sort((a, b) => a - b);
+      }
+      function spawnEdgeNum(n) {
+        fishes.push(makeFish(Number(n)));
+      }
+      function ensureAllNums() {
+        if (!playing) return;
+        const have = new Set(smallLive().map((f) => Number(f.num)));
+        listedNums().forEach((n) => {
+          if (!have.has(Number(n))) {
+            spawnEdgeNum(n);
+            have.add(Number(n));
+          }
+        });
+      }
+      function replaceCaught(fish) {
+        if (!fish || fish.big) return;
+        const n = Number(fish.num);
+        if (!Number.isFinite(n)) return;
+        spawnEdgeNum(n);
+      }
       function randomPairNums() {
         const vars = pairVariants(target);
         if (vars.length) return pick(vars).slice();
         const p = fallbackPair();
         return p && p.length === 2 ? p.slice() : [0, Number(target) || 0];
       }
-      function applyPairNums(a, b) {
-        if (!a || !b || a.id === b.id) return;
-        const p = randomPairNums();
-        if (Math.random() < 0.5) { a.num = p[0]; b.num = p[1]; }
-        else { a.num = p[1]; b.num = p[0]; }
-      }
       function spawnAnswerPair() {
         const p = randomPairNums();
-        fishes.push(makeFish(p[0], { pond: true, near: true }));
-        fishes.push(makeFish(p[1], { pond: true, near: false }));
+        spawnEdgeNum(p[0]);
+        spawnEdgeNum(p[1]);
       }
       function ensureSolvable() {
-        if (!playing || nextRoundIn > 0) return;
+        if (!playing) return;
+        ensureAllNums();
         if (smallLive().length < 2) spawnAnswerPair();
         const anchor = (hooked && !hooked.big && !hooked.toBucket) ? hooked : nearestSmall();
         if (!anchor) return;
         const others = smallLive().filter((f) => f.id !== anchor.id);
-        if (!others.length) {
-          const p = partnerNum(anchor.num);
-          fishes.push(makeFish(p != null ? p : randomPairNums()[1], { pond: true, near: false }));
-          return;
-        }
         if (others.some((f) => pairOk(anchor.num, f.num))) return;
-        const other = pick(others);
-        if (hooked && anchor.id === hooked.id) {
-          const p = partnerNum(anchor.num);
-          if (p != null) other.num = p;
-          else applyPairNums(anchor, other);
-        } else {
-          applyPairNums(anchor, other);
-        }
-      }
-      function distractorNum(secret) {
-        const used = secret || [];
-        const pool = [];
-        eachAllowed((n) => {
-          if (!canSolveWith(n)) return;
-          if (used.includes(n)) return;
-          pool.push(n);
-        });
-        if (pool.length) return pick(pool);
-        const any = [];
-        eachAllowed((n) => { if (canSolveWith(n)) any.push(n); });
-        if (any.length) return pick(any);
-        return randomPairNums()[0];
+        const p = partnerNum(anchor.num);
+        spawnEdgeNum(p != null ? p : randomPairNums()[1]);
       }
       function fillSchool() {
-        if (!playing || nextRoundIn > 0) return;
-        const want = 7;
-        if (!smallLive().length) {
-          spawnAnswerPair();
-          const extra = pairVariants(target);
-          if (extra.length > 1) {
-            const p2 = pick(extra);
-            fishes.push(makeFish(p2[0], { pond: true, near: false }));
-            fishes.push(makeFish(p2[1], { pond: true, near: false }));
-          }
-          while (smallLive().length < want) {
-            fishes.push(makeFish(distractorNum(smallLive().map((f) => f.num))));
-          }
-          ensureSolvable();
-          return;
-        }
+        if (!playing) return;
+        ensureAllNums();
+        const want = Math.max(14, listedNums().length + 4);
+        const pool = listedNums();
         while (smallLive().length < want) {
-          fishes.push(makeFish(distractorNum(smallLive().map((f) => f.num))));
+          spawnEdgeNum(pool.length ? pick(pool) : 0);
         }
         ensureSolvable();
       }
@@ -7984,6 +7972,7 @@
         f.ty = (Number(bucket.y) || 78) + (Number(bucket.h) || 78) * 0.4 - Math.min(n, 5) * 7;
         if (hooked && hooked.id === f.id) hooked = null;
         if (bonus && bonus.id === f.id) bonus = null;
+        if (!f.big) replaceCaught(f);
       }
       function flushHookedToBucket() {
         const list = [];
@@ -8208,6 +8197,7 @@
               loseLife(2);
               invuln = 1.15;
             }
+            replaceCaught(f);
             fishes.splice(i, 1);
           }
         }
