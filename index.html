@@ -1946,7 +1946,8 @@
         guideLow: "Ошибок меньше 5%",
         guideMid: "Ошибок от 5% до 10%",
         guideHigh: "Ошибок много: баллы за работу без ошибок не начислены",
-        guideRepeat: "Урок можно повторять в тот же день — Мишкоины начисляются снова.",
+        rewardRepeat: "За повтор урока",
+        guideRepeat: "Урок можно повторять в тот же день: Мишкоины начисляются снова, и за каждый повтор сверху ещё +1 (1-й раз до 4, 2-й до 5, 3-й до 6…).",
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
         guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Еще мишкоинов». Папа согласует — и звёзды придут на баланс.",
@@ -2244,7 +2245,8 @@
         guideLow: "Fewer than 5% mistakes",
         guideMid: "5–10% mistakes",
         guideHigh: "Too many mistakes: no accuracy bonus",
-        guideRepeat: "You can repeat the lesson the same day and earn Mishcoins again.",
+        rewardRepeat: "For repeating the lesson",
+        guideRepeat: "You can repeat the lesson the same day: Mishcoins are awarded again, plus +1 extra each time (1st run up to 4, 2nd up to 5, 3rd up to 6…).",
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
         guideEarn: "For morning, daytime, and evening schedules, send a request in More Mishcoins. Dad approves it, and the stars go to the balance.",
@@ -3546,9 +3548,17 @@
         const day = canonicalDateKey(entry.dateKey);
         const amount = Number(entry.amount) || 0;
         const isPrize = !isPenaltyHistory(entry) && (entry.kind === "prize" || amount < 0);
-        const key = isPrize
-          ? `prize:${toUnix(entry.at)}|${amount}`
-          : (day && amount > 0 ? `lesson:${day}` : (entry.id || `${toUnix(entry.at)}|${amount}`));
+        if (isPrize) {
+          const key = `prize:${toUnix(entry.at)}|${amount}`;
+          const prev = map.get(key);
+          if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(key, entry);
+          return;
+        }
+        if (!isSyntheticHistory(entry) && entry.id && amount > 0) {
+          map.set(`id:${entry.id}`, entry);
+          return;
+        }
+        const key = day && amount > 0 ? `lesson:${day}` : (entry.id || `${toUnix(entry.at)}|${amount}`);
         const prev = map.get(key);
         if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(key, entry);
       });
@@ -3556,8 +3566,9 @@
       const daySeen = new Set();
       [...map.values()].forEach((entry) => {
         const day = canonicalDateKey(entry.dateKey);
-        const lesson = (Number(entry.amount) || 0) > 0 && !isClaimHistory(entry) && entry.kind !== "prize" && entry.kind !== "adjust";
-        if (lesson && day) {
+        const lesson = (Number(entry.amount) || 0) > 0 && !isClaimHistory(entry) && !isPenaltyHistory(entry)
+          && entry.kind !== "prize" && entry.kind !== "adjust";
+        if (lesson && day && isSyntheticHistory(entry)) {
           if (daySeen.has(day)) return;
           daySeen.add(day);
           collapsed.push({ ...entry, dateKey: day });
@@ -4178,7 +4189,84 @@
     }
     function dayHasProgress(day) {
       if (!day) return false;
-      return !!(day.completed || day.answered || day.runsCompleted || day.coinsAwarded);
+      return !!(day.completed || day.answered || day.runsCompleted || day.coinsAwarded
+        || (!day.sessionDone && day.startedAt));
+    }
+    function sessionInProgress(day) {
+      if (!day || day.sessionDone) return false;
+      if ((Number(day.answered) || 0) > 0 || (Number(day.fails) || 0) > 0) return true;
+      return !!(day.startedAt && Array.isArray(day.queue) && day.queue.length);
+    }
+    function compactQueue(queue) {
+      return (queue || []).slice(0, 80).map((p) => [Number(p.a) || 0, Number(p.b) || 0, Number(p.answer) || 0, p.id || ""]);
+    }
+    function expandQueue(raw) {
+      if (!Array.isArray(raw)) return [];
+      return raw.map((item, i) => {
+        if (Array.isArray(item)) {
+          return { a: Number(item[0]) || 0, b: Number(item[1]) || 0, answer: Number(item[2]) || 0, id: item[3] || `q-${i}` };
+        }
+        return {
+          a: Number(item?.a) || 0,
+          b: Number(item?.b) || 0,
+          answer: Number(item?.answer) || 0,
+          id: item?.id || `q-${i}`,
+        };
+      }).filter((item) => item.a && item.b);
+    }
+    function parseDayPack(raw) {
+      if (!raw) return null;
+      if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+      if (typeof raw !== "string") return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+    function compactDayPack(day) {
+      if (!day) return null;
+      const active = sessionInProgress(day) || (!day.sessionDone && ((day.queue || []).length || day.startedAt));
+      if (!active && !day.coinParts && !day.sessionRun) return null;
+      const pack = { sd: day.sessionDone ? 1 : 0 };
+      if (active) {
+        pack.q = compactQueue(day.queue);
+        pack.s = toUnix(day.startedAt);
+      }
+      if (day.sessionRun) pack.r = Number(day.sessionRun) || 0;
+      if (day.coinParts && Array.isArray(day.coinParts.parts)) {
+        pack.p = day.coinParts.parts.map((part) => [part.k || "", Number(part.amount) || 0, part.r || "", part.e || ""]);
+        pack.t = Number(day.coinParts.total) || 0;
+      }
+      return pack;
+    }
+    function applyDayPack(day, pack) {
+      if (!day || !pack) return day;
+      if (Array.isArray(pack.q)) day.queue = expandQueue(pack.q);
+      if (pack.s) day.startedAt = day.startedAt || fromUnix(pack.s);
+      if (pack.sd === 0) day.sessionDone = false;
+      if (pack.sd === 1) day.sessionDone = true;
+      if (pack.r) day.sessionRun = Number(pack.r) || 0;
+      if (Array.isArray(pack.p)) {
+        day.coinParts = {
+          total: Number(pack.t) || pack.p.reduce((sum, part) => sum + (Number(part[1]) || 0), 0),
+          parts: pack.p.map((part) => ({ k: part[0] || "", amount: Number(part[1]) || 0, r: part[2] || "", e: part[3] || "" })),
+        };
+      }
+      return day;
+    }
+    function remainingLessonCount(day) {
+      if (!day) return 0;
+      if (Array.isArray(day.queue) && day.queue.length) return day.queue.length;
+      const extra = (Number(day.fails) || 0) * failExtra();
+      return Math.max(0, (Number(day.startCount) || questionCount()) + extra - (Number(day.answered) || 0));
+    }
+    function ensureLessonQueue(day) {
+      if (!day || day.sessionDone) return day;
+      if (Array.isArray(day.queue) && day.queue.length) return day;
+      const remain = remainingLessonCount(day);
+      if (remain > 0) {
+        const tables = activeTables(day);
+        day.tables = tables;
+        day.queue = makeQueue(remain, tables, day.date);
+      }
+      return day;
     }
     function dateOffset(key) {
       if (!key || key < PROGRAM_START) return -1;
@@ -4265,6 +4353,10 @@
         store[key] = stubCompletedDay(key, extra);
         return true;
       }
+      if (sessionInProgress(store[key])) {
+        store[key].completed = true;
+        return false;
+      }
       if (store[key].completed) return false;
       store[key].completed = true;
       store[key].sessionDone = true;
@@ -4306,6 +4398,7 @@
       const store = loadStore();
       let changed = false;
       Object.entries(RECOVERED_LESSONS[profileId] || {}).forEach(([key, extra]) => {
+        if (sessionInProgress(store[key])) return;
         if (markDayCompleted(store, key, extra)) changed = true;
         else if (store[key] && !dayHasLessonWork(store[key])) {
           store[key] = mergeDayState(store[key], stubCompletedDay(key, extra));
@@ -4314,6 +4407,7 @@
       });
       (coins.history || []).forEach((entry) => {
         if ((entry.amount || 0) <= 0 || !entry.dateKey || isClaimHistory(entry)) return;
+        if (sessionInProgress(store[entry.dateKey])) return;
         const extra = recoveredLesson(entry.dateKey) || { coinsAwarded: entry.amount, totalCoins: entry.amount, completedAt: entry.at };
         if (markDayCompleted(store, entry.dateKey, extra)) changed = true;
       });
@@ -4325,26 +4419,31 @@
         .sort()
         .map((key) => store[key])
         .filter(dayHasProgress)
-        .map((day) => ([
-          day.date,
-          day.completed ? 1 : 0,
-          Number(day.correct) || 0,
-          Number(day.fails) || 0,
-          Number(day.answered) || 0,
-          Number(day.coinsAwarded) || 0,
-          Number(day.runsCompleted) || 0,
-          toUnix(day.completedAt),
-          Number(day.totalCoins) || 0,
-        ]));
+        .map((day) => {
+          const row = [
+            day.date,
+            day.completed ? 1 : 0,
+            Number(day.correct) || 0,
+            Number(day.fails) || 0,
+            Number(day.answered) || 0,
+            Number(day.coinsAwarded) || 0,
+            Number(day.runsCompleted) || 0,
+            toUnix(day.completedAt),
+            Number(day.totalCoins) || 0,
+          ];
+          const pack = compactDayPack(day);
+          if (pack) row.push(pack);
+          return row;
+        });
       return maxRows > 0 ? rows.slice(-maxRows) : rows;
     }
     function expandDayRow(row) {
       if (!row) return null;
       if (!Array.isArray(row) && row.date) {
-        return {
+        const day = {
           date: row.date,
           completed: !!row.completed,
-          sessionDone: !!row.sessionDone || !!row.completed,
+          sessionDone: row.sessionDone != null ? !!row.sessionDone : !!row.completed,
           correct: Number(row.correct) || 0,
           fails: Number(row.fails) || 0,
           answered: Number(row.answered) || 0,
@@ -4353,14 +4452,15 @@
           totalCoins: Number(row.totalCoins) || 0,
           completedAt: row.completedAt || null,
           startedAt: row.startedAt || null,
-          queue: [],
+          queue: expandQueue(row.queue),
           tables: tablesForDate(row.date),
           startCount: Number(row.startCount || row.answered) || questionCount(),
         };
+        return applyDayPack(day, parseDayPack(row.payload || row.pack));
       }
       if (!Array.isArray(row) || !row[0]) return null;
-      const [date, completed, correct, fails, answered, coinsAwarded, runs, completedAt, totalCoins] = row;
-      return {
+      const [date, completed, correct, fails, answered, coinsAwarded, runs, completedAt, totalCoins, rawPack] = row;
+      const day = {
         date,
         completed: !!completed,
         sessionDone: !!completed,
@@ -4377,6 +4477,7 @@
         startCount: Number(answered) || questionCount(),
         poolVersion: POOL_VERSION,
       };
+      return applyDayPack(day, parseDayPack(rawPack));
     }
     function expandDays(list) {
       let rows = list;
@@ -4402,22 +4503,33 @@
     function mergeDayState(local, remote) {
       if (!remote) return local;
       if (!local) return remote;
-      const completed = !!(local.completed || remote.completed);
+      const everDone = !!(local.completed || remote.completed);
+      const localActive = sessionInProgress(local);
+      const remoteActive = sessionInProgress(remote);
+      let live = null;
+      if (localActive && remoteActive) live = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
+      else if (localActive) live = local;
+      else if (remoteActive) live = remote;
       const richer = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
       const other = richer === local ? remote : local;
+      const base = live || richer;
+      const leftover = base === local ? remote : local;
       return {
-        ...other,
-        ...richer,
-        completed,
-        sessionDone: !!(local.sessionDone || remote.sessionDone || completed),
-        correct: Math.max(Number(local.correct) || 0, Number(remote.correct) || 0),
-        fails: Math.max(Number(local.fails) || 0, Number(remote.fails) || 0),
-        answered: Math.max(Number(local.answered) || 0, Number(remote.answered) || 0),
+        ...leftover,
+        ...base,
+        completed: everDone,
+        sessionDone: live ? false : !!(local.sessionDone || remote.sessionDone || everDone),
+        correct: live ? (Number(live.correct) || 0) : Math.max(Number(local.correct) || 0, Number(remote.correct) || 0),
+        fails: live ? (Number(live.fails) || 0) : Math.max(Number(local.fails) || 0, Number(remote.fails) || 0),
+        answered: live ? (Number(live.answered) || 0) : Math.max(Number(local.answered) || 0, Number(remote.answered) || 0),
         runsCompleted: Math.max(Number(local.runsCompleted) || 0, Number(remote.runsCompleted) || 0),
-        coinsAwarded: Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
+        coinsAwarded: live ? (Number(live.coinsAwarded) || 0) : Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
         totalCoins: Math.max(Number(local.totalCoins) || 0, Number(remote.totalCoins) || 0),
         completedAt: local.completedAt || remote.completedAt,
-        queue: completed ? [] : (richer.queue || other.queue || []),
+        startedAt: live?.startedAt || local.startedAt || remote.startedAt,
+        queue: live ? (live.queue || []) : (everDone ? [] : (richer.queue || other.queue || [])),
+        coinParts: live?.coinParts || richer.coinParts || other.coinParts || null,
+        sessionRun: live?.sessionRun || richer.sessionRun || other.sessionRun || 0,
       };
     }
     function mergeRemoteDays(remoteDays) {
@@ -4694,7 +4806,7 @@
         const d = rows.map((r) => {
           const off = dateOffset(r.date);
           if (r.status === "done" && off >= 0) c.push(off);
-          return [
+          const row = [
             r.date,
             r.status === "done" ? 1 : 0,
             Number(r.examples_correct) || 0,
@@ -4705,6 +4817,9 @@
             sbUnix(r.completed_at),
             Number(r.total_coins) || 0,
           ];
+          const pack = parseDayPack(r.payload);
+          if (pack) row.push(pack);
+          return row;
         });
         return { u: Date.now(), c: c.join(","), d };
       }
@@ -4863,6 +4978,7 @@
       const out = rows.map((row) => {
         if (Array.isArray(row)) {
           seen[row[0]] = true;
+          const pack = parseDayPack(row[9]);
           return {
             profile_id: id,
             date: row[0],
@@ -4874,9 +4990,11 @@
             total_coins: Number(row[8] || row[5]) || 0,
             runs: Number(row[6]) || 0,
             completed_at: sbIso(row[7]),
+            payload: pack ? JSON.stringify(pack) : "",
           };
         }
         seen[row.date] = true;
+        const pack = compactDayPack(row) || parseDayPack(row.payload || row.pack);
         return {
           profile_id: id,
           date: row.date,
@@ -4888,6 +5006,7 @@
           total_coins: Number(row.totalCoins || row.total_coins) || 0,
           runs: Number(row.runsCompleted || row.runs) || 0,
           completed_at: row.completedAt || row.completed_at || null,
+          payload: pack ? JSON.stringify(pack) : (row.payload || ""),
         };
       });
       extra.forEach((part) => {
@@ -5976,6 +6095,7 @@
       dayState.startedAt = estNowIso();
       dayState.completedAt = null;
       dayState.coinsAwarded = 0; dayState.coinParts = null;
+      dayState.sessionRun = 0;
       return dayState;
     }
     function getDayState(date = todayKey()) {
@@ -5991,24 +6111,29 @@
         saveStore(store, { quiet: true });
       }
       const day = store[date];
-      if (day.sessionDone == null) day.sessionDone = !!day.completed;
+      if (day.sessionDone == null) day.sessionDone = !!day.completed && !sessionInProgress(day);
       if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
       if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
+      if (sessionInProgress(day)) {
+        ensureLessonQueue(day);
+        saveStore(store, { quiet: true });
+        return day;
+      }
       const expected = tablesForDate(date).join(",");
       const current = Array.isArray(day.tables) ? day.tables.join(",") : "";
       const poolStale = day.poolVersion !== POOL_VERSION;
-      if (!day.completed && poolStale) {
+      if (!day.completed && !day.sessionDone && poolStale) {
         const tables = tablesForDate(date);
-        if (!day.answered) {
+        if (!day.answered && !day.startedAt) {
           store[date] = createDayState(date);
         } else {
-          const remaining = (day.queue || []).length || Math.max(0, (day.startCount || questionCount()) - (day.answered || 0));
+          const remaining = remainingLessonCount(day);
           day.tables = tables;
           day.poolVersion = POOL_VERSION;
-          if (remaining > 0) day.queue = makeQueue(remaining, tables, date);
+          if (remaining > 0 && !(day.queue || []).length) day.queue = makeQueue(remaining, tables, date);
         }
         saveStore(store, { quiet: true });
-      } else if (!day.completed && !day.answered && expected !== current) {
+      } else if (!day.completed && !day.sessionDone && !day.answered && !day.startedAt && expected !== current) {
         store[date] = createDayState(date);
         saveStore(store, { quiet: true });
       } else if (!day.tables) {
@@ -6023,7 +6148,8 @@
       if (!state) return;
       const store = loadStore();
       store[state.date] = state;
-      saveStore(store, { quiet: !state.sessionDone });
+      saveStore(store, { quiet: !state.sessionDone && !sessionInProgress(state) });
+      if (!state.sessionDone) writePendingSnapshot();
     }
     function isLate(dayState) {
       if (!dayState?.completed || !dayState.completedAt) return false;
@@ -9570,6 +9696,7 @@
       await hydrateProfileFromCloud();
       updateProfileChrome();
       updateHome();
+      resumeActiveLesson();
       renderCoins();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "earn") renderEarn();
@@ -9587,8 +9714,7 @@
           if (!profileId) return;
           if (coins.balance < readRememberedBalance()) forceRememberedBalance(coins.balance);
           else writeRememberedBalance(coins.balance);
-          if (!profileDirty) return;
-          writePendingSnapshot();
+          if (sessionInProgress(state) || profileDirty) writePendingSnapshot();
         });
       }
     }
@@ -10457,7 +10583,10 @@
       `;
       const openBtn = document.getElementById("dayMissionOpenBtn");
       const repeatBtn = document.getElementById("dayMissionRepeatBtn");
-      if (status.kind === "done" || dayState.sessionDone) {
+      if (sessionInProgress(dayState)) {
+        openBtn.textContent = t("continue");
+        repeatBtn.classList.add("hidden");
+      } else if (status.kind === "done" || dayState.sessionDone) {
         openBtn.textContent = t("repeat");
         repeatBtn.textContent = t("seeResult");
         repeatBtn.classList.remove("hidden");
@@ -10507,6 +10636,7 @@
         const reason = lang === "ru" ? (part.r || part.label || "") : (part.e || part.r || part.label || "");
         return reason ? `${t("historyPenalty")}: ${reason}` : t("historyPenalty");
       }
+      if (part.k === "repeat") return t("rewardRepeat");
       if (part.k === "adjust") return lang === "en" ? "Opening balance" : "Остаток до журнала";
       return part.label || "";
     }
@@ -10522,6 +10652,12 @@
       if (failRate < 5) { parts.push({ k: "low", r: rateText, label: t("rewardLow", rateText), amount: 3 }); total += 3; }
       else if (failRate <= 10) { parts.push({ k: "mid", r: rateText, label: t("rewardMid", rateText), amount: 1 }); total += 1; }
       else { parts.push({ k: "high", r: rateText, label: t("rewardHigh", rateText), amount: 0 }); }
+      const runNo = Math.max(1, Number(dayState.sessionRun) || 0);
+      const extra = Math.max(0, runNo - 1);
+      if (extra) {
+        parts.push({ k: "repeat", label: t("rewardRepeat"), amount: extra });
+        total += extra;
+      }
       return { total, parts, failRate, onTime };
     }
     function renderReward(dayState) {
@@ -10560,7 +10696,7 @@
       closeDayMissionModal();
       state = getDayState(key);
       if (!state) return;
-      if (!state.sessionDone && (state.answered || 0) > 0) {
+      if (sessionInProgress(state)) {
         openAssignmentDay(key);
         return;
       }
@@ -10583,6 +10719,7 @@
         showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
+      ensureLessonQueue(state);
       if (!state.startedAt) { state.startedAt = estNowIso(); persist(); }
       setHero(t("heroTrain"));
       show("train");
@@ -10622,7 +10759,7 @@
         startBtn.textContent = t("seeResult"); startBtn.disabled = false;
         repeatHomeBtn.classList.remove("hidden");
         setHero(t("heroDone"));
-      } else if (state.answered > 0) {
+      } else if (sessionInProgress(state) || state.answered > 0) {
         setTodayStatus("progress", t("statusStarted"));
         startBtn.textContent = t("continue"); startBtn.disabled = false;
         setHero(t("heroContinue", remain));
@@ -10663,19 +10800,35 @@
       state.completedAt = estNowIso();
       state.queue = [];
       state.runsCompleted = (state.runsCompleted || 0) + 1;
+      state.sessionRun = state.runsCompleted;
       const reward = calcRewards(state);
       state.coinParts = reward;
       state.coinsAwarded = reward.total;
       state.totalCoins = (state.totalCoins || 0) + reward.total;
       const historyEntry = {
-        id: uid(), at: state.completedAt, dateKey: state.date || todayKey(),
+        id: uid(),
+        at: state.completedAt,
+        dateKey: state.date || todayKey(),
         amount: reward.total,
+        kind: "lesson",
         parts: reward.parts.filter((p) => p.amount > 0),
       };
       if (reward.total) addCoins(reward.total, historyEntry);
       persist();
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
+    }
+    function resumeActiveLesson() {
+      const key = todayKey();
+      if (!profileId || key < PROGRAM_START) return false;
+      const day = getDayState(key);
+      if (!sessionInProgress(day)) return false;
+      state = day;
+      ensureLessonQueue(state);
+      setHero(t("heroTrain"));
+      show("train", { replace: true });
+      showCurrentProblem();
+      return true;
     }
     function startTraining() { beginLesson(todayKey(), { ifDone: "result" }); }
     function submitAnswer() {
@@ -11029,11 +11182,14 @@
     }
     function hardReloadApp() {
       const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY, DEVICE_KEY]);
+      const keepPrefix = [PENDING_KEY_BASE, DAYS_KEY_BASE, HIST_KEY_BASE, BAL_KEY_BASE];
       try {
         const keys = [];
         for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
         keys.forEach((key) => {
-          if (key && key.startsWith("misha-") && !keep.has(key)) localStorage.removeItem(key);
+          if (!key || !key.startsWith("misha-") || keep.has(key)) return;
+          if (keepPrefix.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) return;
+          localStorage.removeItem(key);
         });
         sessionStorage.clear();
       } catch { /* ignore */ }
