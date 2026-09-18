@@ -7520,12 +7520,23 @@
         }
         return !!dp[g];
       }
+      function mulFactors(goal) {
+        const g = Math.round(Number(goal));
+        const out = [];
+        if (!Number.isFinite(g) || g < 1) return out;
+        eachAllowed((n) => {
+          if (n >= 1 && g % n === 0) out.push(n);
+        });
+        return out;
+      }
       function pickTarget() {
         const { min, max } = rangeBounds();
         const gmin = goalMin();
         const cap = op === "add"
           ? Math.max(gmin, Math.min(99, Math.max(max + max, gmin + 6)))
-          : Math.max(gmin, max, gmin);
+          : op === "mul"
+            ? Math.max(gmin, Math.min(99, Math.max(max * Math.max(1, max), gmin)))
+            : Math.max(gmin, max, gmin);
         const rich = [];
         const tries = [];
         for (let n = gmin; n <= cap; n += 1) {
@@ -7534,13 +7545,6 @@
             tries.push(n);
             if (pairVariants(n).length >= 2) rich.push(n);
             continue;
-          }
-          if (op === "mul") {
-            let factors = 0;
-            eachAllowed((a) => {
-              if (a && n % a === 0 && allowedNum(n / a) && (n / a)) factors += 1;
-            });
-            if (!factors) continue;
           }
           const v = pairVariants(n);
           if (!v.length) continue;
@@ -7758,10 +7762,12 @@
         spawnCool = 0;
         nextRoundIn = 0;
         pickTarget();
+        cullInvalidFish();
         fillSchool();
         syncHud();
       }
       function listedNums() {
+        if (op === "mul") return mulFactors(target);
         const nums = [];
         eachAllowed((n) => nums.push(n));
         if (nums.length <= 20) return nums;
@@ -7771,6 +7777,36 @@
         const { min, max } = rangeBounds();
         keep.add(min); keep.add(max);
         return [...keep].filter((n) => allowedNum(n) || n === 0).sort((a, b) => a - b);
+      }
+      function fishNumOk(n) {
+        const v = Number(n);
+        if (!Number.isFinite(v) || v < 0) return false;
+        if (op === "mul") return v >= 1 && Number(target) % v === 0 && allowedNum(v);
+        return allowedNum(v) || v === 0;
+      }
+      function cullInvalidFish() {
+        for (let i = fishes.length - 1; i >= 0; i -= 1) {
+          const f = fishes[i];
+          if (f.toBucket) continue;
+          if (fishNumOk(f.num)) continue;
+          f.hooked = false;
+          fishes.splice(i, 1);
+        }
+        for (let i = spawnQueue.length - 1; i >= 0; i -= 1) {
+          if (!fishNumOk(spawnQueue[i])) spawnQueue.splice(i, 1);
+        }
+      }
+      function retargetSchool() {
+        pickTarget();
+        fishes.forEach((f) => { f.hooked = false; });
+        for (let i = fishes.length - 1; i >= 0; i -= 1) {
+          if (!fishes[i].toBucket) fishes.splice(i, 1);
+        }
+        spawnQueue.length = 0;
+        spawnWait = 0.08;
+        seedPairQueue();
+        fillSchool();
+        syncHud();
       }
       function spawnEdgeNum(n) {
         fishes.push(makeFish(Number(n)));
@@ -7812,6 +7848,19 @@
         }
         nums.reverse().forEach((n) => spawnQueue.unshift(n));
       }
+      function evictExtras(need) {
+        if (need <= 0) return;
+        const counts = {};
+        smallLive().forEach((f) => { counts[f.num] = (counts[f.num] || 0) + 1; });
+        for (let i = fishes.length - 1; i >= 0 && need > 0; i -= 1) {
+          const f = fishes[i];
+          if (f.toBucket || f.hooked) continue;
+          if ((counts[f.num] || 0) <= 1) continue;
+          counts[f.num] -= 1;
+          fishes.splice(i, 1);
+          need -= 1;
+        }
+      }
       function refillSpawnQueue() {
         const have = {};
         smallLive().forEach((f) => {
@@ -7822,12 +7871,16 @@
         listedNums().forEach((n) => {
           if (!have[n]) spawnQueue.push(n);
         });
+        const listed = listedNums();
+        const missingLive = listed.filter((n) => !smallLive().some((f) => Number(f.num) === Number(n))).length;
+        evictExtras(Math.max(0, smallLive().length + missingLive - schoolWant()));
         const want = schoolWant();
         const pairPool = pairNumPool();
-        const allPool = listedNums();
+        const allPool = listed;
         while (smallLive().length + spawnQueue.length < want) {
           if (pairPool.length && Math.random() < 0.72) spawnQueue.push(pick(pairPool));
-          else spawnQueue.push(allPool.length ? pick(allPool) : 0);
+          else if (allPool.length) spawnQueue.push(pick(allPool));
+          else break;
         }
       }
       function pumpSpawns(dt) {
@@ -7848,7 +7901,7 @@
       function replaceCaught(fish) {
         if (!fish) return;
         const n = Number(fish.num);
-        if (!Number.isFinite(n)) return;
+        if (!Number.isFinite(n) || !fishNumOk(n)) return;
         spawnQueue.unshift(n);
         spawnWait = 0;
       }
@@ -8233,7 +8286,7 @@
         spawnCool = Math.max(0, spawnCool - dt);
         if (solved) flushHookedToBucket();
         if (solved && !fishes.some((f) => f.toBucket)) startNextRound();
-        if (playing && !solved && (target < goalMin() || !prompt)) pickTarget();
+        if (playing && !solved && (target < goalMin() || !prompt)) retargetSchool();
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -8964,7 +9017,7 @@
             e.preventDefault();
             op = btn.getAttribute("data-op") || "add";
             syncOps();
-            if (playing && !solved) pickTarget();
+            if (playing && !solved) retargetSchool();
           });
         }
         soundBtn.addEventListener("pointerup", (e) => {
@@ -9013,6 +9066,7 @@
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
           range: { ...rangeBounds(), goal: goalMin() },
+          factors: op === "mul" ? mulFactors(target) : null,
           hasPair: hasPair(),
           pairTypes: solvingPairKeys(onScreenSmall()).size,
           pairWant: pairWant(),
