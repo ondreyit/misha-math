@@ -7375,6 +7375,7 @@
       let lives = 10, over = false, flash = 0, shake = 0, invuln = 0;
       let op = "add";
       let target = 10;
+      let prompt = null;
       let hooked = null;
       let solved = null;
       let nextRoundIn = 0;
@@ -7680,6 +7681,59 @@
         });
         return best;
       }
+      function resultOf(a, b) {
+        const g = applyOp(Number(a), Number(b));
+        if (!Number.isFinite(g)) return null;
+        if (op === "sub" && g < 0) return null;
+        if (op === "div" && (g < 0 || Math.abs(g - Math.round(g)) > 1e-9)) return null;
+        return op === "div" || op === "mul" ? Math.round(g) : g;
+      }
+      function setPromptFromNearest() {
+        const near = nearestSmall();
+        if (!near) {
+          pickTarget();
+          prompt = null;
+          return false;
+        }
+        const a = Number(near.num);
+        const liveFits = [];
+        smallLive().forEach((f) => {
+          if (f.id === near.id) return;
+          const g = resultOf(a, f.num);
+          if (g == null) return;
+          liveFits.push({ b: Number(f.num), goal: g });
+        });
+        let chosen = liveFits.length ? pick(liveFits) : null;
+        if (!chosen) {
+          const opts = [];
+          eachAllowed((m) => {
+            const g = resultOf(a, m);
+            if (g != null) opts.push({ b: Number(m), goal: g });
+          });
+          chosen = opts.length ? pick(opts) : null;
+        }
+        if (!chosen) {
+          pickTarget();
+          prompt = null;
+          return false;
+        }
+        prompt = { a, b: chosen.b, goal: chosen.goal };
+        target = chosen.goal;
+        if (!smallLive().some((f) => f.id !== near.id && Number(f.num) === Number(chosen.b))) {
+          spawnQueue.unshift(chosen.b);
+          spawnWait = 0;
+        }
+        return true;
+      }
+      function startNextRound() {
+        solved = null;
+        hooked = null;
+        spawnCool = 0;
+        nextRoundIn = 0;
+        setPromptFromNearest();
+        fillSchool();
+        syncHud();
+      }
       function listedNums() {
         const nums = [];
         eachAllowed((n) => nums.push(n));
@@ -7785,6 +7839,14 @@
       function ensureSolvable() {
         if (!playing || solved) return;
         refillSpawnQueue();
+        if (prompt) {
+          if (!smallLive().some((f) => Number(f.num) === Number(prompt.a)) && !queueHasNum(prompt.a)) {
+            spawnQueue.unshift(prompt.a);
+          }
+          if (!smallLive().some((f) => Number(f.num) === Number(prompt.b)) && !queueHasNum(prompt.b)) {
+            spawnQueue.unshift(prompt.b);
+          }
+        }
         const want = pairWant();
         const visTypes = solvingPairKeys(onScreenSmall());
         if (visTypes.size >= want) return;
@@ -7818,6 +7880,7 @@
         score = 0; lives = MAX_LIVES; over = false; flash = 0; shake = 0; invuln = 0;
         hooked = null;
         solved = null;
+        prompt = null;
         nextRoundIn = 0;
         fishes.length = 0; hooks.length = 0; splashes.length = 0;
         ripples.length = 0; bucketFish.length = 0;
@@ -8110,7 +8173,7 @@
           bucketFish.push({ num: a }, { num: b });
           score += 1;
           bumpScore();
-          nextRoundIn = 0.9;
+          nextRoundIn = 0;
           spawnCool = 0.9;
           syncHud();
         } else {
@@ -8162,14 +8225,8 @@
         invuln = Math.max(0, invuln - dt);
         spawnCool = Math.max(0, spawnCool - dt);
         if (solved) flushHookedToBucket();
-        if (nextRoundIn > 0) nextRoundIn = Math.max(0, nextRoundIn - dt);
-        if (solved && nextRoundIn <= 0 && !fishes.some((f) => f.toBucket)) {
-          solved = null;
-          pickTarget();
-          spawnCool = 0;
-          fillSchool();
-          syncHud();
-        }
+        if (solved && !fishes.some((f) => f.toBucket)) startNextRound();
+        if (playing && !solved && !prompt && smallLive().length >= 2) setPromptFromNearest();
         bubbles.forEach((b) => {
           b.y -= b.sp * dt * 0.45;
           b.x += Math.sin(time * 0.9 + b.ph) * 4 * dt;
@@ -8482,9 +8539,9 @@
       }
       function drawEquation() {
         const { x, y, r } = reel;
-        const left = solved ? String(solved.a) : (hooked ? String(hooked.num) : "?");
-        const right = solved ? String(solved.b) : "?";
-        const goal = solved ? solved.goal : target;
+        const left = solved ? String(solved.a) : (prompt ? String(prompt.a) : "?");
+        const right = solved ? String(solved.b) : (prompt ? String(prompt.b) : "?");
+        const goal = solved ? solved.goal : (prompt ? prompt.goal : target);
         const text = `${left}  ${opMark()}  ${right}   =   ${goal}`;
         const font = Math.round(clamp(Math.min(w, h) * 0.034, 18, 26));
         ctx.font = `800 ${font}px "Segoe UI", sans-serif`;
@@ -8605,7 +8662,7 @@
         ctx.font = `900 ${Math.round(r * 1.15)}px "Segoe UI", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(String(target), x, y + 1);
+        ctx.fillText(String(prompt ? prompt.goal : target), x, y + 1);
         ctx.restore();
         drawDuck(x + r * 3.6, Math.max(36, y - r * 4.8), Math.max(9, r * 0.42));
       }
@@ -8899,6 +8956,7 @@
             e.preventDefault();
             op = btn.getAttribute("data-op") || "add";
             syncOps();
+            if (playing && !solved) setPromptFromNearest();
           });
         }
         soundBtn.addEventListener("pointerup", (e) => {
@@ -8938,6 +8996,7 @@
         canvas._fishState = () => ({
           score, lives, target, op,
           hooked: hooked ? hooked.num : null,
+          prompt: prompt ? { a: prompt.a, b: prompt.b, goal: prompt.goal } : null,
           solved: solved ? { a: solved.a, b: solved.b, goal: solved.goal } : null,
           playing, bucket: bucketFish.length, hooks: hooks.length,
           reel: { x: reel.x, y: reel.y, r: reel.r },
