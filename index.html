@@ -7888,6 +7888,20 @@
         fish.tx = bucket.x + bucket.w * 0.5 + rand(-12, 12);
         fish.ty = bucket.y + bucket.h * 0.42 - Math.min(n, 5) * 7;
       }
+      function releaseHook(fish) {
+        if (!fish) return;
+        fish.hooked = false;
+        fish.bumped = 0.4;
+        const dx = reel.x - fish.x;
+        const dy = (fish.big ? fish.y : reel.y) - fish.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const spd = fish.spd || 30;
+        fish.vx = fish.big ? (fish.vx >= 0 ? spd : -spd) : (dx / dist) * spd;
+        fish.vy = fish.big ? 0 : (dy / dist) * spd;
+        if (hooked && hooked.id === fish.id) hooked = null;
+        if (bonus && bonus.id === fish.id) bonus = null;
+        syncHud();
+      }
       function resolveCatch(fish) {
         addSplash(fish.x, fish.y, true);
         if (fish.big) {
@@ -7896,7 +7910,7 @@
           return;
         }
         if (hooked && hooked.id === fish.id) {
-          fish.hooked = true;
+          releaseHook(fish);
           return;
         }
         if (!hooked) {
@@ -7934,7 +7948,14 @@
         const onHook = fishUnderPoint(x, y, (f) => f.hooked);
         const free = fishUnderPoint(x, y, (f) => !f.hooked && !f.toBucket);
         if (onHook.fish && (!free.fish || onHook.d <= free.d)) {
-          onHook.fish.hooked = true;
+          playHtml("cast");
+          hooks.push({
+            x: reel.x, y: reel.y,
+            tx: onHook.fish.x, ty: onHook.fish.y,
+            t: 0, dur: 0.16, fish: onHook.fish, resolved: true,
+          });
+          releaseHook(onHook.fish);
+          addSplash(onHook.fish.x, onHook.fish.y, false);
           kickFrame();
           return;
         }
