@@ -401,6 +401,9 @@
       background: linear-gradient(180deg, #fff3d6, #ffe0a3); border-color: #ffb703; color: #9a6200;
       animation: popIn 0.35s ease;
     }
+    .cal-cell.late {
+      background: linear-gradient(180deg, #fff8d6, #ffe9a8); border-color: #e6c35c; color: #8a6a10;
+    }
     .cal-cell.bad { background: linear-gradient(180deg, #ffe1e8, #ffc2cf); border-color: #ff9aaf; color: var(--bad); animation: shakeX 0.35s ease; }
     .cal-cell.clickable { cursor: pointer; transition: transform 0.12s ease; }
     .cal-cell.clickable:hover { transform: scale(1.06); }
@@ -429,7 +432,8 @@
     .status-pill.done { background: var(--ok-bg); color: var(--ok-ink); border: 2px solid #7de0b8; }
     .status-pill.progress { background: #fff3d6; color: #c67a00; border: 2px solid #ffb703; }
     .status-pill.ready { background: var(--surface-2); color: var(--sky); border: 2px solid var(--line-strong); }
-    .status-pill.miss, .status-pill.late { background: var(--bad-bg); color: var(--bad); border: 2px solid #ff9aaf; }
+    .status-pill.miss { background: var(--bad-bg); color: var(--bad); border: 2px solid #ff9aaf; }
+    .status-pill.late { background: #fff8d6; color: #8a6a10; border: 2px solid #e6c35c; }
     .status-pill.future { background: var(--surface-3); color: var(--muted); border: 2px solid var(--line); }
     .day-mission-emoji { font-size: 42px; text-align: center; margin: 4px 0 10px; }
     .day-mission-meta { display: grid; gap: 8px; margin: 12px 0; }
@@ -502,7 +506,9 @@
     .plan-item.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
     .plan-item.done { background: var(--ok-bg); border-color: #7de0b8; }
     .plan-item.progress { background: linear-gradient(180deg, #fff8e8, #ffe7b0); border-color: #ffb703; }
-    .plan-item.miss, .plan-item.late { background: var(--bad-bg); border-color: #ffb0c0; }
+    .plan-item.miss { background: var(--bad-bg); border-color: #ffb0c0; }
+    .plan-item.late { background: linear-gradient(180deg, #fff8d6, #ffe9a8); border-color: #e6c35c; }
+    .plan-badge.late { color: #8a6a10; }
     .plan-item.future { background: var(--surface-3); color: var(--muted); }
     .plan-badge.done { color: var(--ok-ink); }
     .plan-badge.progress { color: #c67a00; }
@@ -928,6 +934,9 @@
     html[data-theme="dark"] .cal-cell.progress,
     html[data-theme="dark"] .status-pill.progress { background: #3a2c10; color: #ffd27a; }
     html[data-theme="dark"] .plan-item.progress { background: linear-gradient(180deg, #3a2c10, #2d2410); }
+    html[data-theme="dark"] .cal-cell.late,
+    html[data-theme="dark"] .status-pill.late { background: #3a3418; color: #ffe08a; }
+    html[data-theme="dark"] .plan-item.late { background: linear-gradient(180deg, #3a3418, #2d2814); }
     body.gravity-on .main-inner { max-width: none; height: 100%; }
     body.gravity-on .main {
       margin: 0;
@@ -1425,6 +1434,7 @@
             <div class="cal-legend">
               <span>🎉 <span data-i18n="legendDone">done</span></span>
               <span>🤔 <span data-i18n="legendProgress">in progress</span></span>
+              <span>😐 <span data-i18n="legendLate">late</span></span>
               <span>😡 <span data-i18n="legendBad">missed</span></span>
             </div>
           </div>
@@ -1825,7 +1835,7 @@
         todayMission: "Задание дня",
         rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
         left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
-        legendDone: "сделано", legendProgress: "в процессе", legendBad: "пропуск",
+        legendDone: "сделано", legendProgress: "в процессе", legendLate: "с опозданием", legendBad: "пропуск",
         calendarSubtitle: "Твой прогресс тренировок",
         dayMissionTitle: "Миссия дня",
         dayMissionTables: "Таблицы",
@@ -1835,6 +1845,7 @@
         dayMissionEmpty: "Ещё не начинали этот день",
         dayMissionReady: "Можно начать миссию",
         dayMissionHappy: "Ура, миссия выполнена!",
+        dayMissionLate: "Сделано, но с опозданием.",
         dayMissionNoStats: "Урок засчитан, но подробные ответы не сохранились.",
         historyLessonDay: (day) => `урок за ${day}`,
         dayMissionThink: "Ещё думаем… продолжим?",
@@ -2125,7 +2136,7 @@
         todayMission: "Today's mission",
         rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
         left: "left", correct: "correct", fails: "fails", answers: "answers",
-        legendDone: "done", legendProgress: "in progress", legendBad: "missed",
+        legendDone: "done", legendProgress: "in progress", legendLate: "late", legendBad: "missed",
         calendarSubtitle: "Your training progress",
         dayMissionTitle: "Day mission",
         dayMissionTables: "Tables",
@@ -2135,6 +2146,7 @@
         dayMissionEmpty: "This day hasn't been started yet",
         dayMissionReady: "Ready to start the mission",
         dayMissionHappy: "Yay, mission complete!",
+        dayMissionLate: "Done, but late.",
         dayMissionNoStats: "The lesson counts, but the answer details were not saved.",
         historyLessonDay: (day) => `lesson for ${day}`,
         dayMissionThink: "Still thinking… continue?",
@@ -6151,16 +6163,33 @@
       saveStore(store, { quiet: !state.sessionDone && !sessionInProgress(state) });
       if (!state.sessionDone) writePendingSnapshot();
     }
+    function firstCompletionStamp(key, store = dayStore) {
+      const stamps = [];
+      const dayAt = parseStamp(store?.[key]?.completedAt);
+      if (dayAt) stamps.push(dayAt);
+      historyEarnsForDay(key).forEach((entry) => {
+        const at = parseStamp(entry.at);
+        if (at) stamps.push(at);
+      });
+      if (!stamps.length) return null;
+      return new Date(Math.min(...stamps.map((d) => d.getTime())));
+    }
+    function isDayLate(key, store = dayStore) {
+      if (!key || key >= todayKey()) return false;
+      if (!dayReallyDone(key, store) && !store?.[key]?.completed) return false;
+      const first = firstCompletionStamp(key, store);
+      if (!first) return false;
+      return estDateKey(first) > key;
+    }
     function isLate(dayState) {
-      if (!dayState?.completed || !dayState.completedAt) return false;
-      const done = parseStamp(dayState.completedAt);
-      return !!done && estDateKey(done) > dayState.date;
+      if (!dayState?.date) return false;
+      return isDayLate(dayState.date);
     }
     function dayMark(key, store, today) {
       if (key < PROGRAM_START) return "before";
       if (key > today) return "future";
       const dayState = store[key];
-      if (dayReallyDone(key, store)) return "done";
+      if (dayReallyDone(key, store)) return isDayLate(key, store) ? "late" : "done";
       if (dayState && dayState.answered > 0) return key < today ? "bad" : "progress";
       if (key < today) return "bad";
       return "today";
@@ -9797,6 +9826,7 @@
         if (key === today) cell.classList.add("today");
         let icon = "";
         if (mark === "done") icon = "🎉";
+        if (mark === "late") icon = "😐";
         if (mark === "progress") icon = "🤔";
         if (mark === "bad") icon = "😡";
         cell.innerHTML = `<span>${day}</span>${icon ? `<span class="mark">${icon}</span>` : ""}`;
@@ -10494,16 +10524,19 @@
       if (dayReallyDone(key, store)) {
         const shown = Number(dayState?.totalCoins) || Number(dayState?.coinsAwarded) || 0;
         const coinText = shown ? ` · +${shown} ${COIN_SYMBOL}` : "";
+        const late = isDayLate(key, store);
+        const kind = late ? "late" : "done";
+        const badge = t(late ? "badgeLate" : "badgeDone");
         if (!dayHasLessonWork(dayState)) {
           const earned = historyEarnsForDay(key).reduce((sum, entry) => sum + (entry.amount || 0), 0);
           const coinsText = (shown || earned)
             ? `+${shown || earned} ${COIN_SYMBOL}`
             : t("dayMissionNoStats");
-          return { kind: "done", badge: t("badgeDone"), meta: coinsText, action: true };
+          return { kind, badge, meta: coinsText, action: true };
         }
         const correct = dayState?.correct || 0;
         const fails = dayState?.fails || 0;
-        return { kind: "done", badge: t("badgeDone"), meta: t("metaStats", correct, fails, coinText), action: true };
+        return { kind, badge, meta: t("metaStats", correct, fails, coinText), action: true };
       }
       if (dayState && dayState.answered > 0) {
         return { kind: isToday ? "progress" : "miss", badge: isToday ? t("badgeProgress") : t("badgeUnfinished"), meta: t("metaProgress", dayState.queue.length, dayState.correct, dayState.fails), action: true };
@@ -10529,7 +10562,7 @@
         const item = document.createElement(status.action ? "button" : "div");
         if (status.action) item.type = "button";
         item.className = `plan-item ${status.kind}${status.action ? " action" : ""}`;
-        const badgeClass = status.kind === "done" || status.kind === "progress" ? ` ${status.kind}` : "";
+        const badgeClass = status.kind === "done" || status.kind === "progress" || status.kind === "late" ? ` ${status.kind}` : "";
         item.innerHTML = `<div class="title">${formatDateLong(key)}</div><div class="plan-badge${badgeClass}">${status.badge}</div><div class="meta">${status.meta}</div>`;
         if (status.action) item.addEventListener("click", () => openDayMissionModal(key));
         box.appendChild(item);
@@ -10552,15 +10585,17 @@
       const fails = dayState.fails || 0;
       const runs = dayState.runsCompleted || (done ? 1 : 0);
       const coinsAwarded = dayState.totalCoins || dayState.coinsAwarded || 0;
-      const emoji = status.kind === "done" ? "🎉" : status.kind === "progress" ? "🤔" : status.kind === "miss" || status.kind === "late" ? "😡" : "🚀";
+      const emoji = status.kind === "done" ? "🎉" : status.kind === "late" ? "😐" : status.kind === "progress" ? "🤔" : status.kind === "miss" ? "😡" : "🚀";
       const hasWork = dayHasLessonWork(dayState);
       const mood = status.kind === "done"
         ? t("dayMissionHappy")
-        : status.kind === "progress"
-          ? t("dayMissionThink")
-          : answered
-            ? status.meta
-            : t("dayMissionReady");
+        : status.kind === "late"
+          ? t("dayMissionLate")
+          : status.kind === "progress"
+            ? t("dayMissionThink")
+            : answered
+              ? status.meta
+              : t("dayMissionReady");
       const progressValue = hasWork || !done
         ? `${t("scoreLine", correct, fails)} · ${t("remain", remain)}`
         : "—";
@@ -10586,7 +10621,7 @@
       if (sessionInProgress(dayState)) {
         openBtn.textContent = t("continue");
         repeatBtn.classList.add("hidden");
-      } else if (status.kind === "done" || dayState.sessionDone) {
+      } else if (status.kind === "done" || status.kind === "late" || dayState.sessionDone) {
         openBtn.textContent = t("repeat");
         repeatBtn.textContent = t("seeResult");
         repeatBtn.classList.remove("hidden");
