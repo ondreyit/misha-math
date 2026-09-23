@@ -727,7 +727,7 @@
     #historyPage .history-list { max-height: none; }
     .history-cols {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 108px;
+      grid-template-columns: minmax(0, 1fr) 128px;
       gap: 10px;
       align-items: center;
       padding: 0 4px 6px 4px;
@@ -740,7 +740,7 @@
     .history-cols span:last-child { text-align: center; }
     .history-item {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 108px;
+      grid-template-columns: minmax(0, 1fr) 128px;
       gap: 10px;
       align-items: center;
       padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line);
@@ -750,10 +750,12 @@
     .history-item.spend,
     .history-item.type-prize { background: var(--history-spend); border-color: #ffd19a; }
     .history-item.type-lesson { border-color: #9dc0ff; }
+    .history-item.type-late { background: linear-gradient(180deg, #fff8d6, #fff); border-color: #e6c35c; }
     .history-item.type-penalty { background: linear-gradient(180deg, #fff1f4, #fff); border-color: #f5b4c0; }
     .history-item.type-claim { background: linear-gradient(180deg, #eefcf6, #fff); border-color: #9ee0c4; }
     .history-item.type-adjust { background: linear-gradient(180deg, #f3f5f8, #fff); border-color: #c5ced8; }
     html[data-theme="dark"] .history-item.type-lesson { border-color: #3d5ea8; }
+    html[data-theme="dark"] .history-item.type-late { background: linear-gradient(180deg, #3a3418, #1b2344); border-color: #8a6a10; }
     html[data-theme="dark"] .history-item.type-penalty { background: linear-gradient(180deg, #3a1a28, #1b2344); border-color: #7a3348; }
     html[data-theme="dark"] .history-item.type-claim { background: linear-gradient(180deg, #16382e, #1b2344); border-color: #2f6b55; }
     html[data-theme="dark"] .history-item.type-adjust { background: linear-gradient(180deg, #243049, #1b2344); border-color: #4a5678; }
@@ -773,11 +775,13 @@
       line-height: 1.15;
     }
     .history-type.lesson { color: #1d4ed8; background: #dbeafe; }
+    .history-type.late { color: #8a6a10; background: #fff3b0; }
     .history-type.prize { color: #c2410c; background: #ffedd5; }
     .history-type.penalty { color: #be123c; background: #ffe4e6; }
     .history-type.claim { color: #047857; background: #d1fae5; }
     .history-type.adjust { color: #475569; background: #e2e8f0; }
     html[data-theme="dark"] .history-type.lesson { color: #93c5fd; background: #1e3a5f; }
+    html[data-theme="dark"] .history-type.late { color: #ffe08a; background: #3a3418; }
     html[data-theme="dark"] .history-type.prize { color: #fdba74; background: #4a2d12; }
     html[data-theme="dark"] .history-type.penalty { color: #fda4af; background: #4a1d2a; }
     html[data-theme="dark"] .history-type.claim { color: #6ee7b7; background: #14532d; }
@@ -957,7 +961,7 @@
       #adminView .admin-tabs { flex-shrink: 0; }
       #pinInput { -webkit-text-security: disc; text-security: disc; }
       .history-cols,
-      .history-item { grid-template-columns: minmax(0, 1fr) 88px; gap: 8px; }
+      .history-item { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
       .history-type { min-height: 32px; font-size: 11px; padding: 5px 6px; }
     }
     @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
@@ -2067,6 +2071,7 @@
         historyColEntry: "Запись",
         historyColType: "Тип",
         historyTypeLesson: "Урок",
+        historyTypeLate: "Урок с опозданием",
         historyTypePrize: "Приз",
         historyTypePenalty: "Штраф",
         historyTypeClaim: "Запрос",
@@ -2363,6 +2368,7 @@
         historyColEntry: "Entry",
         historyColType: "Type",
         historyTypeLesson: "Lesson",
+        historyTypeLate: "Late lesson",
         historyTypePrize: "Prize",
         historyTypePenalty: "Penalty",
         historyTypeClaim: "Request",
@@ -10704,12 +10710,19 @@
       if (!key) return null;
       return dayStore[key] || null;
     }
+    function isLateHistoryLesson(item) {
+      if (!item || !isLessonHistory(item)) return false;
+      const day = canonicalDateKey(item.dateKey);
+      const done = trainedKeyFromAt(item.at);
+      return !!(day && done && done > day);
+    }
     function historyTypeOf(item) {
       if (!item) return "lesson";
       if (isPenaltyHistory(item)) return "penalty";
       if (isClaimHistory(item) || matchedPaidClaim(item)) return "claim";
       if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) return "adjust";
       if (isPrizeHistory(item)) return "prize";
+      if (isLateHistoryLesson(item)) return "late";
       return "lesson";
     }
     function inferredHistoryParts(item) {
