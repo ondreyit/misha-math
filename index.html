@@ -4424,8 +4424,7 @@
     function sealFinishedSession(day) {
       if (!day) return day;
       if (sessionInProgress(day)) return day;
-      if (day.sessionDone || dayWasAwarded(day)) {
-        day.sessionDone = true;
+      if (day.sessionDone) {
         day.completed = true;
         day.queue = [];
       }
@@ -4456,9 +4455,8 @@
     }
     function compactDayPack(day) {
       if (!day) return null;
-      sealFinishedSession(day);
       const active = sessionInProgress(day);
-      if (!active && !day.coinParts && !day.sessionRun) return null;
+      if (!active && !day.sessionDone && !day.coinParts && !day.sessionRun) return null;
       const pack = { sd: day.sessionDone ? 1 : 0 };
       if (active) {
         pack.q = compactQueue(day.queue);
@@ -6454,7 +6452,7 @@
       if (!state) return;
       const store = loadStore();
       store[state.date] = state;
-      saveStore(store, { quiet: !state.sessionDone && !sessionInProgress(state) });
+      saveStore(store, { quiet: sessionInProgress(state) && !state.sessionDone });
       if (!state.sessionDone) writePendingSnapshot();
     }
     function firstCompletionStamp(key, store = dayStore) {
@@ -11162,11 +11160,19 @@
       answerInput.focus({ preventScroll: true });
     }
     function finishTraining() {
-      if (!state || state.sessionDone) {
-        if (state) showDoneScreen(state.date === todayKey() ? t("closedToday") : t("closedDay", formatDateLong(state.date)));
+      if (!state || (state.queue || []).length) return;
+      if (!(Number(state.answered) > 0)) {
+        if (state.sessionDone) {
+          showDoneScreen(state.date === todayKey() ? t("closedToday") : t("closedDay", formatDateLong(state.date)));
+        }
         return;
       }
-      if (!(Number(state.answered) > 0) || (state.queue || []).length) return;
+      const earned = historyEarnsForDay(state.date).length;
+      const sealedEarly = state.sessionDone && !state.sessionRun;
+      if (state.sessionDone && !sealedEarly && earned >= Math.max(1, Number(state.runsCompleted) || 0)) {
+        showDoneScreen(state.date === todayKey() ? t("closedToday") : t("closedDay", formatDateLong(state.date)));
+        return;
+      }
       state.sessionDone = true; state.completed = true;
       state.completedAt = estNowIso();
       state.queue = [];
