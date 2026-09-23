@@ -2566,6 +2566,7 @@
       if (hist.length) coins.history = mergeHistory(coins.history, hist);
       const buys = readRememberedPurchases();
       if (buys.length) coins.purchases = mergePurchases(coins.purchases, buys);
+      applyGlitchSep22Scrub();
     }
     function cloudPhotoKey(id = profileId) { return `a_${id}`; }
     function pendingKey(id = profileId) { return `${PENDING_KEY_BASE}:${id}`; }
@@ -3433,6 +3434,7 @@
         if (pending.d) mergeRemoteDays(expandDays(pending.d));
         if (pending.c) applyCompletedOffsets(pending.c);
         if (pending.h) writeRememberedHistory(mergeHistory(coins.history, pending.h));
+        applyGlitchSep22Scrub();
         cloudMeta.updatedAt = Number(pending.u) || Date.now();
         persistRememberedProgress();
         renderCoins();
@@ -3644,6 +3646,7 @@
           dateKey: canonicalDateKey(entry.dateKey),
           amount: Number(entry.amount) || 0,
         }));
+      applyGlitchSep22Scrub();
       return fromDays || fromBuys || fromClaims;
     }
     function applyLedgerBalance() {
@@ -3895,13 +3898,105 @@
       const ids = new Set(remote.filter(isPenaltyHistory).map((entry) => entry.id).filter(Boolean));
       return (list || []).filter((entry) => !isPenaltyHistory(entry) || !entry.id || ids.has(entry.id));
     }
+    function historyEntryAmount(entry) {
+      return Number(entry?.amount ?? entry?.delta) || 0;
+    }
+    function historyEntryDay(entry) {
+      const day = canonicalDateKey(entry?.dateKey);
+      if (day) return day;
+      return String(entry?.at || "").slice(0, 10);
+    }
     function isLessonHistory(entry) {
       if (!entry || isPenaltyHistory(entry) || isClaimHistory(entry)) return false;
       if (entry.kind === "prize" || entry.kind === "adjust") return false;
-      return (Number(entry.amount) || 0) > 0 && (entry.kind === "lesson" || !!entry.dateKey);
+      return historyEntryAmount(entry) > 0 && (entry.kind === "lesson" || !!entry.dateKey || !!historyEntryDay(entry));
     }
     function isPrizeHistory(entry) {
-      return !!entry && (entry.kind === "prize" || String(entry.id || "").startsWith("buy-"));
+      if (!entry || isPenaltyHistory(entry) || isClaimHistory(entry)) return false;
+      return entry.kind === "prize" || String(entry.id || "").startsWith("buy-") || historyEntryAmount(entry) < 0;
+    }
+    const GLITCH_SEP22 = "2026-09-22";
+    const GLITCH_SEP22_CUTOFF = "2026-09-22T21:32:00";
+    const GLITCH_SEP22_KEEP = [
+      "1790123210238-abc480",
+      "1790123223026-bf4156",
+      "1790123232388-2dac81",
+    ];
+    function isGlitchSep22Lesson(entry) {
+      return isLessonHistory(entry) && historyEntryDay(entry) === GLITCH_SEP22;
+    }
+    function isGlitchSep22Prize(entry) {
+      return isPrizeHistory(entry) && String(entry?.at || "").startsWith(GLITCH_SEP22)
+        && String(entry.at) < GLITCH_SEP22_CUTOFF;
+    }
+    function scrubGlitchSep22History(list, owner = profileId) {
+      const items = Array.isArray(list) ? list : [];
+      if (owner && owner !== "misha") return items;
+      const keep = new Set(GLITCH_SEP22_KEEP);
+      const early = items.filter((entry) => (
+        isGlitchSep22Lesson(entry) && String(entry.at || "") < GLITCH_SEP22_CUTOFF
+      )).sort((a, b) => String(a.at || "").localeCompare(String(b.at || ""))
+        || String(a.id || "").localeCompare(String(b.id || "")));
+      early.slice(0, 3).forEach((entry) => { if (entry.id) keep.add(entry.id); });
+      return items.filter((entry) => {
+        if (isGlitchSep22Prize(entry)) return false;
+        if (isGlitchSep22Lesson(entry) && String(entry.at || "") < GLITCH_SEP22_CUTOFF) {
+          return !!(entry.id && keep.has(entry.id));
+        }
+        return true;
+      });
+    }
+    function scrubGlitchSep22Purchases(list, owner = profileId) {
+      const items = Array.isArray(list) ? list : [];
+      if (owner && owner !== "misha") return items;
+      return items.filter((item) => !(
+        String(item?.at || "").startsWith(GLITCH_SEP22) && String(item.at) < GLITCH_SEP22_CUTOFF
+      ));
+    }
+    function recountMishaSep22Day() {
+      if (profileId !== "misha") return;
+      const store = loadStore();
+      const day = store[GLITCH_SEP22];
+      const lessons = (coins.history || []).filter(isGlitchSep22Lesson)
+        .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
+      if (!day && !lessons.length) return;
+      const last = lessons[lessons.length - 1];
+      const next = day || {
+        date: GLITCH_SEP22,
+        tables: tablesForDate(GLITCH_SEP22),
+        startCount: questionCount(),
+        queue: [],
+        correct: 0,
+        fails: 0,
+        answered: 0,
+        coinsAwarded: 0,
+      };
+      next.date = GLITCH_SEP22;
+      next.completed = lessons.length > 0;
+      next.runsCompleted = lessons.length;
+      next.totalCoins = lessons.reduce((sum, entry) => sum + historyEntryAmount(entry), 0);
+      if (!sessionInProgress(next)) {
+        next.sessionDone = true;
+        next.queue = [];
+        next.sessionRun = lessons.length;
+        next.coinsAwarded = historyEntryAmount(last);
+        next.completedAt = last?.at || next.completedAt || null;
+      }
+      store[GLITCH_SEP22] = next;
+      saveStore(store, { quiet: true });
+    }
+    function applyGlitchSep22Scrub() {
+      if (profileId !== "misha") return { droppedHist: [], droppedBuys: [] };
+      const beforeH = coins.history || [];
+      const beforeY = coins.purchases || [];
+      coins.history = scrubGlitchSep22History(beforeH);
+      coins.purchases = scrubGlitchSep22Purchases(beforeY);
+      const keepH = new Set(coins.history.map((entry) => entry.id).filter(Boolean));
+      const keepY = new Set(coins.purchases.map((item) => item.id).filter(Boolean));
+      const droppedHist = beforeH.filter((entry) => entry.id && !keepH.has(entry.id));
+      const droppedBuys = beforeY.filter((item) => item.id && !keepY.has(item.id));
+      recountMishaSep22Day();
+      return { droppedHist, droppedBuys };
     }
     function isFreshStamp(iso, windowMs = 120000) {
       const at = stampMs(iso);
@@ -4714,6 +4809,7 @@
           remote.coins?.history
         );
         coins.purchases = dropStaleLocalPurchases(coins.purchases, remote.coins?.purchases);
+        applyGlitchSep22Scrub();
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
@@ -4763,6 +4859,49 @@
         body: rows,
       });
       return out !== null;
+    }
+    async function sbDeleteIds(table, ids) {
+      const list = (ids || []).filter(Boolean);
+      for (let i = 0; i < list.length; i += 20) {
+        const chunk = list.slice(i, i + 20);
+        const query = chunk.map((id) => `"${id}"`).join(",");
+        await sbRest(`${table}?id=in.(${query})`, { method: "DELETE", prefer: "return=minimal" });
+      }
+    }
+    async function purgeGlitchSep22Cloud() {
+      if (!cloudUsesSupabase()) return;
+      const lessons = await sbSelect("history", "profile_id=eq.misha&date_key=eq.2026-09-22&kind=eq.lesson&select=id,at&order=at.asc");
+      const keep = new Set(GLITCH_SEP22_KEEP);
+      lessons.filter((row) => String(row.at || "") < GLITCH_SEP22_CUTOFF)
+        .slice(0, 3)
+        .forEach((row) => { if (row.id) keep.add(row.id); });
+      const dropLessons = lessons
+        .filter((row) => String(row.at || "") < GLITCH_SEP22_CUTOFF && row.id && !keep.has(row.id))
+        .map((row) => row.id);
+      const prizes = await sbSelect("history", "profile_id=eq.misha&kind=eq.prize&select=id,at");
+      const dropPrizes = prizes
+        .filter((row) => String(row.at || "").startsWith(GLITCH_SEP22) && String(row.at) < GLITCH_SEP22_CUTOFF)
+        .map((row) => row.id);
+      const purch = await sbSelect("purchases", "profile_id=eq.misha&select=id,at");
+      const dropBuys = purch
+        .filter((row) => String(row.at || "").startsWith(GLITCH_SEP22) && String(row.at) < GLITCH_SEP22_CUTOFF)
+        .map((row) => row.id);
+      await sbDeleteIds("history", [...dropLessons, ...dropPrizes]);
+      await sbDeleteIds("purchases", dropBuys);
+      const kept = lessons.filter((row) => keep.has(row.id));
+      const last = kept[kept.length - 1];
+      const total = kept.length ? 15 : 0;
+      await sbRest(`days?profile_id=eq.misha&date=eq.${GLITCH_SEP22}`, {
+        method: "PATCH",
+        body: {
+          coins: last ? 6 : 0,
+          runs: kept.length,
+          total_coins: total,
+          status: kept.length ? "done" : "open",
+          payload: '{"sd":1,"r":3,"t":6}',
+          completed_at: last?.at || "2026-09-22T20:27:12",
+        },
+      });
     }
     async function sbReplace(table, query, rows) {
       if (!rows || !rows.length) return true;
@@ -4846,23 +4985,21 @@
       }
       if (m[1] === "h") {
         const rows = await sbSelect("history", `profile_id=eq.${id}&order=at.desc`);
-        return {
-          u: Date.now(),
-          h: rows.map((r) => ({
-            id: r.id,
-            at: r.at,
-            dateKey: canonicalDateKey(r.date_key),
-            amount: Number(r.delta) || 0,
-            kind: r.kind || "lesson",
-            parts: r.kind === "penalty" || String(r.id || "").startsWith("penalty-")
-              ? [{ k: "penalty", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
-              : r.kind === "claim" || String(r.id || "").startsWith("claim-")
-              ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
-              : (r.kind === "prize" || Number(r.delta) < 0)
-                ? [{ k: "prize", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
-                : [],
-          })),
-        };
+        const mapped = rows.map((r) => ({
+          id: r.id,
+          at: r.at,
+          dateKey: canonicalDateKey(r.date_key),
+          amount: Number(r.delta) || 0,
+          kind: r.kind || "lesson",
+          parts: r.kind === "penalty" || String(r.id || "").startsWith("penalty-")
+            ? [{ k: "penalty", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+            : r.kind === "claim" || String(r.id || "").startsWith("claim-")
+            ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+            : (r.kind === "prize" || Number(r.delta) < 0)
+              ? [{ k: "prize", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+              : [],
+        }));
+        return { u: Date.now(), h: scrubGlitchSep22History(mapped, id) };
       }
       if (m[1] === "d") {
         const rows = await sbSelect("days", `profile_id=eq.${id}&order=date.asc`);
@@ -4889,9 +5026,11 @@
       }
       if (m[1] === "y") {
         const rows = await sbSelect("purchases", `profile_id=eq.${id}&order=at.desc`);
+        const mapped = rows.map((r) => [r.id, r.prize_id, Number(r.cost) || 0, sbUnix(r.at), r.title_ru || "", r.title_en || ""]);
+        const expanded = scrubGlitchSep22Purchases(expandPurchases(mapped), id);
         return {
           u: Date.now(),
-          y: rows.map((r) => [r.id, r.prize_id, Number(r.cost) || 0, sbUnix(r.at), r.title_ru || "", r.title_en || ""]),
+          y: expanded.map((r) => [r.id, r.prizeId, Number(r.cost) || 0, sbUnix(r.at), r.titleRu || "", r.titleEn || ""]),
         };
       }
       if (m[1] === "r") {
@@ -4979,7 +5118,16 @@
         const rows = sbExpandHistory(value?.h || value?.history || [], id).filter((row) => (
           row.kind !== "penalty" && !String(row.id || "").startsWith("penalty-")
         ));
-        return rows.length ? sbUpsert("history", rows) : true;
+        const mapped = rows.map((row) => ({
+          id: row.id,
+          at: row.at,
+          dateKey: row.date_key,
+          amount: row.delta,
+          kind: row.kind,
+        }));
+        const keep = new Set(scrubGlitchSep22History(mapped, id).map((entry) => entry.id).filter(Boolean));
+        const clean = rows.filter((row) => keep.has(row.id));
+        return clean.length ? sbUpsert("history", clean) : true;
       }
       if (m[1] === "d") {
         const rows = sbExpandDays(value, id);
@@ -4987,7 +5135,12 @@
       }
       if (m[1] === "y") {
         const rows = sbExpandPurchases(value?.y || value?.purchases || [], id);
-        return rows.length ? sbUpsert("purchases", rows) : true;
+        const keep = new Set(scrubGlitchSep22Purchases(rows.map((row) => ({
+          id: row.id,
+          at: row.at,
+        })), id).map((item) => item.id).filter(Boolean));
+        const clean = rows.filter((row) => keep.has(row.id));
+        return clean.length ? sbUpsert("purchases", clean) : true;
       }
       if (m[1] === "r") {
         const incoming = sbExpandClaims(value?.r || value?.claims || [], id);
@@ -5796,6 +5949,7 @@
         const remoteBuys = expandPurchases(buyRaw.y || buyRaw.purchases);
         coins.purchases = dropStaleLocalPurchases(mergePurchases(coins.purchases, remoteBuys), remoteBuys);
       }
+      applyGlitchSep22Scrub();
       applyLedgerBalance();
     }
     async function onCloudNotify(data) {
@@ -5937,11 +6091,14 @@
         [...historyFromPurchases(mergedBuys), ...historyFromDays(Object.values(dayStore))]
       ));
       coins.history = mergedHist;
+      applyGlitchSep22Scrub();
+      const cleanBuys = coins.purchases;
+      const cleanHist = coins.history;
       const mergedClaims = mergeClaims(payload.coins.claims || coins.claims || [], claimRaw?.r || claimRaw?.claims || [], profileId);
-      const hist = { u: updatedAt, h: cloudUsesSupabase() ? mergedHist : compactMiniHistory(mergedHist) };
+      const hist = { u: updatedAt, h: cloudUsesSupabase() ? cleanHist : compactMiniHistory(cleanHist) };
       const buys = {
         u: updatedAt,
-        y: compactPurchasesCloud(mergedBuys),
+        y: compactPurchasesCloud(cleanBuys),
       };
       const claims = {
         u: updatedAt,
@@ -9520,11 +9677,16 @@
           remote?.coins?.history
         );
         coins.purchases = dropStaleLocalPurchases(coins.purchases, remote?.coins?.purchases);
+        const scrubbed = applyGlitchSep22Scrub();
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
         forceRememberedBalance(coins.balance);
         setBalanceReady(true);
+        if (profileId === "misha") {
+          await purgeGlitchSep22Cloud();
+          if (scrubbed.droppedHist.length || scrubbed.droppedBuys.length) profileDirty = true;
+        }
         const unionC = unionOffsetCsv(remote?.completedOffsets, completedOffsetList(), readRememberedDaysRaw().c);
         if (unionC) applyCompletedOffsets(unionC);
         persistRememberedProgress();
@@ -11292,7 +11454,7 @@
     }
     function hardReloadApp() {
       const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY, DEVICE_KEY]);
-      const keepPrefix = [PENDING_KEY_BASE, DAYS_KEY_BASE, HIST_KEY_BASE, BAL_KEY_BASE];
+      const keepPrefix = [DAYS_KEY_BASE];
       try {
         const keys = [];
         for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
