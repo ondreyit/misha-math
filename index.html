@@ -4083,6 +4083,7 @@
       return (list || []).filter((entry) => {
         if (!entry?.id || ids.has(entry.id)) return true;
         if (!isLessonHistory(entry) && !isPrizeHistory(entry)) return true;
+        if (isLessonHistory(entry) && historyEntryDay(entry) === todayKey()) return true;
         return isFreshStamp(entry.at);
       });
     }
@@ -4413,11 +4414,17 @@
         || (Number(day.fails) || 0) > 0
         || !!day.startedAt;
     }
+    function dayWasAwarded(day) {
+      return !!day && (
+        (Number(day.coinsAwarded) || 0) > 0
+        || (Number(day.runsCompleted) || 0) > 0
+        || (Number(day.totalCoins) || 0) > 0
+      );
+    }
     function sealFinishedSession(day) {
       if (!day) return day;
       if (sessionInProgress(day)) return day;
-      const answered = Number(day.answered) || 0;
-      if (day.sessionDone || day.completed || answered > 0 || (Number(day.runsCompleted) || 0) > 0) {
+      if (day.sessionDone || dayWasAwarded(day)) {
         day.sessionDone = true;
         day.completed = true;
         day.queue = [];
@@ -4737,7 +4744,7 @@
       let live = null;
       if (localActive && remoteActive) live = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
       else if (localActive) live = local;
-      else if (remoteActive) live = remote;
+      else if (remoteActive && !dayWasAwarded(local)) live = remote;
       const richer = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
       const other = richer === local ? remote : local;
       const base = live || richer;
