@@ -3920,7 +3920,6 @@
     const GLITCH_SEP22_KEEP = [
       "1790123210238-abc480",
       "1790123223026-bf4156",
-      "1790123232388-2dac81",
     ];
     function isGlitchSep22Lesson(entry) {
       return isLessonHistory(entry) && historyEntryDay(entry) === GLITCH_SEP22;
@@ -3937,7 +3936,7 @@
         isGlitchSep22Lesson(entry) && String(entry.at || "") < GLITCH_SEP22_CUTOFF
       )).sort((a, b) => String(a.at || "").localeCompare(String(b.at || ""))
         || String(a.id || "").localeCompare(String(b.id || "")));
-      early.slice(0, 3).forEach((entry) => { if (entry.id) keep.add(entry.id); });
+      early.slice(0, 2).forEach((entry) => { if (entry.id) keep.add(entry.id); });
       return items.filter((entry) => {
         if (isGlitchSep22Prize(entry)) return false;
         if (isGlitchSep22Lesson(entry) && String(entry.at || "") < GLITCH_SEP22_CUTOFF) {
@@ -4870,10 +4869,10 @@
     }
     async function purgeGlitchSep22Cloud() {
       if (!cloudUsesSupabase()) return;
-      const lessons = await sbSelect("history", "profile_id=eq.misha&date_key=eq.2026-09-22&kind=eq.lesson&select=id,at&order=at.asc");
+      const lessons = await sbSelect("history", "profile_id=eq.misha&date_key=eq.2026-09-22&kind=eq.lesson&select=id,at,delta&order=at.asc");
       const keep = new Set(GLITCH_SEP22_KEEP);
       lessons.filter((row) => String(row.at || "") < GLITCH_SEP22_CUTOFF)
-        .slice(0, 3)
+        .slice(0, 2)
         .forEach((row) => { if (row.id) keep.add(row.id); });
       const dropLessons = lessons
         .filter((row) => String(row.at || "") < GLITCH_SEP22_CUTOFF && row.id && !keep.has(row.id))
@@ -4890,16 +4889,16 @@
       await sbDeleteIds("purchases", dropBuys);
       const kept = lessons.filter((row) => keep.has(row.id));
       const last = kept[kept.length - 1];
-      const total = kept.length ? 15 : 0;
+      const total = kept.reduce((sum, row) => sum + (Number(row.delta) || 0), 0);
       await sbRest(`days?profile_id=eq.misha&date=eq.${GLITCH_SEP22}`, {
         method: "PATCH",
         body: {
-          coins: last ? 6 : 0,
+          coins: last ? (Number(last.delta) || 5) : 0,
           runs: kept.length,
           total_coins: total,
           status: kept.length ? "done" : "open",
-          payload: '{"sd":1,"r":3,"t":6}',
-          completed_at: last?.at || "2026-09-22T20:27:12",
+          payload: '{"sd":1,"r":2,"t":5}',
+          completed_at: last?.at || "2026-09-22T20:27:03",
         },
       });
     }
