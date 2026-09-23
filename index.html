@@ -3525,7 +3525,7 @@
         .filter((d) => d && d.completed && (Number(d.totalCoins) || Number(d.coinsAwarded)))
         .map((d) => {
           const amount = Number(d.totalCoins || d.coinsAwarded) || 0;
-          const reward = calcRewards(d);
+          const reward = calcRewards({ ...d, sessionRun: 0 });
           const last = Number(d.coinsAwarded) || reward.total;
           const parts = (last === amount && reward.parts && reward.parts.length)
             ? reward.parts.filter((p) => p.amount > 0)
@@ -3561,9 +3561,10 @@
         const amount = Number(entry.amount) || 0;
         const isPrize = !isPenaltyHistory(entry) && (entry.kind === "prize" || amount < 0);
         if (isPrize) {
-          const key = `prize:${toUnix(entry.at)}|${amount}`;
+          const tail = String(entry.id || "").split("-").pop() || String(entry.id || "");
+          const key = `prize:${toUnix(entry.at)}|${amount}|${tail}`;
           const prev = map.get(key);
-          if (!prev || (isSyntheticHistory(prev) && !isSyntheticHistory(entry))) map.set(key, entry);
+          if (!prev || String(prev.id || "").length < String(entry.id || "").length) map.set(key, entry);
           return;
         }
         if (!isSyntheticHistory(entry) && entry.id && amount > 0) {
@@ -3647,7 +3648,7 @@
     }
     function applyLedgerBalance() {
       fillHistoryLedger();
-      const next = ledgerSum();
+      const next = Math.max(0, ledgerSum());
       if (next === coins.balance) return false;
       coins.balance = next;
       forceRememberedBalance(next);
@@ -4206,8 +4207,21 @@
     }
     function sessionInProgress(day) {
       if (!day || day.sessionDone) return false;
-      if ((Number(day.answered) || 0) > 0 || (Number(day.fails) || 0) > 0) return true;
-      return !!(day.startedAt && Array.isArray(day.queue) && day.queue.length);
+      if (!Array.isArray(day.queue) || !day.queue.length) return false;
+      return (Number(day.answered) || 0) > 0
+        || (Number(day.fails) || 0) > 0
+        || !!day.startedAt;
+    }
+    function sealFinishedSession(day) {
+      if (!day) return day;
+      if (sessionInProgress(day)) return day;
+      const answered = Number(day.answered) || 0;
+      if (day.sessionDone || day.completed || answered > 0 || (Number(day.runsCompleted) || 0) > 0) {
+        day.sessionDone = true;
+        day.completed = true;
+        day.queue = [];
+      }
+      return day;
     }
     function compactQueue(queue) {
       return (queue || []).slice(0, 80).map((p) => [Number(p.a) || 0, Number(p.b) || 0, Number(p.answer) || 0, p.id || ""]);
@@ -4234,7 +4248,8 @@
     }
     function compactDayPack(day) {
       if (!day) return null;
-      const active = sessionInProgress(day) || (!day.sessionDone && ((day.queue || []).length || day.startedAt));
+      sealFinishedSession(day);
+      const active = sessionInProgress(day);
       if (!active && !day.coinParts && !day.sessionRun) return null;
       const pack = { sd: day.sessionDone ? 1 : 0 };
       if (active) {
@@ -4252,8 +4267,8 @@
       if (!day || !pack) return day;
       if (Array.isArray(pack.q)) day.queue = expandQueue(pack.q);
       if (pack.s) day.startedAt = day.startedAt || fromUnix(pack.s);
-      if (pack.sd === 0) day.sessionDone = false;
       if (pack.sd === 1) day.sessionDone = true;
+      else if (pack.sd === 0 && (day.queue || []).length) day.sessionDone = false;
       if (pack.r) day.sessionRun = Number(pack.r) || 0;
       if (Array.isArray(pack.p)) {
         day.coinParts = {
@@ -4261,7 +4276,7 @@
           parts: pack.p.map((part) => ({ k: part[0] || "", amount: Number(part[1]) || 0, r: part[2] || "", e: part[3] || "" })),
         };
       }
-      return day;
+      return sealFinishedSession(day);
     }
     function remainingLessonCount(day) {
       if (!day) return 0;
@@ -6126,6 +6141,7 @@
       if (day.sessionDone == null) day.sessionDone = !!day.completed && !sessionInProgress(day);
       if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
       if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
+      sealFinishedSession(day);
       if (sessionInProgress(day)) {
         ensureLessonQueue(day);
         saveStore(store, { quiet: true });
@@ -10750,7 +10766,8 @@
       if (date > today || date < PROGRAM_START) return;
       state = getDayState(date);
       if (!state) return;
-      if (state.sessionDone) {
+      sealFinishedSession(state);
+      if (state.sessionDone || ((state.completed || dayReallyDone(date)) && !sessionInProgress(state))) {
         showDoneScreen(date === today ? t("closedToday") : t("closedDay", formatDateLong(date)));
         return;
       }
@@ -10820,7 +10837,14 @@
     }
     function showCurrentProblem() {
       updateTrainChrome();
-      if (!state.queue.length) { finishTraining(); return; }
+      if (!state.queue.length) {
+        if (state.sessionDone || (state.completed && !sessionInProgress(state))) {
+          showDoneScreen(state.date === todayKey() ? t("closedToday") : t("closedDay", formatDateLong(state.date)));
+          return;
+        }
+        finishTraining();
+        return;
+      }
       const problem = state.queue[0];
       const problemEl = document.getElementById("problemText");
       problemEl.textContent = `${problem.a} × ${problem.b} =`;
@@ -10831,6 +10855,11 @@
       answerInput.focus({ preventScroll: true });
     }
     function finishTraining() {
+      if (!state || state.sessionDone) {
+        if (state) showDoneScreen(state.date === todayKey() ? t("closedToday") : t("closedDay", formatDateLong(state.date)));
+        return;
+      }
+      if (!(Number(state.answered) > 0) || (state.queue || []).length) return;
       state.sessionDone = true; state.completed = true;
       state.completedAt = estNowIso();
       state.queue = [];
@@ -10857,9 +10886,10 @@
       const key = todayKey();
       if (!profileId || key < PROGRAM_START) return false;
       const day = getDayState(key);
+      sealFinishedSession(day);
       if (!sessionInProgress(day)) return false;
       state = day;
-      ensureLessonQueue(state);
+      if (!(state.queue || []).length) return false;
       setHero(t("heroTrain"));
       show("train", { replace: true });
       showCurrentProblem();
