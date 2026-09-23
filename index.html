@@ -3895,6 +3895,39 @@
       const ids = new Set(remote.filter(isPenaltyHistory).map((entry) => entry.id).filter(Boolean));
       return (list || []).filter((entry) => !isPenaltyHistory(entry) || !entry.id || ids.has(entry.id));
     }
+    function isLessonHistory(entry) {
+      if (!entry || isPenaltyHistory(entry) || isClaimHistory(entry)) return false;
+      if (entry.kind === "prize" || entry.kind === "adjust") return false;
+      return (Number(entry.amount) || 0) > 0 && (entry.kind === "lesson" || !!entry.dateKey);
+    }
+    function isPrizeHistory(entry) {
+      return !!entry && (entry.kind === "prize" || String(entry.id || "").startsWith("buy-"));
+    }
+    function isFreshStamp(iso, windowMs = 120000) {
+      const at = stampMs(iso);
+      if (!at) return false;
+      const age = Date.now() - at;
+      return age >= -5000 && age < windowMs;
+    }
+    function dropStaleLocalHistory(list, remote) {
+      if (!Array.isArray(remote)) return list || [];
+      const ids = new Set(remote.map((entry) => entry.id).filter(Boolean));
+      return (list || []).filter((entry) => {
+        if (!entry?.id || ids.has(entry.id)) return true;
+        if (!isLessonHistory(entry) && !isPrizeHistory(entry)) return true;
+        return isFreshStamp(entry.at);
+      });
+    }
+    function dropStaleLocalPurchases(list, remote) {
+      if (!Array.isArray(remote)) return list || [];
+      const ids = new Set((remote || []).map((item) => item && item.id).filter(Boolean));
+      const keys = new Set((remote || []).map(purchaseKey).filter(Boolean));
+      return (list || []).filter((item) => {
+        if (!item) return false;
+        if ((item.id && ids.has(item.id)) || keys.has(purchaseKey(item))) return true;
+        return isFreshStamp(item.at);
+      });
+    }
     function penaltyHistoryEntry(item) {
       const coins = Math.abs(Number(item.coins) || 0);
       const reason = String(item.reason || "").trim();
@@ -4676,7 +4709,11 @@
         mergeRemoteDays(remote.days || []);
         if (remote.completedOffsets) applyCompletedOffsets(remote.completedOffsets);
         applyRememberedLocalProfile();
-        coins.history = dropCancelledPenalties(coins.history, remote.coins?.history);
+        coins.history = dropStaleLocalHistory(
+          dropCancelledPenalties(coins.history, remote.coins?.history),
+          remote.coins?.history
+        );
+        coins.purchases = dropStaleLocalPurchases(coins.purchases, remote.coins?.purchases);
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
@@ -5749,11 +5786,15 @@
       const histRaw = await fetchKvRaw(cloudHistKey());
       if (histRaw && (Array.isArray(histRaw.h) || Array.isArray(histRaw.history))) {
         const remoteHist = expandHistory(histRaw.h || histRaw.history);
-        coins.history = dropCancelledPenalties(mergeHistory(coins.history, remoteHist), remoteHist);
+        coins.history = dropStaleLocalHistory(
+          dropCancelledPenalties(mergeHistory(coins.history, remoteHist), remoteHist),
+          remoteHist
+        );
       }
       const buyRaw = await fetchKvRaw(cloudBuyKey());
       if (buyRaw && (Array.isArray(buyRaw.y) || Array.isArray(buyRaw.purchases))) {
-        coins.purchases = mergePurchases(coins.purchases, expandPurchases(buyRaw.y || buyRaw.purchases));
+        const remoteBuys = expandPurchases(buyRaw.y || buyRaw.purchases);
+        coins.purchases = dropStaleLocalPurchases(mergePurchases(coins.purchases, remoteBuys), remoteBuys);
       }
       applyLedgerBalance();
     }
@@ -9471,10 +9512,14 @@
         if (remote) replaceFromCloud(remote);
         applyRememberedLocalProfile();
         if (pending) applyPendingSnapshot(pending);
-        coins.history = dropCancelledPenalties(
-          dedupeHistory(mergeHistory(coins.history, readRememberedHistory())),
+        coins.history = dropStaleLocalHistory(
+          dropCancelledPenalties(
+            dedupeHistory(mergeHistory(coins.history, readRememberedHistory())),
+            remote?.coins?.history
+          ),
           remote?.coins?.history
         );
+        coins.purchases = dropStaleLocalPurchases(coins.purchases, remote?.coins?.purchases);
         fillDaysFromHistory();
         fillHistoryLedger();
         applyLedgerBalance();
