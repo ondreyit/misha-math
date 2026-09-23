@@ -725,12 +725,63 @@
     }
     .history-list { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
     #historyPage .history-list { max-height: none; }
+    .history-cols {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 108px;
+      gap: 10px;
+      align-items: center;
+      padding: 0 4px 6px 4px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .history-cols span:last-child { text-align: center; }
     .history-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 108px;
+      gap: 10px;
+      align-items: center;
       padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line);
       background: var(--history-bg);
       animation: fadeUp 0.3s ease;
     }
-    .history-item.spend { background: var(--history-spend); border-color: #ffd19a; }
+    .history-item.spend,
+    .history-item.type-prize { background: var(--history-spend); border-color: #ffd19a; }
+    .history-item.type-lesson { border-color: #9dc0ff; }
+    .history-item.type-penalty { background: linear-gradient(180deg, #fff1f4, #fff); border-color: #f5b4c0; }
+    .history-item.type-claim { background: linear-gradient(180deg, #eefcf6, #fff); border-color: #9ee0c4; }
+    .history-item.type-adjust { background: linear-gradient(180deg, #f3f5f8, #fff); border-color: #c5ced8; }
+    html[data-theme="dark"] .history-item.type-lesson { border-color: #3d5ea8; }
+    html[data-theme="dark"] .history-item.type-penalty { background: linear-gradient(180deg, #3a1a28, #1b2344); border-color: #7a3348; }
+    html[data-theme="dark"] .history-item.type-claim { background: linear-gradient(180deg, #16382e, #1b2344); border-color: #2f6b55; }
+    html[data-theme="dark"] .history-item.type-adjust { background: linear-gradient(180deg, #243049, #1b2344); border-color: #4a5678; }
+    .history-main { min-width: 0; }
+    .history-type {
+      justify-self: stretch;
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.15;
+    }
+    .history-type.lesson { color: #1d4ed8; background: #dbeafe; }
+    .history-type.prize { color: #c2410c; background: #ffedd5; }
+    .history-type.penalty { color: #be123c; background: #ffe4e6; }
+    .history-type.claim { color: #047857; background: #d1fae5; }
+    .history-type.adjust { color: #475569; background: #e2e8f0; }
+    html[data-theme="dark"] .history-type.lesson { color: #93c5fd; background: #1e3a5f; }
+    html[data-theme="dark"] .history-type.prize { color: #fdba74; background: #4a2d12; }
+    html[data-theme="dark"] .history-type.penalty { color: #fda4af; background: #4a1d2a; }
+    html[data-theme="dark"] .history-type.claim { color: #6ee7b7; background: #14532d; }
+    html[data-theme="dark"] .history-type.adjust { color: #cbd5e1; background: #334155; }
     .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
     .history-amount { font-size: 18px; font-weight: 900; color: var(--history-in); flex-shrink: 0; }
@@ -905,6 +956,9 @@
       #adminView .view-title,
       #adminView .admin-tabs { flex-shrink: 0; }
       #pinInput { -webkit-text-security: disc; text-security: disc; }
+      .history-cols,
+      .history-item { grid-template-columns: minmax(0, 1fr) 88px; gap: 8px; }
+      .history-type { min-height: 32px; font-size: 11px; padding: 5px 6px; }
     }
     @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -2010,6 +2064,13 @@
         penaltyStatus_active: "Штраф",
         penaltyStatus_cancelled: "Отменён",
         historyPenalty: "Штраф",
+        historyColEntry: "Запись",
+        historyColType: "Тип",
+        historyTypeLesson: "Урок",
+        historyTypePrize: "Приз",
+        historyTypePenalty: "Штраф",
+        historyTypeClaim: "Запрос",
+        historyTypeAdjust: "Остаток",
         earnEdit: "Изменить",
         earnDelete: "Удалить",
         earnEdited: "Заявка обновлена",
@@ -2299,6 +2360,13 @@
         penaltyStatus_active: "Penalty",
         penaltyStatus_cancelled: "Cancelled",
         historyPenalty: "Penalty",
+        historyColEntry: "Entry",
+        historyColType: "Type",
+        historyTypeLesson: "Lesson",
+        historyTypePrize: "Prize",
+        historyTypePenalty: "Penalty",
+        historyTypeClaim: "Request",
+        historyTypeAdjust: "Opening",
         earnEdit: "Edit",
         earnDelete: "Delete",
         earnEdited: "Request updated",
@@ -10636,6 +10704,14 @@
       if (!key) return null;
       return dayStore[key] || null;
     }
+    function historyTypeOf(item) {
+      if (!item) return "lesson";
+      if (isPenaltyHistory(item)) return "penalty";
+      if (isClaimHistory(item) || matchedPaidClaim(item)) return "claim";
+      if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) return "adjust";
+      if (isPrizeHistory(item)) return "prize";
+      return "lesson";
+    }
     function inferredHistoryParts(item) {
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
       if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) {
@@ -10678,20 +10754,25 @@
       const spent = (coins.history || []).reduce((sum, item) => sum + Math.max(0, -(Number(item.amount) || 0)), 0);
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
         <p class="note" style="margin-bottom:12px;">${t("coinHistoryLedger", earned, spent)}</p>
+        <div class="history-cols"><span>${escapeHtml(t("historyColEntry"))}</span><span>${escapeHtml(t("historyColType"))}</span></div>
         <div class="history-list">${coins.history.map((item) => {
           const neg = item.amount < 0;
+          const type = historyTypeOf(item);
           const partsHtml = inferredHistoryParts(item).map((p) => {
             const label = escapeHtml(partLabel(p));
             if (!p.amount) return `<li>${label}</li>`;
             const cls = p.amount < 0 ? "amt-out" : "amt-in";
             return `<li>${label}: <span class="${cls}">${p.amount > 0 ? "+" : ""}${p.amount}</span></li>`;
           }).join("");
-          return `<div class="history-item${neg ? " spend" : ""}">
-            <div class="history-top">
-              <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
-              <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
+          return `<div class="history-item type-${type}${neg ? " spend" : ""}">
+            <div class="history-main">
+              <div class="history-top">
+                <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
+                <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
+              </div>
+              ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
             </div>
-            ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
+            <span class="history-type ${type}">${escapeHtml(t(`historyType${type[0].toUpperCase()}${type.slice(1)}`))}</span>
           </div>`;
         }).join("")}</div>`;
     }
