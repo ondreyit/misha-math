@@ -4421,12 +4421,52 @@
         || (Number(day.totalCoins) || 0) > 0
       );
     }
+    function isStaleLeftoverSession(day) {
+      if (!day || !Array.isArray(day.queue) || !day.queue.length) return false;
+      const earned = historyEarnsForDay(day.date).length;
+      const runs = Number(day.runsCompleted) || 0;
+      if (earned < 1 && runs < 1 && !day.completed && !day.sessionDone) return false;
+      const start = Number(day.startCount) || questionCount();
+      const answered = Number(day.answered) || 0;
+      const freshRerun = !day.sessionDone && (Number(day.sessionRun) || 0) === 0 && answered === 0;
+      if (freshRerun) return false;
+      const midRerun = !day.sessionDone && (Number(day.sessionRun) || 0) === 0 && answered > 0 && answered < start;
+      if (midRerun) return false;
+      if (day.sessionDone || day.completed) return true;
+      if ((earned >= Math.max(1, runs) || runs >= 1)
+        && ((Number(day.sessionRun) || 0) > 0 || answered >= start)) return true;
+      return false;
+    }
+    function normalizeFinishedDayStats(day) {
+      if (!day || !(day.sessionDone || day.completed)) return day;
+      const start = questionCount();
+      day.startCount = start;
+      day.queue = [];
+      const answered = Number(day.answered) || 0;
+      const maxOneRun = start + (Number(day.fails) || 0) * failExtra();
+      if (answered > maxOneRun + 2 || answered > start * 2) {
+        day.answered = start;
+        day.correct = start;
+        day.fails = 0;
+      }
+      return day;
+    }
+    function discardStaleLessonQueue(day) {
+      if (!day) return day;
+      if (!isStaleLeftoverSession(day) && !(day.sessionDone && (day.queue || []).length)) return day;
+      day.sessionDone = true;
+      day.completed = true;
+      day.queue = [];
+      return normalizeFinishedDayStats(day);
+    }
     function sealFinishedSession(day) {
       if (!day) return day;
+      discardStaleLessonQueue(day);
       if (sessionInProgress(day)) return day;
       if (day.sessionDone) {
         day.completed = true;
         day.queue = [];
+        normalizeFinishedDayStats(day);
       }
       return day;
     }
@@ -4473,8 +4513,12 @@
       if (!day || !pack) return day;
       if (Array.isArray(pack.q)) day.queue = expandQueue(pack.q);
       if (pack.s) day.startedAt = day.startedAt || fromUnix(pack.s);
-      if (pack.sd === 1) day.sessionDone = true;
-      else if (pack.sd === 0 && (day.queue || []).length) day.sessionDone = false;
+      if (pack.sd === 1 || day.completed) {
+        day.sessionDone = true;
+        day.queue = [];
+      } else if (pack.sd === 0 && (day.queue || []).length) {
+        day.sessionDone = false;
+      }
       if (pack.r) day.sessionRun = Number(pack.r) || 0;
       if (Array.isArray(pack.p)) {
         day.coinParts = {
@@ -4482,6 +4526,7 @@
           parts: pack.p.map((part) => ({ k: part[0] || "", amount: Number(part[1]) || 0, r: part[2] || "", e: part[3] || "" })),
         };
       }
+      discardStaleLessonQueue(day);
       return sealFinishedSession(day);
     }
     function remainingLessonCount(day) {
@@ -4629,6 +4674,7 @@
     }
     function fillDaysFromHistory() {
       const store = loadStore();
+      Object.values(store || {}).forEach(discardStaleLessonQueue);
       let changed = false;
       Object.entries(RECOVERED_LESSONS[profileId] || {}).forEach(([key, extra]) => {
         if (sessionInProgress(store[key])) return;
@@ -4687,7 +4733,7 @@
           startedAt: row.startedAt || null,
           queue: expandQueue(row.queue),
           tables: tablesForDate(row.date),
-          startCount: Number(row.startCount || row.answered) || questionCount(),
+          startCount: Number(row.startCount) || questionCount(),
         };
         return applyDayPack(day, parseDayPack(row.payload || row.pack));
       }
@@ -4707,7 +4753,7 @@
         startedAt: null,
         queue: [],
         tables: tablesForDate(date),
-        startCount: Number(answered) || questionCount(),
+        startCount: questionCount(),
         poolVersion: POOL_VERSION,
       };
       return applyDayPack(day, parseDayPack(rawPack));
@@ -4736,6 +4782,8 @@
     function mergeDayState(local, remote) {
       if (!remote) return local;
       if (!local) return remote;
+      discardStaleLessonQueue(local);
+      discardStaleLessonQueue(remote);
       const everDone = !!(local.completed || remote.completed);
       const localActive = sessionInProgress(local);
       const remoteActive = sessionInProgress(remote);
@@ -5097,7 +5145,13 @@
             Number(r.total_coins) || 0,
           ];
           const pack = parseDayPack(r.payload);
-          if (pack) row.push(pack);
+          if (pack) {
+            if (r.status === "done") {
+              pack.sd = 1;
+              delete pack.q;
+            }
+            row.push(pack);
+          }
           return row;
         });
         return { u: Date.now(), c: c.join(","), d };
@@ -6414,6 +6468,7 @@
         saveStore(store, { quiet: true });
       }
       const day = store[date];
+      discardStaleLessonQueue(day);
       if (day.sessionDone == null) day.sessionDone = !!day.completed && !sessionInProgress(day);
       if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
       if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
