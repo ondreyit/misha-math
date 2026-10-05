@@ -4529,14 +4529,29 @@
       discardStaleLessonQueue(day);
       return sealFinishedSession(day);
     }
+    function lessonStartCount(day) {
+      const fallback = questionCount();
+      const start = Number(day?.startCount) || 0;
+      if (start < 1 || start > fallback + 2) return fallback;
+      return start;
+    }
+    function plannedLessonCount(day) {
+      return lessonStartCount(day) + (Number(day?.fails) || 0) * failExtra();
+    }
     function remainingLessonCount(day) {
       if (!day) return 0;
-      if (Array.isArray(day.queue) && day.queue.length) return day.queue.length;
-      const extra = (Number(day.fails) || 0) * failExtra();
-      return Math.max(0, (Number(day.startCount) || questionCount()) + extra - (Number(day.answered) || 0));
+      return Math.max(0, plannedLessonCount(day) - (Number(day.answered) || 0));
+    }
+    function trimLessonQueue(day) {
+      if (!day || day.sessionDone) return day;
+      const remain = remainingLessonCount(day);
+      if (remain === 0) day.queue = [];
+      else if (Array.isArray(day.queue) && day.queue.length > remain) day.queue = day.queue.slice(0, remain);
+      return day;
     }
     function ensureLessonQueue(day) {
       if (!day || day.sessionDone) return day;
+      trimLessonQueue(day);
       if (Array.isArray(day.queue) && day.queue.length) return day;
       const remain = remainingLessonCount(day);
       if (remain > 0) {
@@ -4784,11 +4799,19 @@
       if (!local) return remote;
       discardStaleLessonQueue(local);
       discardStaleLessonQueue(remote);
+      trimLessonQueue(local);
+      trimLessonQueue(remote);
       const everDone = !!(local.completed || remote.completed);
-      const localActive = sessionInProgress(local);
-      const remoteActive = sessionInProgress(remote);
+      const localAns = Number(local.answered) || 0;
+      const remoteAns = Number(remote.answered) || 0;
+      let localActive = sessionInProgress(local);
+      let remoteActive = sessionInProgress(remote);
+      if (localAns > remoteAns && !(local.queue || []).length) remoteActive = false;
+      if (remoteAns > localAns && !(remote.queue || []).length) localActive = false;
       let live = null;
-      if (localActive && remoteActive) live = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
+      if (localActive && remoteActive) live = localAns === remoteAns
+        ? (dayWorkScore(remote) > dayWorkScore(local) ? remote : local)
+        : (remoteAns > localAns ? remote : local);
       else if (localActive) live = local;
       else if (remoteActive && !dayWasAwarded(local)) live = remote;
       const richer = dayWorkScore(remote) > dayWorkScore(local) ? remote : local;
@@ -6469,6 +6492,8 @@
       }
       const day = store[date];
       discardStaleLessonQueue(day);
+      day.startCount = lessonStartCount(day);
+      trimLessonQueue(day);
       if (day.sessionDone == null) day.sessionDone = !!day.completed && !sessionInProgress(day);
       if (day.runsCompleted == null) day.runsCompleted = day.completed ? 1 : 0;
       if (day.totalCoins == null) day.totalCoins = day.coinsAwarded || 0;
@@ -11196,6 +11221,7 @@
       document.getElementById("trainTables").innerHTML = tables.map((n) => `<span>${n}</span>`).join("");
     }
     function showCurrentProblem() {
+      trimLessonQueue(state);
       updateTrainChrome();
       if (!state.queue.length) {
         if (state.sessionDone || (state.completed && !sessionInProgress(state))) {
@@ -11289,8 +11315,10 @@
         problemCard.classList.add("flash-bad"); setHero(pick(t("cheer"))); spawnBurst(false);
         for (let i = 0; i < extra; i += 1) state.queue.push(makeProblem(tables, state.date));
       }
+      trimLessonQueue(state);
       persist(); updateTrainChrome();
       window.setTimeout(() => {
+        trimLessonQueue(state);
         if (!state.queue.length) finishTraining();
         else showCurrentProblem();
       }, value === problem.answer ? 380 : 950);
