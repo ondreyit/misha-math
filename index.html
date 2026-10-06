@@ -1800,7 +1800,7 @@
     const SESSION_TTL_MS = 120000;
     const PENDING_KEY_BASE = "misha-pending-v1";
     const BAL_KEY_BASE = "misha-bal-v2";
-    const DAYS_KEY_BASE = "misha-days-v2";
+    const DAYS_KEY_BASE = "misha-days-v3";
     const HIST_KEY_BASE = "misha-hist-v2";
     const BUY_KEY_BASE = "misha-buy-v1";
     const PLAN_DAYS = 14;
@@ -4495,6 +4495,7 @@
     }
     function compactDayPack(day) {
       if (!day) return null;
+      trimLessonQueue(day);
       const active = sessionInProgress(day);
       if (!active && !day.sessionDone && !day.coinParts && !day.sessionRun) return null;
       const pack = { sd: day.sessionDone ? 1 : 0 };
@@ -4526,6 +4527,7 @@
           parts: pack.p.map((part) => ({ k: part[0] || "", amount: Number(part[1]) || 0, r: part[2] || "", e: part[3] || "" })),
         };
       }
+      trimLessonQueue(day);
       discardStaleLessonQueue(day);
       return sealFinishedSession(day);
     }
@@ -4818,20 +4820,25 @@
       const other = richer === local ? remote : local;
       const base = live || richer;
       const leftover = base === local ? remote : local;
+      const answered = Math.max(localAns, remoteAns);
+      const fails = Math.max(Number(local.fails) || 0, Number(remote.fails) || 0);
+      const correct = Math.max(Number(local.correct) || 0, Number(remote.correct) || 0);
+      const planned = lessonStartCount(base) + fails * failExtra();
+      const doneQueue = answered >= planned || everDone;
       return {
         ...leftover,
         ...base,
         completed: everDone,
-        sessionDone: live ? false : !!(local.sessionDone || remote.sessionDone || everDone),
-        correct: live ? (Number(live.correct) || 0) : Math.max(Number(local.correct) || 0, Number(remote.correct) || 0),
-        fails: live ? (Number(live.fails) || 0) : Math.max(Number(local.fails) || 0, Number(remote.fails) || 0),
-        answered: live ? (Number(live.answered) || 0) : Math.max(Number(local.answered) || 0, Number(remote.answered) || 0),
+        sessionDone: doneQueue ? !!(local.sessionDone || remote.sessionDone || everDone) : (live ? false : !!(local.sessionDone || remote.sessionDone)),
+        correct,
+        fails,
+        answered,
         runsCompleted: Math.max(Number(local.runsCompleted) || 0, Number(remote.runsCompleted) || 0),
-        coinsAwarded: live ? (Number(live.coinsAwarded) || 0) : Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
+        coinsAwarded: live && !doneQueue ? (Number(live.coinsAwarded) || 0) : Math.max(Number(local.coinsAwarded) || 0, Number(remote.coinsAwarded) || 0),
         totalCoins: Math.max(Number(local.totalCoins) || 0, Number(remote.totalCoins) || 0),
         completedAt: local.completedAt || remote.completedAt,
         startedAt: live?.startedAt || local.startedAt || remote.startedAt,
-        queue: live ? (live.queue || []) : (everDone ? [] : (richer.queue || other.queue || [])),
+        queue: doneQueue ? [] : (live ? (live.queue || []) : (richer.queue || other.queue || [])),
         coinParts: live?.coinParts || richer.coinParts || other.coinParts || null,
         sessionRun: live?.sessionRun || richer.sessionRun || other.sessionRun || 0,
       };
@@ -10104,9 +10111,20 @@
       show("home", { replace: true });
       maybeOfferInstall();
       await hydrateProfileFromCloud();
+      Object.values(loadStore() || {}).forEach(trimLessonQueue);
       updateProfileChrome();
       updateHome();
-      resumeActiveLesson();
+      let settled = false;
+      Object.values(loadStore() || {}).forEach((day) => {
+        if (!day?.date || day.sessionDone) return;
+        trimLessonQueue(day);
+        if (remainingLessonCount(day) === 0 && (Number(day.answered) || 0) > 0) {
+          state = day;
+          finishTraining();
+          settled = true;
+        }
+      });
+      if (!settled) resumeActiveLesson();
       renderCoins();
       if (currentView === "history") renderCoinHistory();
       if (currentView === "earn") renderEarn();
@@ -11181,7 +11199,7 @@
       const count = state?.startCount || questionCount();
       const repeatHomeBtn = document.getElementById("repeatHomeBtn");
       document.getElementById("dateLabel").textContent = formatDateLong(date);
-      document.getElementById("homeRemain").textContent = String(state?.sessionDone ? 0 : remain);
+      document.getElementById("homeRemain").textContent = String(state?.sessionDone ? 0 : remainingLessonCount(state));
       document.getElementById("homeOk").textContent = String(state?.correct || 0);
       document.getElementById("homeFail").textContent = String(state?.fails || 0);
       document.getElementById("streakText").textContent = t("streak", calcStreak(store, date));
@@ -11643,7 +11661,7 @@
     }
     function hardReloadApp() {
       const keep = new Set([LANG_KEY, THEME_KEY, PROFILE_KEY, DEVICE_KEY]);
-      const keepPrefix = [DAYS_KEY_BASE];
+      const keepPrefix = [];
       try {
         const keys = [];
         for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
