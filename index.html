@@ -484,6 +484,21 @@
       text-align: left; font-weight: 700; color: #6a4700;
     }
     .reward-box ul { margin: 8px 0 0; padding-left: 18px; }
+    .fail-review {
+      margin-top: 12px; padding: 12px; border-radius: 14px; text-align: left;
+      background: linear-gradient(135deg, #ffe8ee, #fff5f7); border: 2px solid #f5b4c0;
+      color: #8a2240;
+    }
+    .fail-review h3 { margin: 0 0 8px; font-size: 15px; font-weight: 900; }
+    .fail-review ul { margin: 0; padding-left: 18px; font-weight: 800; }
+    .fail-review li { margin: 4px 0; }
+    .fail-review .got { color: #c81e4a; }
+    .fail-review .right { color: #0f9f6e; }
+    html[data-theme="dark"] .fail-review {
+      background: linear-gradient(135deg, #3a1a28, #2a1824); border-color: #7a3348; color: #ffc4d2;
+    }
+    html[data-theme="dark"] .fail-review .got { color: #fda4af; }
+    html[data-theme="dark"] .fail-review .right { color: #6ee7b7; }
     .tables { display: flex; flex-wrap: wrap; gap: 8px; }
     .tables button, .table-chip {
       width: 46px; height: 46px; border: 2px solid var(--line-strong); background: var(--surface);
@@ -1671,6 +1686,7 @@
               <div><span data-i18n="reward">Reward</span>: <strong id="rewardTotal">+0 ★</strong></div>
               <ul id="rewardList"></ul>
             </div>
+            <div class="fail-review hidden" id="failReview"></div>
           </div>
           <button class="btn btn-accent" id="repeatBtn" type="button" data-i18n="repeat">Repeat lesson</button>
           <button class="btn btn-ink" id="backHomeBtn" type="button" data-i18n="home">Home</button>
@@ -1993,6 +2009,8 @@
         cheer: ["Не сдавайся!", "Ещё попытка!", "Ты справишься!", "Давай дальше!"],
         doneIdeal: "Идеально: все ответы верные!",
         doneFails: (n) => `Готово. Было ${n} фейлов — из‑за них примеров стало больше.`,
+        failReviewTitle: "Где ошибки",
+        failReviewLine: (a, b, given, right) => `${a} × ${b}: ты ${given}, верно ${right}`,
         closedToday: "Урок выполнен. Можно пройти ещё раз!",
         closedDay: (d) => `Задание за ${d} уже выполнено. Можно повторить.`,
         trainCatchUp: (d) => `Догоняем задание за ${d}`,
@@ -2301,6 +2319,8 @@
         cheer: ["Don't give up!", "Try again!", "You've got this!", "Keep going!"],
         doneIdeal: "Perfect: all answers correct!",
         doneFails: (n) => `Done. There were ${n} fails — that added more examples.`,
+        failReviewTitle: "Where the mistakes were",
+        failReviewLine: (a, b, given, right) => `${a} × ${b}: you ${given}, right ${right}`,
         closedToday: "Lesson done. You can play it again!",
         closedDay: (d) => `Mission for ${d} is done. You can repeat it.`,
         trainCatchUp: (d) => `Catching up: ${d}`,
@@ -4470,6 +4490,67 @@
       }
       return day;
     }
+    function lessonMistakes(day) {
+      return Array.isArray(day?.mistakes) ? day.mistakes.filter((item) => item && item.a && item.b) : [];
+    }
+    function compactMistakes(list) {
+      return lessonMistakes({ mistakes: list }).slice(0, 20).map((item) => [
+        Number(item.a) || 0,
+        Number(item.b) || 0,
+        Number(item.answer) || 0,
+        Number(item.given) || 0,
+      ]);
+    }
+    function expandMistakes(raw) {
+      if (!Array.isArray(raw)) return [];
+      return raw.map((item) => {
+        if (Array.isArray(item)) {
+          return { a: Number(item[0]) || 0, b: Number(item[1]) || 0, answer: Number(item[2]) || 0, given: Number(item[3]) || 0 };
+        }
+        return {
+          a: Number(item?.a) || 0,
+          b: Number(item?.b) || 0,
+          answer: Number(item?.answer) || 0,
+          given: Number(item?.given) || 0,
+        };
+      }).filter((item) => item.a && item.b);
+    }
+    function rememberMistake(day, problem, given) {
+      if (!day || !problem) return;
+      if (!Array.isArray(day.mistakes)) day.mistakes = [];
+      day.mistakes.push({
+        a: Number(problem.a) || 0,
+        b: Number(problem.b) || 0,
+        answer: Number(problem.answer) || 0,
+        given: Number(given) || 0,
+      });
+      if (day.mistakes.length > 20) day.mistakes = day.mistakes.slice(-20);
+    }
+    function mergeMistakes(local, remote) {
+      const map = new Map();
+      [...expandMistakes(remote), ...expandMistakes(local)].forEach((item) => {
+        map.set(`${item.a}x${item.b}=${item.given}>${item.answer}`, item);
+      });
+      return [...map.values()].slice(0, 20);
+    }
+    function failReviewHtml(day) {
+      const list = lessonMistakes(day);
+      if (!list.length) return "";
+      const items = list.map((item) => {
+        const line = t("failReviewLine", item.a, item.b, `\u0001${item.given}\u0001`, `\u0002${item.answer}\u0002`);
+        return `<li>${escapeHtml(line)
+          .replace(`\u0001${item.given}\u0001`, `<span class="got">${item.given}</span>`)
+          .replace(`\u0002${item.answer}\u0002`, `<span class="right">${item.answer}</span>`)}</li>`;
+      }).join("");
+      return `<h3>${escapeHtml(t("failReviewTitle"))}</h3><ul>${items}</ul>`;
+    }
+    function renderFailReview(day = state) {
+      const box = document.getElementById("failReview");
+      if (!box) return;
+      const html = failReviewHtml(day);
+      box.innerHTML = html;
+      box.classList.toggle("hidden", !html);
+    }
     function compactQueue(queue) {
       return (queue || []).slice(0, 80).map((p) => [Number(p.a) || 0, Number(p.b) || 0, Number(p.answer) || 0, p.id || ""]);
     }
@@ -4504,6 +4585,8 @@
         pack.s = toUnix(day.startedAt);
       }
       if (day.sessionRun) pack.r = Number(day.sessionRun) || 0;
+      const wrong = compactMistakes(day.mistakes);
+      if (wrong.length) pack.w = wrong;
       if (day.coinParts && Array.isArray(day.coinParts.parts)) {
         pack.p = day.coinParts.parts.map((part) => [part.k || "", Number(part.amount) || 0, part.r || "", part.e || ""]);
         pack.t = Number(day.coinParts.total) || 0;
@@ -4521,6 +4604,7 @@
         day.sessionDone = false;
       }
       if (pack.r) day.sessionRun = Number(pack.r) || 0;
+      if (Array.isArray(pack.w)) day.mistakes = expandMistakes(pack.w);
       if (Array.isArray(pack.p)) {
         day.coinParts = {
           total: Number(pack.t) || pack.p.reduce((sum, part) => sum + (Number(part[1]) || 0), 0),
@@ -4841,6 +4925,7 @@
         queue: doneQueue ? [] : (live ? (live.queue || []) : (richer.queue || other.queue || [])),
         coinParts: live?.coinParts || richer.coinParts || other.coinParts || null,
         sessionRun: live?.sessionRun || richer.sessionRun || other.sessionRun || 0,
+        mistakes: mergeMistakes(local.mistakes, remote.mistakes),
       };
     }
     function mergeRemoteDays(remoteDays) {
@@ -6468,7 +6553,7 @@
         date, tables, startCount: count, queue: makeQueue(count, tables, date),
         correct: 0, fails: 0, answered: 0, completed: false, sessionDone: false,
         completedAt: null, startedAt: null, runsCompleted: 0, totalCoins: 0,
-        coinsAwarded: 0, coinParts: null, poolVersion: POOL_VERSION,
+        coinsAwarded: 0, coinParts: null, mistakes: [], poolVersion: POOL_VERSION,
       };
     }
     function resetSession(dayState) {
@@ -6483,6 +6568,7 @@
       dayState.completedAt = null;
       dayState.coinsAwarded = 0; dayState.coinParts = null;
       dayState.sessionRun = 0;
+      dayState.mistakes = [];
       return dayState;
     }
     function getDayState(date = todayKey()) {
@@ -11020,6 +11106,7 @@
         : "—";
       const answeredValue = hasWork || !done ? String(answered) : "—";
       document.getElementById("dayMissionTitle").textContent = formatDateLong(dateKey);
+      const mistakesBlock = failReviewHtml(dayState);
       document.getElementById("dayMissionContent").innerHTML = `
         <div class="day-mission-emoji">${emoji}</div>
         <div class="status-pill ${status.kind}">${status.badge}</div>
@@ -11032,6 +11119,7 @@
           <div class="row"><span>${t("dayMissionCoins")}</span><strong>${coinsAwarded} ${COIN_SYMBOL}</strong></div>
         </div>
         <div class="day-tables">${tables.map((n) => `<span>${n}</span>`).join("")}</div>
+        ${mistakesBlock ? `<div class="fail-review" style="margin-top:12px;">${mistakesBlock}</div>` : ""}
         ${status.kind === "done" && !hasWork ? `<p class="note" style="margin-top:12px;">${t("dayMissionNoStats")}</p>` : ""}
         ${!answered && !dayState.completed ? `<p class="note" style="margin-top:12px;">${t("dayMissionEmpty")}</p>` : ""}
       `;
@@ -11133,6 +11221,7 @@
       const runs = state.runsCompleted || 0;
       document.getElementById("doneSubtitle").textContent = `${subtitle}${runs ? ` ${t("runsToday", runs)}` : ""}`;
       renderReward(state);
+      renderFailReview(state);
       setHero(state.coinsAwarded ? t("heroCoins", state.coinsAwarded) : t("heroClosed"));
       show("done", { replace: true });
       if (animateReward && state.coinsAwarded > 0) {
@@ -11327,6 +11416,7 @@
         problemCard.classList.add("flash-ok"); setHero(pick(t("praise"))); spawnBurst(true);
       } else {
         state.fails += 1;
+        rememberMistake(state, problem, value);
         const extra = failExtra();
         feedbackEl.textContent = t("failLine", problem.answer, extra);
         feedbackEl.className = "feedback bad";
