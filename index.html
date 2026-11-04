@@ -205,6 +205,18 @@
       opacity: 0.75;
     }
     .sidebar-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+    .coins-stack { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .stash {
+      width: 100%; max-width: 168px; padding: 6px 10px; border-radius: 14px; text-align: center;
+      background: linear-gradient(135deg, #e8f3ff, #d4e6ff); border: 2px solid #9dc0ff;
+      color: #1a2450; cursor: pointer; box-shadow: 0 4px 12px rgba(47,111,237,0.12);
+    }
+    .stash-goal { display: block; font-size: 13px; font-weight: 900; line-height: 1.2; }
+    .stash-streak { display: block; margin-top: 3px; font-size: 11px; font-weight: 800; color: #3d5ea8; line-height: 1.25; }
+    html[data-theme="dark"] .stash {
+      background: linear-gradient(135deg, #1b2d55, #243a6b); border-color: #3d5ea8; color: #dceaff;
+    }
+    html[data-theme="dark"] .stash-streak { color: #9dc0ff; }
     .lang-switch {
       display: inline-flex; border: 2px solid var(--line-strong); border-radius: 999px;
       overflow: hidden; background: var(--surface);
@@ -223,7 +235,9 @@
       z-index: 120; display: flex; align-items: center; justify-content: space-between; gap: 8px;
       flex-wrap: wrap;
     }
+    .dock-switches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .theme-dock { box-shadow: var(--shadow); flex-shrink: 0; }
+    .lang-dock { box-shadow: var(--shadow); flex-shrink: 0; }
     .reload-dock {
       box-shadow: var(--shadow); flex-shrink: 0;
       border: 2px solid var(--line-strong); border-radius: 999px;
@@ -282,6 +296,7 @@
       border: 2px solid #fff1a0; font-size: 13px;
     }
     .coins.pop { animation: coinPop 0.55s ease; }
+    .stash.pop { animation: coinPop 0.55s ease; }
     #coinsValue { min-width: 1.5em; display: inline-grid; place-items: center; }
     .coins-spin {
       width: 18px; height: 18px; display: block; position: relative;
@@ -742,7 +757,7 @@
     #historyPage .history-list { max-height: none; }
     .history-cols {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 128px;
+      grid-template-columns: minmax(0, 1fr) 72px 128px;
       gap: 10px;
       align-items: center;
       padding: 0 4px 6px 4px;
@@ -752,10 +767,11 @@
       text-transform: uppercase;
       color: var(--muted);
     }
+    .history-cols span:nth-child(2),
     .history-cols span:last-child { text-align: center; }
     .history-item {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 128px;
+      grid-template-columns: minmax(0, 1fr) 72px 128px;
       gap: 10px;
       align-items: center;
       padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line);
@@ -769,11 +785,19 @@
     .history-item.type-penalty { background: linear-gradient(180deg, #fff1f4, #fff); border-color: #f5b4c0; }
     .history-item.type-claim { background: linear-gradient(180deg, #eefcf6, #fff); border-color: #9ee0c4; }
     .history-item.type-adjust { background: linear-gradient(180deg, #f3f5f8, #fff); border-color: #c5ced8; }
+    .history-item.type-stash { background: linear-gradient(180deg, #eef5ff, #fff); border-color: #7eb0ff; }
+    .history-extra {
+      justify-self: stretch; align-self: center; text-align: center;
+      font-size: 14px; font-weight: 900; color: var(--muted);
+    }
+    .history-extra.in { color: #0f9f6e; }
+    .history-extra.out { color: #c81e4a; }
     html[data-theme="dark"] .history-item.type-lesson { border-color: #3d5ea8; }
     html[data-theme="dark"] .history-item.type-late { background: linear-gradient(180deg, #3a3418, #1b2344); border-color: #8a6a10; }
     html[data-theme="dark"] .history-item.type-penalty { background: linear-gradient(180deg, #3a1a28, #1b2344); border-color: #7a3348; }
     html[data-theme="dark"] .history-item.type-claim { background: linear-gradient(180deg, #16382e, #1b2344); border-color: #2f6b55; }
     html[data-theme="dark"] .history-item.type-adjust { background: linear-gradient(180deg, #243049, #1b2344); border-color: #4a5678; }
+    html[data-theme="dark"] .history-item.type-stash { background: linear-gradient(180deg, #1b2d55, #1b2344); border-color: #3d5ea8; }
     .history-main { min-width: 0; }
     .history-type {
       justify-self: stretch;
@@ -795,12 +819,14 @@
     .history-type.penalty { color: #be123c; background: #ffe4e6; }
     .history-type.claim { color: #047857; background: #d1fae5; }
     .history-type.adjust { color: #475569; background: #e2e8f0; }
+    .history-type.stash { color: #1d4ed8; background: #dbeafe; }
     html[data-theme="dark"] .history-type.lesson { color: #93c5fd; background: #1e3a5f; }
     html[data-theme="dark"] .history-type.late { color: #ffe08a; background: #3a3418; }
     html[data-theme="dark"] .history-type.prize { color: #fdba74; background: #4a2d12; }
     html[data-theme="dark"] .history-type.penalty { color: #fda4af; background: #4a1d2a; }
     html[data-theme="dark"] .history-type.claim { color: #6ee7b7; background: #14532d; }
     html[data-theme="dark"] .history-type.adjust { color: #cbd5e1; background: #334155; }
+    html[data-theme="dark"] .history-type.stash { color: #93c5fd; background: #1e3a5f; }
     .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
     .history-amount { font-size: 18px; font-weight: 900; color: var(--history-in); flex-shrink: 0; }
@@ -928,7 +954,7 @@
       .coins { min-height: 34px; font-size: 13px; padding: 3px 10px 3px 5px; }
       .main {
         margin-left: 0; flex: 1; min-height: 0; max-height: none;
-        overflow: hidden; padding: 8px 10px calc(52px + env(safe-area-inset-bottom));
+        overflow: hidden; padding: 8px 10px calc(72px + env(safe-area-inset-bottom));
       }
       .main-inner {
         height: 100%; max-width: none; display: flex; flex-direction: column; min-height: 0;
@@ -975,9 +1001,14 @@
       #adminView .view-title,
       #adminView .admin-tabs { flex-shrink: 0; }
       #pinInput { -webkit-text-security: disc; text-security: disc; }
+      .coins-stack { align-items: flex-end; }
+      .stash { max-width: 148px; padding: 4px 8px; }
+      .stash-goal { font-size: 12px; }
+      .stash-streak { font-size: 10px; }
       .history-cols,
-      .history-item { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
+      .history-item { grid-template-columns: minmax(0, 1fr) 52px 88px; gap: 8px; }
       .history-type { min-height: 32px; font-size: 11px; padding: 5px 6px; }
+      .history-extra { font-size: 12px; }
     }
     @keyframes coinPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1439,14 +1470,16 @@
           <img class="sidebar-avatar" id="mishaAvatar" src="assets/misha.jpg?v=4" alt="Misha" width="96" height="96" />
         </div>
         <div class="sidebar-controls">
-          <div class="lang-switch" role="group" aria-label="Language">
-            <button type="button" id="langRuBtn">RU</button>
-            <button type="button" id="langEnBtn">EN</button>
-          </div>
-          <div class="coins loading" id="coinsBadge" title="Mishcoin">
-            <span class="coin">★</span>
-            <span id="coinsValue"><span class="coins-spin" aria-hidden="true"></span></span>
-            <span class="sync-dot" id="syncDot" title="sync"></span>
+          <div class="coins-stack">
+            <div class="coins loading" id="coinsBadge" title="Mishcoin">
+              <span class="coin">★</span>
+              <span id="coinsValue"><span class="coins-spin" aria-hidden="true"></span></span>
+              <span class="sync-dot" id="syncDot" title="sync"></span>
+            </div>
+            <div class="stash hidden" id="stashBadge" title="Lesson stash">
+              <span class="stash-goal" id="stashValue">0 / 200 ★</span>
+              <span class="stash-streak" id="stashStreak"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1769,16 +1802,23 @@
     <button type="button" class="install-banner-x" id="installBannerClose" aria-label="Close">×</button>
   </div>
   <div class="bottom-docks">
-    <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
-      <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
-      <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
-      <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
+    <div class="dock-switches">
+      <div class="lang-switch lang-dock" role="group" aria-label="Language">
+        <button type="button" id="langRuBtn">RU</button>
+        <button type="button" id="langEnBtn">EN</button>
+      </div>
+      <div class="lang-switch theme-switch theme-dock" role="group" aria-label="Theme">
+        <button type="button" id="themeDayBtn" data-i18n="themeDay">День</button>
+        <button type="button" id="themeAutoBtn" data-i18n="themeAuto">Авто</button>
+        <button type="button" id="themeNightBtn" data-i18n="themeNight">Ночь</button>
+      </div>
     </div>
     <button class="reload-dock install-dock" id="installDockBtn" type="button">На экран Домой</button>
     <button class="reload-dock" id="hardReloadBtn" type="button" data-i18n="hardReload" data-i18n-title="hardReloadHint">Обновить</button>
   </div>
   <script>
     const PROGRAM_START = "2026-09-03";
+    const STASH_GOAL = 200;
     const RECOVERED_LESSONS = {
       misha: {
         "2026-09-03": { coinsAwarded: 3, totalCoins: 3, runsCompleted: 1, completedAt: "2026-09-08T00:48:41.000Z" },
@@ -2038,6 +2078,19 @@
         guideFailExtra: (n) => `Ошибка добавляет ещё ${n} ${n === 1 ? "пример" : n < 5 ? "примера" : "примеров"} (вместо одного непройденного).`,
         guideSpend: "Потратить Мишкоины можно в разделе «Обмен».",
         guideEarn: "За утренний, дневной и вечерний график можно подать заявку в «Еще мишкоинов». Папа согласует — и звёзды придут на баланс.",
+        guideStash: "Мишкоины за задания календаря сначала копятся в отдельной копилке. Когда станет 200 — эти 200 переходят на общий баланс, копилка обнуляется.",
+        stashGoal: (n, goal) => `${n} / ${goal} ★`,
+        stashStreak: (n) => {
+          const abs = Math.abs(n % 100);
+          const d = abs % 10;
+          const word = (abs > 10 && abs < 20) || d === 0 || d >= 5 ? "дней" : d === 1 ? "день" : "дня";
+          return `${n} ${word} без пропуска`;
+        },
+        stashStreakZero: "Пока нет серии",
+        historyColStash: "Копилка",
+        historyTypeStash: "Копилка",
+        rewardStash: "200 из копилки на баланс",
+        coinHistoryStash: (n, goal) => `Копилка уроков: ${n} из ${goal}`,
         earnTitle: "Заработать Мишкоины",
         earnTabPending: "Согласование",
         earnTabActive: "Активные заявки",
@@ -2087,6 +2140,7 @@
         penaltyStatus_cancelled: "Отменён",
         historyPenalty: "Штраф",
         historyColEntry: "Запись",
+        historyColStash: "Копилка",
         historyColType: "Тип",
         historyTypeLesson: "Урок",
         historyTypeLate: "Урок с опозданием",
@@ -2094,6 +2148,7 @@
         historyTypePenalty: "Штраф",
         historyTypeClaim: "Запрос",
         historyTypeAdjust: "Остаток",
+        historyTypeStash: "Копилка",
         earnEdit: "Изменить",
         earnDelete: "Удалить",
         earnEdited: "Заявка обновлена",
@@ -2348,6 +2403,14 @@
         guideFailExtra: (n) => `A wrong answer adds ${n} extra examples.`,
         guideSpend: "Spend Mishcoins in Redeem.",
         guideEarn: "For morning, daytime, and evening schedules, send a request in More Mishcoins. Dad approves it, and the stars go to the balance.",
+        guideStash: "Mishcoins from calendar missions first go into a separate stash. At 200, those 200 move to the main balance and the stash resets.",
+        stashGoal: (n, goal) => `${n} / ${goal} ★`,
+        stashStreak: (n) => n === 1 ? "1 day without a skip" : `${n} days without a skip`,
+        stashStreakZero: "No streak yet",
+        historyColStash: "Stash",
+        historyTypeStash: "Stash",
+        rewardStash: "200 from the stash to the balance",
+        coinHistoryStash: (n, goal) => `Lesson stash: ${n} of ${goal}`,
         earnTitle: "Earn Mishcoins",
         earnTabPending: "Review",
         earnTabActive: "Active requests",
@@ -2386,6 +2449,7 @@
         penaltyStatus_cancelled: "Cancelled",
         historyPenalty: "Penalty",
         historyColEntry: "Entry",
+        historyColStash: "Stash",
         historyColType: "Type",
         historyTypeLesson: "Lesson",
         historyTypeLate: "Late lesson",
@@ -2393,6 +2457,7 @@
         historyTypePenalty: "Penalty",
         historyTypeClaim: "Request",
         historyTypeAdjust: "Opening",
+        historyTypeStash: "Stash",
         earnEdit: "Edit",
         earnDelete: "Delete",
         earnEdited: "Request updated",
@@ -2643,6 +2708,8 @@
         entry.dateKey || "",
         Number(entry.amount) || 0,
         (entry.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || "", p.e || ""]),
+        historyExtraOf(entry),
+        entry.kind || "",
       ]));
     }
     function persistRememberedProgress() {
@@ -3119,7 +3186,7 @@
       if (!raw || typeof raw !== "object") return emptyCoins();
       return {
         balance: Number(raw.balance) || 0,
-        history: Array.isArray(raw.history) ? raw.history : [],
+        history: expandHistory(raw.history),
         purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
         claims: expandClaims(raw.claims),
       };
@@ -3578,6 +3645,22 @@
     function latestHistoryAt(list) {
       return (list || []).reduce((max, item) => Math.max(max, stampMs(item.at)), 0);
     }
+    function historyExtraOf(entry) {
+      if (!entry) return 0;
+      if (entry.extra != null || entry.x != null) return Number(entry.extra ?? entry.x) || 0;
+      const raw = entry.payload;
+      if (typeof raw === "string" && raw.charAt(0) === "{") {
+        try {
+          const parsed = JSON.parse(raw);
+          return Number(parsed.x ?? parsed.extra) || 0;
+        } catch { return 0; }
+      }
+      if (raw && typeof raw === "object") return Number(raw.x ?? raw.extra) || 0;
+      return 0;
+    }
+    function extraSum(list = coins.history) {
+      return (list || []).reduce((sum, item) => sum + historyExtraOf(item), 0);
+    }
     function compactHistory(list) {
       return (list || []).slice(0, 12).map((e) => ([
         e.id || "",
@@ -3585,6 +3668,8 @@
         e.dateKey || "",
         Number(e.amount) || 0,
         (e.parts || []).map((p) => [p.k || "", Number(p.amount) || 0, p.r || "", p.e || ""]),
+        historyExtraOf(e),
+        e.kind || "",
       ]));
     }
     function compactMiniHistory(list) {
@@ -3603,6 +3688,7 @@
             at: item.at,
             dateKey: canonicalDateKey(item.dateKey),
             amount: Number(item.amount) || 0,
+            extra: historyExtraOf(item),
             kind: item.kind || "",
             parts: Array.isArray(item.parts) ? item.parts : [],
           };
@@ -3615,15 +3701,18 @@
             at: fromUnix(item[0]) || estNowIso(),
             dateKey: canonicalDateKey(typeof dayRef === "number" ? dayRef : dayRef),
             amount: Number(item[1]) || 0,
+            extra: 0,
             parts: [],
           };
         }
-        const [id, unix, dateKey, amount, parts] = item;
+        const [id, unix, dateKey, amount, parts, extra, kind] = item;
         return {
           id: id || uid(),
           at: fromUnix(unix) || estNowIso(),
             dateKey: canonicalDateKey(dateKey),
             amount: Number(amount) || 0,
+          extra: Number(extra) || 0,
+          kind: kind || "",
           parts: (parts || []).map((p) => {
             if (Array.isArray(p)) return { k: p[0], amount: Number(p[1]) || 0, r: p[2] || "", e: p[3] || "" };
             return p;
@@ -3656,9 +3745,9 @@
     }
     function dedupeHistory(list) {
       const items = Array.isArray(list) ? list : [];
-      const realDays = new Set(items.filter((e) => e.amount > 0 && !isSyntheticHistory(e)).map((e) => e.dateKey));
+      const realDays = new Set(items.filter((e) => !isSyntheticHistory(e) && isLessonHistory(e)).map((e) => e.dateKey));
       const filtered = items.filter((e) => {
-        if (e.amount > 0 && isSyntheticHistory(e) && realDays.has(e.dateKey)) return false;
+        if (isSyntheticHistory(e) && isLessonHistory(e) && realDays.has(e.dateKey)) return false;
         if (isSyntheticHistory(e) && !String(e.id || "").startsWith("claim-") && matchedPaidClaim(e)) return false;
         return true;
       });
@@ -3694,8 +3783,7 @@
       const daySeen = new Set();
       [...map.values()].forEach((entry) => {
         const day = canonicalDateKey(entry.dateKey);
-        const lesson = (Number(entry.amount) || 0) > 0 && !isClaimHistory(entry) && !isPenaltyHistory(entry)
-          && entry.kind !== "prize" && entry.kind !== "adjust";
+        const lesson = isLessonHistory(entry);
         if (lesson && day && isSyntheticHistory(entry)) {
           if (daySeen.has(day)) return;
           daySeen.add(day);
@@ -3758,6 +3846,7 @@
           ...entry,
           dateKey: canonicalDateKey(entry.dateKey),
           amount: Number(entry.amount) || 0,
+          extra: historyExtraOf(entry),
         }));
       applyGlitchSep22Scrub();
       return fromDays || fromBuys || fromClaims;
@@ -3774,7 +3863,7 @@
     function fillHistoryFromDays() {
       const existing = coins.history || [];
       const generated = historyFromDays(Object.values(dayStore)).filter((item) => (
-        !existing.some((entry) => entry.dateKey === item.dateKey && entry.amount > 0)
+        !existing.some((entry) => entry.dateKey === item.dateKey && isLessonHistory(entry))
       ));
       if (!generated.length) return false;
       coins.history = dedupeHistory(mergeHistory(existing, generated));
@@ -3782,10 +3871,23 @@
     }
     function mergeHistory(local, remote) {
       const map = new Map();
+      const richer = (a, b) => {
+        if (!a) return b;
+        if (!b) return a;
+        const extra = historyExtraOf(b) || historyExtraOf(a);
+        return {
+          ...a,
+          ...b,
+          amount: Number(b.amount ?? a.amount) || 0,
+          extra,
+          kind: b.kind || a.kind || "",
+          parts: (b.parts && b.parts.length) ? b.parts : a.parts,
+        };
+      };
       [...(remote || []), ...(local || [])].forEach((entry) => {
         if (!entry) return;
         const key = historyKey(entry);
-        if (!map.has(key)) map.set(key, entry);
+        map.set(key, richer(map.get(key), entry));
       });
       return dedupeHistory([...map.values()]
         .sort((a, b) => stampMs(b.at) - stampMs(a.at))
@@ -4021,8 +4123,8 @@
     }
     function isLessonHistory(entry) {
       if (!entry || isPenaltyHistory(entry) || isClaimHistory(entry)) return false;
-      if (entry.kind === "prize" || entry.kind === "adjust") return false;
-      return historyEntryAmount(entry) > 0 && (entry.kind === "lesson" || !!entry.dateKey || !!historyEntryDay(entry));
+      if (entry.kind === "prize" || entry.kind === "adjust" || entry.kind === "stash") return false;
+      return (historyEntryAmount(entry) > 0 || historyExtraOf(entry) > 0) && (entry.kind === "lesson" || !!entry.dateKey || !!historyEntryDay(entry));
     }
     function isPrizeHistory(entry) {
       if (!entry || isPenaltyHistory(entry) || isClaimHistory(entry)) return false;
@@ -4200,9 +4302,13 @@
           at: row.at,
           dateKey: canonicalDateKey(row.date_key),
           amount: Number(row.delta) || 0,
+          extra: historyExtraOf(row),
           kind: row.kind || "",
+          payload: row.payload || "",
           parts: row.kind === "penalty" || String(row.id || "").startsWith("penalty-")
             ? [{ k: "penalty", r: row.note || "", e: row.note || "", amount: Number(row.delta) || 0 }]
+            : row.kind === "stash"
+            ? [{ k: "stash", amount: Number(row.delta) || 0 }]
             : [],
         }));
         fillHistoryLedger();
@@ -4776,7 +4882,7 @@
       return changed;
     }
     function historyEarnsForDay(key) {
-      return (coins.history || []).filter((entry) => entry.dateKey === key && (entry.amount || 0) > 0 && !isClaimHistory(entry));
+      return (coins.history || []).filter((entry) => entry.dateKey === key && isLessonHistory(entry));
     }
     function dayHasLessonWork(day) {
       if (!day) return false;
@@ -5251,11 +5357,15 @@
           at: r.at,
           dateKey: canonicalDateKey(r.date_key),
           amount: Number(r.delta) || 0,
+          extra: historyExtraOf(r),
           kind: r.kind || "lesson",
+          payload: r.payload || "",
           parts: r.kind === "penalty" || String(r.id || "").startsWith("penalty-")
             ? [{ k: "penalty", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
             : r.kind === "claim" || String(r.id || "").startsWith("claim-")
             ? [{ k: "claim", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
+            : r.kind === "stash"
+            ? [{ k: "stash", amount: Number(r.delta) || 0 }]
             : (r.kind === "prize" || Number(r.delta) < 0)
               ? [{ k: "prize", r: r.note || "", e: r.note || "", amount: Number(r.delta) || 0 }]
               : [],
@@ -5439,19 +5549,21 @@
             profile_id: id,
             at: sbIso(item[1]),
             delta: Number(item[3]) || 0,
-            kind: "lesson",
             date_key: canonicalDateKey(item[2]),
-            kind: Number(item[3]) < 0 ? "prize" : "lesson",
+            kind: item[6] || (Number(item[3]) < 0 ? "prize" : "lesson"),
+            payload: Number(item[5]) ? JSON.stringify({ x: Number(item[5]) }) : "",
           };
         }
+        const extra = historyExtraOf(item);
         return {
           id: item.id,
           profile_id: id,
           at: item.at,
           delta: Number(item.amount || item.delta) || 0,
-          kind: item.kind || (isPenaltyHistory(item) ? "penalty" : (isClaimHistory(item) ? "claim" : ((Number(item.amount || item.delta) || 0) < 0 ? "prize" : "lesson"))),
+          kind: item.kind || (isPenaltyHistory(item) ? "penalty" : (isClaimHistory(item) ? "claim" : (extra && !Number(item.amount || item.delta) ? "lesson" : ((Number(item.amount || item.delta) || 0) < 0 ? "prize" : "lesson")))),
           date_key: canonicalDateKey(item.dateKey || item.date_key),
           note: item.note || item.parts?.[0]?.r || item.parts?.[0]?.e || "",
+          payload: extra ? JSON.stringify({ x: extra }) : (item.payload || ""),
         };
       }).filter((r) => r.id);
     }
@@ -6443,16 +6555,42 @@
       balanceReady = !!ready;
       renderCoins();
     }
+    function calendarStreak() {
+      const today = todayKey();
+      const store = loadStore();
+      fillDaysFromHistory();
+      let key = today;
+      if (!dayReallyDone(key, store)) key = todayKey(dayOffset(parseKey(today), -1));
+      let n = 0;
+      while (key && key >= PROGRAM_START) {
+        if (!dayReallyDone(key, store)) break;
+        n += 1;
+        key = todayKey(dayOffset(parseKey(key), -1));
+      }
+      return n;
+    }
     function renderCoins() {
       const badge = document.getElementById("coinsBadge");
       const el = document.getElementById("coinsValue");
+      const stash = document.getElementById("stashBadge");
+      const stashValue = document.getElementById("stashValue");
+      const stashStreak = document.getElementById("stashStreak");
       if (!badge || !el) return;
       badge.classList.toggle("loading", !balanceReady);
       if (!balanceReady) {
         el.innerHTML = '<span class="coins-spin" aria-hidden="true"></span>';
+        stash?.classList.add("hidden");
         return;
       }
       el.textContent = String(coins.balance);
+      if (stash && stashValue && stashStreak) {
+        const pot = Math.max(0, extraSum());
+        const streak = calendarStreak();
+        stashValue.textContent = t("stashGoal", pot, STASH_GOAL);
+        stashStreak.textContent = streak ? t("stashStreak", streak) : t("stashStreakZero");
+        stash.classList.remove("hidden");
+        stash.title = t("coinHistoryStash", pot, STASH_GOAL);
+      }
     }
     function bumpCoinsDisplay() {
       coinsBadge.classList.remove("pop");
@@ -6468,14 +6606,54 @@
       saveCoins();
     }
     function addCoins(amount, historyEntry) {
-      if (!amount) return;
-      coins.balance += amount;
-      localEarnDelta += amount;
-      writeRememberedBalance(coins.balance);
+      if (!amount && !historyEntry) return;
+      if (amount) {
+        coins.balance += amount;
+        localEarnDelta += amount;
+        writeRememberedBalance(coins.balance);
+      }
       if (historyEntry) pushCoinHistory(historyEntry);
       saveCoins();
       renderCoins();
-      bumpCoinsDisplay();
+      if (amount) bumpCoinsDisplay();
+    }
+    function flushLessonStash() {
+      let guard = 0;
+      let moved = 0;
+      while (extraSum() >= STASH_GOAL && guard < 8) {
+        guard += 1;
+        moved += STASH_GOAL;
+        pushCoinHistory({
+          id: uid(),
+          at: estNowIso(),
+          dateKey: todayKey(),
+          amount: STASH_GOAL,
+          extra: -STASH_GOAL,
+          kind: "stash",
+          parts: [{ k: "stash", amount: STASH_GOAL }],
+        });
+      }
+      if (moved) {
+        applyLedgerBalance();
+        saveCoins();
+        renderCoins();
+        bumpCoinsDisplay();
+      }
+      return moved;
+    }
+    function awardLessonToStash(historyEntry) {
+      if (!historyEntry) return 0;
+      pushCoinHistory(historyEntry);
+      const moved = flushLessonStash();
+      saveCoins();
+      renderCoins();
+      const stash = document.getElementById("stashBadge");
+      if (stash) {
+        stash.classList.remove("pop");
+        void stash.offsetWidth;
+        stash.classList.add("pop");
+      }
+      return moved;
     }
     function spendCoins(amount, historyEntry) {
       if (amount <= 0 || coins.balance < amount) return false;
@@ -6496,14 +6674,13 @@
         overlay.classList.add("hidden");
         return;
       }
-      const endBalance = coins.balance;
-      const startBalance = Math.max(0, endBalance - amount);
       big.textContent = `+${amount}`;
       flyText.textContent = t("rewardFly");
       overlay.classList.remove("hidden");
-      document.getElementById("coinsValue").textContent = String(startBalance);
+      renderCoins();
       await sleep(550);
-      const badgeRect = coinsBadge.getBoundingClientRect();
+      const flyTarget = document.getElementById("stashBadge") || coinsBadge;
+      const badgeRect = flyTarget.getBoundingClientRect();
       const targetX = badgeRect.left + badgeRect.width / 2;
       const targetY = badgeRect.top + badgeRect.height / 2;
       const originX = window.innerWidth / 2;
@@ -6522,8 +6699,14 @@
         ], { duration: 700, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
         await anim.finished.catch(() => {});
         coinEl.remove();
-        document.getElementById("coinsValue").textContent = String(startBalance + i + 1);
-        bumpCoinsDisplay();
+        const pot = document.getElementById("stashBadge");
+        if (pot) {
+          pot.classList.remove("pop");
+          void pot.offsetWidth;
+          pot.classList.add("pop");
+        } else {
+          bumpCoinsDisplay();
+        }
         await sleep(70);
       }
       renderCoins();
@@ -10277,6 +10460,7 @@
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
       coinsBadge.title = t("mishcoins");
+      renderCoins();
       updateEarnNav();
       updateProfileChrome();
       if (!profileModal.classList.contains("hidden")) renderProfilePicker();
@@ -10926,6 +11110,7 @@
     }
     function historyTypeOf(item) {
       if (!item) return "lesson";
+      if (item.kind === "stash") return "stash";
       if (isPenaltyHistory(item)) return "penalty";
       if (isClaimHistory(item) || matchedPaidClaim(item)) return "claim";
       if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) return "adjust";
@@ -10935,6 +11120,7 @@
     }
     function inferredHistoryParts(item) {
       const stored = Array.isArray(item.parts) ? item.parts.filter((p) => p && (p.k || p.label)) : [];
+      if (item.kind === "stash") return [{ k: "stash", amount: item.amount }];
       if (item.kind === "adjust" || String(item.id || "").startsWith("open-")) {
         return [{ k: "adjust", amount: item.amount }];
       }
@@ -10973,11 +11159,15 @@
       }
       const earned = (coins.history || []).reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
       const spent = (coins.history || []).reduce((sum, item) => sum + Math.max(0, -(Number(item.amount) || 0)), 0);
+      const pot = Math.max(0, extraSum());
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
+        <p class="note" style="margin-bottom:12px;font-weight:800;color:#3d5ea8;">${t("coinHistoryStash", pot, STASH_GOAL)}</p>
         <p class="note" style="margin-bottom:12px;">${t("coinHistoryLedger", earned, spent)}</p>
-        <div class="history-cols"><span>${escapeHtml(t("historyColEntry"))}</span><span>${escapeHtml(t("historyColType"))}</span></div>
+        <div class="history-cols"><span>${escapeHtml(t("historyColEntry"))}</span><span>${escapeHtml(t("historyColStash"))}</span><span>${escapeHtml(t("historyColType"))}</span></div>
         <div class="history-list">${coins.history.map((item) => {
-          const neg = item.amount < 0;
+          const mainAmt = Number(item.amount) || 0;
+          const extraAmt = historyExtraOf(item);
+          const neg = mainAmt < 0;
           const type = historyTypeOf(item);
           const partsHtml = inferredHistoryParts(item).map((p) => {
             const label = escapeHtml(partLabel(p));
@@ -10985,14 +11175,18 @@
             const cls = p.amount < 0 ? "amt-out" : "amt-in";
             return `<li>${label}: <span class="${cls}">${p.amount > 0 ? "+" : ""}${p.amount}</span></li>`;
           }).join("");
+          const extraHtml = extraAmt
+            ? `<span class="history-extra ${extraAmt < 0 ? "out" : "in"}">${extraAmt > 0 ? "+" : ""}${extraAmt}</span>`
+            : `<span class="history-extra">—</span>`;
           return `<div class="history-item type-${type}${neg ? " spend" : ""}">
             <div class="history-main">
               <div class="history-top">
                 <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
-                <span class="history-amount${neg ? " neg" : ""}">${item.amount > 0 ? "+" : ""}${item.amount} ${COIN_SYMBOL}</span>
+                <span class="history-amount${neg ? " neg" : ""}">${mainAmt ? `${mainAmt > 0 ? "+" : ""}${mainAmt} ${COIN_SYMBOL}` : "—"}</span>
               </div>
               ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
             </div>
+            ${extraHtml}
             <span class="history-type ${type}">${escapeHtml(t(`historyType${type[0].toUpperCase()}${type.slice(1)}`))}</span>
           </div>`;
         }).join("")}</div>`;
@@ -11012,7 +11206,8 @@
         <p class="note" style="margin-top:14px;">${t("guideRepeat")}</p>
         <p class="note">${t("guideFailExtra", extra)}</p>
         <p class="note">${t("guideSpend")}</p>
-        <p class="note">${t("guideEarn")}</p>`;
+        <p class="note">${t("guideEarn")}</p>
+        <p class="note">${t("guideStash")}</p>`;
     }
     function renderCoinHistory() {
       const page = document.getElementById("historyPage");
@@ -11199,6 +11394,7 @@
       }
       if (part.k === "repeat") return t("rewardRepeat");
       if (part.k === "adjust") return lang === "en" ? "Opening balance" : "Остаток до журнала";
+      if (part.k === "stash") return t("rewardStash");
       return part.label || "";
     }
     function calcRewards(dayState) {
@@ -11393,11 +11589,12 @@
         id: uid(),
         at: state.completedAt,
         dateKey: state.date || todayKey(),
-        amount: reward.total,
+        amount: 0,
+        extra: reward.total,
         kind: "lesson",
         parts: reward.parts.filter((p) => p.amount > 0),
       };
-      if (reward.total) addCoins(reward.total, historyEntry);
+      if (reward.total) awardLessonToStash(historyEntry);
       persist();
       spawnBurst(true);
       showDoneScreen(state.fails === 0 ? t("doneIdeal") : t("doneFails", state.fails), { animateReward: true });
@@ -11863,6 +12060,7 @@
     });
     document.getElementById("appTitle").addEventListener("click", onTitleTap);
     document.getElementById("coinsBadge").addEventListener("click", openCoinHistory);
+    document.getElementById("stashBadge").addEventListener("click", openCoinHistory);
     document.getElementById("heroBubble").addEventListener("click", openCoinHistory);
     document.getElementById("mishaAvatar").addEventListener("click", openPhotoModal);
     document.getElementById("historyCloseBtn").addEventListener("click", closeCoinHistory);
