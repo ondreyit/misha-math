@@ -1959,7 +1959,7 @@
         kindColName: "Название",
         kindColCost: "Звёзды",
         kindTitleRuPh: "Название (RU)", kindTitleEnPh: "Title (EN)", kindAmountPh: "Звёзды",
-        kindsEmpty: "Пока нет типов заявок. Нажми «Добавить».",
+        kindsEmpty: "Пока нет типов заявок. Папа может добавить их в админке.",
         prizeColName: "Название",
         prizeColCost: "Сумма",
         prizeTitleRuPh: "Название (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Стоимость",
@@ -2269,7 +2269,7 @@
         kindColName: "Name",
         kindColCost: "Stars",
         kindTitleRuPh: "Title (RU)", kindTitleEnPh: "Title (EN)", kindAmountPh: "Stars",
-        kindsEmpty: "No request types yet. Tap Add.",
+        kindsEmpty: "No request types yet. Dad can add them in admin.",
         prizeColName: "Name",
         prizeColCost: "Cost",
         prizeTitleRuPh: "Title (RU)", prizeTitleEnPh: "Title (EN)", prizeCostPh: "Cost",
@@ -3287,7 +3287,19 @@
       return DEFAULT_CLAIM_KINDS.map((k) => ({ ...k }));
     }
     function liveKinds() {
+      ensureClaimKinds();
       return Array.isArray(claimKinds.kinds) ? claimKinds.kinds : [];
+    }
+    function ensureClaimKinds() {
+      const kinds = Array.isArray(claimKinds.kinds) ? claimKinds.kinds : [];
+      const archive = Array.isArray(claimKinds.archive) ? claimKinds.archive : [];
+      if (kinds.length || archive.length) return false;
+      claimKinds = { updatedAt: Date.now(), kinds: seedClaimKinds(), archive: [] };
+      kindsDirty = true;
+      writeLocalKinds();
+      writePendingKinds();
+      scheduleKindsPush();
+      return true;
     }
     function archivedKinds() {
       return Array.isArray(claimKinds.archive) ? claimKinds.archive : [];
@@ -3345,9 +3357,16 @@
       const archive = normalizeClaimKinds(raw.archive || raw.x || raw.a);
       const updatedAt = Number(raw.u || raw.updatedAt) || 0;
       if (!kinds.length && !archive.length && !updatedAt) return false;
+      if (!kinds.length && !archive.length) {
+        claimKinds = { updatedAt: Date.now(), kinds: seedClaimKinds(), archive: [] };
+        kindsDirty = true;
+        writeLocalKinds();
+        writePendingKinds();
+        return true;
+      }
       claimKinds = {
         updatedAt: updatedAt || Date.now(),
-        kinds: kinds.length ? kinds : (updatedAt ? [] : seedClaimKinds()),
+        kinds,
         archive,
       };
       if (markDirty) kindsDirty = true;
@@ -5180,6 +5199,7 @@
       }
       if (key === "kinds") {
         const rows = await sbSelect("claim_kinds", "select=*&order=archived.asc,coins.asc");
+        if (!rows.length) return null;
         const live = rows.filter((r) => !r.archived);
         const archive = rows.filter((r) => r.archived);
         return {
@@ -6055,13 +6075,12 @@
       });
       const kinds = [...map.values()];
       const archive = [...archiveMap.values()];
-      if (!kinds.length && !archive.length) {
-        return remote ? { updatedAt: Number(remote.u || remote.updatedAt) || 0, kinds: [], archive } : null;
-      }
+      if (!kinds.length && !archive.length) return null;
       return { updatedAt: Number(remote?.u || remote?.updatedAt) || Date.now(), kinds, archive };
     }
     async function pullKindsSync() {
       applyPendingKinds();
+      if (ensureClaimKinds()) scheduleKindsPush();
       if (kindsDirty) {
         scheduleKindsPush();
         return;
