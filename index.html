@@ -12,7 +12,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Мишкоин</title>
-  <!-- build home-rules-extra -->
+  <!-- build history-cols-4 -->
   <script>
     (function () {
       try {
@@ -776,7 +776,7 @@
     #historyPage .history-list { max-height: none; }
     .history-cols {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 72px 128px;
+      grid-template-columns: minmax(0, 1fr) 72px 64px 110px;
       gap: 10px;
       align-items: center;
       padding: 0 4px 6px 4px;
@@ -786,11 +786,11 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    .history-cols span:nth-child(2),
-    .history-cols span:last-child { text-align: center; }
+    .history-cols span { text-align: center; }
+    .history-cols span:first-child { text-align: left; }
     .history-item {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 72px 128px;
+      grid-template-columns: minmax(0, 1fr) 72px 64px 110px;
       gap: 10px;
       align-items: center;
       padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line);
@@ -850,9 +850,12 @@
     html[data-theme="dark"] .history-type.adjust { color: #cbd5e1; background: #334155; }
     html[data-theme="dark"] .history-type.stash { color: #93c5fd; background: #1e3a5f; }
     html[data-theme="dark"] .history-type.skip { color: #fda4af; background: #4a1d2a; }
-    .history-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .history-top { display: block; }
     .history-date { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .history-amount { font-size: 18px; font-weight: 900; color: var(--history-in); flex-shrink: 0; }
+    .history-amount {
+      justify-self: stretch; align-self: center; text-align: center;
+      font-size: 16px; font-weight: 900; color: var(--history-in);
+    }
     .history-amount.neg { color: var(--history-out); }
     .history-parts { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted); }
     .history-parts .amt-in { color: var(--history-in); font-weight: 800; }
@@ -1040,7 +1043,8 @@
       .stash-goal { font-size: 12px; }
       .stash-streak { font-size: 10px; }
       .history-cols,
-      .history-item { grid-template-columns: minmax(0, 1fr) 52px 88px; gap: 8px; }
+      .history-item { grid-template-columns: minmax(0, 1fr) 56px 48px 78px; gap: 6px; }
+      .history-amount { font-size: 13px; }
       .history-type { min-height: 32px; font-size: 11px; padding: 5px 6px; }
       .history-extra { font-size: 12px; }
     }
@@ -2204,6 +2208,7 @@
         penaltyStatus_cancelled: "Отменён",
         historyPenalty: "Штраф",
         historyColEntry: "Запись",
+        historyColReward: "Награда",
         historyColStash: "Копилка",
         historyColType: "Тип",
         historyTypeLesson: "Урок",
@@ -2519,6 +2524,7 @@
         penaltyStatus_cancelled: "Cancelled",
         historyPenalty: "Penalty",
         historyColEntry: "Entry",
+        historyColReward: "Reward",
         historyColStash: "Stash",
         historyColType: "Type",
         historyTypeLesson: "Lesson",
@@ -11286,7 +11292,7 @@
       return `<p class="note" style="margin-bottom:12px;font-weight:800;color:var(--gold-ink);">${t("coinHistoryBalance", coins.balance)}</p>
         <p class="note" style="margin-bottom:12px;font-weight:800;color:#3d5ea8;">${t("coinHistoryStash", pot, STASH_GOAL)}</p>
         <p class="note" style="margin-bottom:12px;">${t("coinHistoryLedger", earned, spent)}</p>
-        <div class="history-cols"><span>${escapeHtml(t("historyColEntry"))}</span><span>${escapeHtml(t("historyColStash"))}</span><span>${escapeHtml(t("historyColType"))}</span></div>
+        <div class="history-cols"><span>${escapeHtml(t("historyColEntry"))}</span><span>${escapeHtml(t("historyColReward"))}</span><span>${escapeHtml(t("historyColStash"))}</span><span>${escapeHtml(t("historyColType"))}</span></div>
         <div class="history-list">${coins.history.map((item) => {
           const mainAmt = Number(item.amount) || 0;
           const extraAmt = historyExtraOf(item);
@@ -11305,10 +11311,10 @@
             <div class="history-main">
               <div class="history-top">
                 <span class="history-date">${formatHistoryDate(item.at)}${item.dateKey && trainedKeyFromAt(item.at) && item.dateKey !== trainedKeyFromAt(item.at) ? ` · ${t("historyLessonDay", formatDateLong(item.dateKey))}` : ""}</span>
-                <span class="history-amount${neg ? " neg" : ""}">${mainAmt ? `${mainAmt > 0 ? "+" : ""}${mainAmt} ${COIN_SYMBOL}` : "—"}</span>
               </div>
               ${partsHtml ? `<ul class="history-parts">${partsHtml}</ul>` : ""}
             </div>
+            <span class="history-amount${neg ? " neg" : ""}">${mainAmt ? `${mainAmt > 0 ? "+" : ""}${mainAmt} ${COIN_SYMBOL}` : "—"}</span>
             ${extraHtml}
             <span class="history-type ${type}">${escapeHtml(t(`historyType${type[0].toUpperCase()}${type.slice(1)}`))}</span>
           </div>`;
