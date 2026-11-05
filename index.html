@@ -12,7 +12,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Мишкоин</title>
-  <!-- build stash-ui-2 -->
+  <!-- build home-rules-extra -->
   <script>
     (function () {
       try {
@@ -1563,16 +1563,18 @@
           <div class="card">
             <span class="label" data-i18n="todayMission">Today's mission</span>
             <div class="status-line status-ready" id="todayStatus">20</div>
-            <p class="note" style="margin-top:8px;" data-i18n="rulesNote">Correct answers count. A fail adds 2 more examples.</p>
+            <p class="note" style="margin-top:8px;" id="rulesNote"></p>
             <div class="stats">
               <div class="stat"><strong id="homeRemain">20</strong><span data-i18n="left">left</span></div>
               <div class="stat"><strong id="homeOk">0</strong><span data-i18n="correct">correct</span></div>
               <div class="stat"><strong id="homeFail">0</strong><span data-i18n="fails">fails</span></div>
             </div>
             <p class="streak" id="streakText">Streak: 0</p>
-            <span class="label" style="margin-top:14px;" data-i18n="todayTables">Today's tables</span>
-            <div class="tables-today" id="tablesToday"></div>
-            <p class="note" style="margin-top:8px;" id="tablesProgressNote"></p>
+            <div class="hidden">
+              <span class="label" style="margin-top:14px;" data-i18n="todayTables">Today's tables</span>
+              <div class="tables-today" id="tablesToday"></div>
+              <p class="note" style="margin-top:8px;" id="tablesProgressNote"></p>
+            </div>
           </div>
           <button class="btn btn-accent" id="startBtn" type="button">Start</button>
           <button class="btn btn-ghost hidden" id="repeatHomeBtn" type="button">Repeat lesson</button>
@@ -2001,7 +2003,10 @@
         themeAuto: "Авто",
         themeNight: "Ночь",
         todayMission: "Задание дня",
-        rulesNote: "Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё 2. Урок можно повторять в тот же день и копить Мишкоины!",
+        rulesNote: (n) => {
+          const word = n === 1 ? "пример" : n > 1 && n < 5 ? "примера" : "примеров";
+          return `Верный ответ засчитывается. Ошибка — фейл, и вместо этого примера добавляются ещё ${n} ${word}. Урок можно повторять в тот же день и копить Мишкоины!`;
+        },
         left: "осталось", correct: "верно", fails: "фейлы", answers: "ответов",
         legendDone: "сделано", legendProgress: "в процессе", legendLate: "с опозданием", legendBad: "пропуск",
         calendarSubtitle: "Твой прогресс тренировок",
@@ -2333,7 +2338,7 @@
         themeAuto: "Auto",
         themeNight: "Night",
         todayMission: "Today's mission",
-        rulesNote: "Correct answers count. A fail adds 2 more examples. You can repeat the lesson the same day to earn more Mishcoins!",
+        rulesNote: (n) => `Correct answers count. A fail adds ${n} more example${n === 1 ? "" : "s"}. You can repeat the lesson the same day to earn more Mishcoins!`,
         left: "left", correct: "correct", fails: "fails", answers: "answers",
         legendDone: "done", legendProgress: "in progress", legendLate: "late", legendBad: "missed",
         calendarSubtitle: "Your training progress",
@@ -10570,6 +10575,8 @@
       document.getElementById("langRuBtn").classList.toggle("on", lang === "ru");
       document.getElementById("langEnBtn").classList.toggle("on", lang === "en");
       fillInstallI18n();
+      const rulesNote = document.getElementById("rulesNote");
+      if (rulesNote) rulesNote.textContent = t("rulesNote", failExtra());
       document.getElementById("repeatBtn").textContent = t("repeat");
       document.getElementById("repeatHomeBtn").textContent = t("repeat");
       document.getElementById("rewardFlyText").textContent = t("rewardFly");
@@ -11625,6 +11632,8 @@
       document.getElementById("homeOk").textContent = String(state?.correct || 0);
       document.getElementById("homeFail").textContent = String(state?.fails || 0);
       document.getElementById("streakText").textContent = t("streak", calendarStreak());
+      const rulesNote = document.getElementById("rulesNote");
+      if (rulesNote) rulesNote.textContent = t("rulesNote", failExtra());
       renderTodayTables(date);
       const startBtn = document.getElementById("startBtn");
       repeatHomeBtn.classList.add("hidden");
