@@ -12,7 +12,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Мишкоин</title>
-  <!-- build history-cols-4 -->
+  <!-- build stash-streak-big -->
   <script>
     (function () {
       try {
@@ -224,14 +224,21 @@
     .stash-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; }
     .stash-done { color: #0f7a4a; }
     .stash-left { color: #8a4b00; }
-    .stash-streak { display: block; margin-top: 6px; font-size: 12px; font-weight: 800; color: #6a4700; }
+    .stash-run {
+      display: flex; align-items: baseline; justify-content: center; gap: 8px;
+      margin-top: 10px; padding-top: 8px; border-top: 2px dashed rgba(90,59,0,0.2);
+    }
+    .stash-run-num { font-size: 34px; font-weight: 900; line-height: 1; color: #8a4b00; }
+    .stash-run-label { font-size: 14px; font-weight: 800; color: #6a4700; }
     html[data-theme="dark"] .stash {
       background: linear-gradient(135deg, #3a2e12, #2d2410); border-color: #c9a227; color: #ffe7a8;
     }
     html[data-theme="dark"] .stash-bar { background: rgba(255,231,168,0.12); border-color: rgba(255,231,168,0.2); }
     html[data-theme="dark"] .stash-done { color: #6ee7b7; }
     html[data-theme="dark"] .stash-left { color: #fdba74; }
-    html[data-theme="dark"] .stash-streak { color: #ffe08a; }
+    html[data-theme="dark"] .stash-run { border-top-color: rgba(255,231,168,0.22); }
+    html[data-theme="dark"] .stash-run-num { color: #ffe08a; }
+    html[data-theme="dark"] .stash-run-label { color: #ffe7a8; }
     .nav-more { display: grid; gap: 6px; }
     .nav-more-menu { display: none; gap: 6px; padding-left: 6px; }
     .nav-more.open .nav-more-menu { display: grid; }
@@ -1039,9 +1046,9 @@
       #adminView .admin-tabs { flex-shrink: 0; }
       #pinInput { -webkit-text-security: disc; text-security: disc; }
       .coins-stack { align-items: flex-end; }
-      .stash { max-width: 148px; padding: 4px 8px; }
-      .stash-goal { font-size: 12px; }
-      .stash-streak { font-size: 10px; }
+      .stash { padding: 8px 10px; }
+      .stash-run-num { font-size: 28px; }
+      .stash-run-label { font-size: 12px; }
       .history-cols,
       .history-item { grid-template-columns: minmax(0, 1fr) 56px 48px 78px; gap: 6px; }
       .history-amount { font-size: 13px; }
@@ -1527,7 +1534,10 @@
           <span class="stash-done" id="stashDone"></span>
           <span class="stash-left" id="stashLeft"></span>
         </div>
-        <span class="stash-streak" id="stashStreak"></span>
+        <div class="stash-run">
+          <span class="stash-run-num" id="stashStreakNum">0</span>
+          <span class="stash-run-label" id="stashStreak"></span>
+        </div>
       </div>
       <div class="hero-bubble" id="heroBubble">
         <div class="hero-name" id="heroName">Hero Misha</div>
@@ -2150,9 +2160,9 @@
           const abs = Math.abs(n % 100);
           const d = abs % 10;
           const word = (abs > 10 && abs < 20) || d === 0 || d >= 5 ? "дней" : d === 1 ? "день" : "дня";
-          return `${n} ${word} без пропуска`;
+          return `${word} подряд`;
         },
-        stashStreakZero: "Пока нет серии",
+        stashStreakZero: "пока нет серии",
         historyColStash: "Копилка",
         historyTypeStash: "Копилка",
         historyTypeSkip: "Пропуск",
@@ -2478,8 +2488,8 @@
         stashGoal: (n, goal) => `${n} / ${goal} ★`,
         stashDone: (n) => `done ${n}`,
         stashRemain: (n) => `${n} left`,
-        stashStreak: (n) => n === 1 ? "1 day without a skip" : `${n} days without a skip`,
-        stashStreakZero: "No streak yet",
+        stashStreak: (n) => n === 1 ? "day in a row" : "days in a row",
+        stashStreakZero: "no streak yet",
         historyColStash: "Stash",
         historyTypeStash: "Stash",
         historyTypeSkip: "Skipped",
@@ -6688,6 +6698,7 @@
       const stashDone = document.getElementById("stashDone");
       const stashLeft = document.getElementById("stashLeft");
       const stashFill = document.getElementById("stashBarFill");
+      const stashStreakNum = document.getElementById("stashStreakNum");
       const stashStreak = document.getElementById("stashStreak");
       if (!badge || !el) return;
       badge.classList.toggle("loading", !balanceReady);
@@ -6705,6 +6716,7 @@
         if (stashDone) stashDone.textContent = t("stashDone", pot);
         if (stashLeft) stashLeft.textContent = t("stashRemain", left);
         if (stashFill) stashFill.style.width = `${Math.round((pot / STASH_GOAL) * 100)}%`;
+        if (stashStreakNum) stashStreakNum.textContent = String(streak);
         stashStreak.textContent = streak ? t("stashStreak", streak) : t("stashStreakZero");
         stash.classList.remove("hidden");
         stash.title = t("coinHistoryStash", pot, STASH_GOAL);
